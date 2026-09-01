@@ -1,13 +1,20 @@
 import os
 import sqlite3
+from urllib.parse import quote
+
 from flask import Flask, jsonify, render_template_string
 
 app = Flask(__name__)
 DB_NAME = "ai_company.db"
-PRESIDENT_IMAGE_FILE = "president.png"
-PRESIDENT_IMAGE_PATH = os.path.join(
-    app.static_folder, "images", PRESIDENT_IMAGE_FILE
-)
+PRESIDENT_IMAGE_CANDIDATES = ["president.png", "大統領.png", "社長.png"]
+
+
+def _find_president_image():
+  images_dir = os.path.join(app.static_folder, "images")
+  for name in PRESIDENT_IMAGE_CANDIDATES:
+    if os.path.exists(os.path.join(images_dir, name)):
+      return name
+  return None
 
 SHIBA_AVATAR = """
 <svg viewBox="0 0 100 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
@@ -174,6 +181,18 @@ def _person_avatar(uid, skin, shirt, pants, hair, hair_style="short", glasses=Fa
 
 SKIN_LIGHT = ("#ffe3c4", "#e8b48a")
 
+
+def _president_avatar():
+  name = _find_president_image()
+  if not name:
+    return SHIBA_AVATAR
+  return (
+      f'<img src="/static/images/{quote(name)}" alt="社長"'
+      ' style="width:100%;height:100%;object-fit:contain;'
+      ' object-position:bottom;">'
+  )
+
+
 AVATARS = {
     "%%AVATAR_AYA%%": _person_avatar(
         "aya", SKIN_LIGHT, ("#fb7185", "#be123c"), ("#334155", "#111827"),
@@ -202,13 +221,6 @@ AVATARS = {
     "%%AVATAR_ITO%%": _person_avatar(
         "ito", SKIN_LIGHT, ("#c4b5fd", "#5b21b6"), ("#334155", "#111827"),
         "#111827", hair_style="bob", glasses=True,
-    ),
-    "%%AVATAR_SHIBA%%": (
-        f'<img src="/static/images/{PRESIDENT_IMAGE_FILE}" alt="社長"'
-        ' style="width:100%;height:100%;object-fit:contain;'
-        ' object-position:bottom;">'
-        if os.path.exists(PRESIDENT_IMAGE_PATH)
-        else SHIBA_AVATAR
     ),
 }
 
@@ -470,6 +482,7 @@ def index():
     """
   for placeholder, svg in AVATARS.items():
     html_content = html_content.replace(placeholder, svg)
+  html_content = html_content.replace("%%AVATAR_SHIBA%%", _president_avatar())
   return render_template_string(html_content)
 
 
