@@ -1,8 +1,13 @@
+import os
 import sqlite3
 from flask import Flask, jsonify, render_template_string
 
 app = Flask(__name__)
 DB_NAME = "ai_company.db"
+PRESIDENT_IMAGE_FILE = "president.png"
+PRESIDENT_IMAGE_PATH = os.path.join(
+    app.static_folder, "images", PRESIDENT_IMAGE_FILE
+)
 
 SHIBA_AVATAR = """
 <svg viewBox="0 0 100 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
@@ -198,7 +203,13 @@ AVATARS = {
         "ito", SKIN_LIGHT, ("#c4b5fd", "#5b21b6"), ("#334155", "#111827"),
         "#111827", hair_style="bob", glasses=True,
     ),
-    "%%AVATAR_SHIBA%%": SHIBA_AVATAR,
+    "%%AVATAR_SHIBA%%": (
+        f'<img src="/static/images/{PRESIDENT_IMAGE_FILE}" alt="社長"'
+        ' style="width:100%;height:100%;object-fit:contain;'
+        ' object-position:bottom;">'
+        if os.path.exists(PRESIDENT_IMAGE_PATH)
+        else SHIBA_AVATAR
+    ),
 }
 
 
@@ -249,10 +260,10 @@ def index():
             .badge-status { background: #1e3a8a; color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 10px; }
 
             /* 1. 社長室（3D柴犬アバター＆進捗バー） */
-            .president-card { display: flex; gap: 15px; align-items: flex-end; grid-column: span 1; }
+            .president-card { display: flex; gap: 15px; align-items: center; grid-column: span 1; }
             .hamster-3d {
-                width: 92px; height: 150px; flex-shrink: 0;
-                display: flex; align-items: flex-end; justify-content: center;
+                width: 110px; height: 150px; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center;
                 filter: drop-shadow(0 8px 14px rgba(0,0,0,0.6));
                 position: relative;
                 animation: floatHamster 3s infinite ease-in-out;
