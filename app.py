@@ -5,32 +5,91 @@ app = Flask(__name__)
 DB_NAME = "ai_company.db"
 
 SHIBA_AVATAR = """
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+<svg viewBox="0 0 100 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
   <defs>
-    <radialGradient id="furGrad" cx="35%" cy="30%" r="75%">
+    <radialGradient id="furGrad" cx="35%" cy="28%" r="80%">
       <stop offset="0%" stop-color="#fde68a"/>
       <stop offset="55%" stop-color="#d97706"/>
       <stop offset="100%" stop-color="#92400e"/>
     </radialGradient>
+    <linearGradient id="lensGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <filter id="neonGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="1.6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <path d="M20 30 L10 5 L38 22 Z" fill="url(#furGrad)"/>
-  <path d="M80 30 L90 5 L62 22 Z" fill="url(#furGrad)"/>
-  <path d="M22 27 L17 12 L33 21 Z" fill="#fde68a" opacity="0.6"/>
-  <path d="M78 27 L83 12 L67 21 Z" fill="#fde68a" opacity="0.6"/>
-  <circle cx="50" cy="52" r="34" fill="url(#furGrad)"/>
-  <ellipse cx="50" cy="64" rx="20" ry="16" fill="#fff7ed"/>
-  <path d="M44 56 Q50 52 56 56 Q56 62 50 64 Q44 62 44 56 Z" fill="#1c1917"/>
-  <circle cx="38" cy="48" r="4" fill="#1c1917"/>
-  <circle cx="62" cy="48" r="4" fill="#1c1917"/>
-  <circle cx="39.3" cy="46.5" r="1.2" fill="#fff"/>
-  <circle cx="63.3" cy="46.5" r="1.2" fill="#fff"/>
-  <path d="M50 64 Q46 70 40 68" stroke="#1c1917" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  <path d="M50 64 Q54 70 60 68" stroke="#1c1917" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  <path d="M46 69 Q50 74 54 69 Q52 78 50 80 Q48 78 46 69 Z" fill="#f87171"/>
-  <path d="M20 74 Q50 92 80 74 L74 66 Q50 80 26 66 Z" fill="#dc2626"/>
-  <circle cx="36" cy="76" r="1.6" fill="#fff"/>
-  <circle cx="50" cy="82" r="1.6" fill="#fff"/>
-  <circle cx="64" cy="76" r="1.6" fill="#fff"/>
+
+  <ellipse cx="50" cy="184" rx="30" ry="5" fill="#000" opacity="0.28"/>
+
+  <!-- tail -->
+  <path d="M78 122 Q97 110 92 138 Q87 153 72 146 Z" fill="url(#furGrad)"/>
+
+  <!-- sitting body -->
+  <path d="M25 178 Q18 118 50 106 Q82 118 75 178 Z" fill="url(#furGrad)"/>
+  <path d="M50 118 Q67 126 65 162 Q50 175 35 162 Q33 126 50 118 Z" fill="#fff7ed"/>
+
+  <!-- back legs -->
+  <ellipse cx="22" cy="172" rx="9" ry="11" fill="url(#furGrad)"/>
+  <ellipse cx="78" cy="172" rx="9" ry="11" fill="url(#furGrad)"/>
+
+  <!-- front paws -->
+  <ellipse cx="39" cy="178" rx="9.5" ry="7" fill="#fff7ed"/>
+  <ellipse cx="61" cy="178" rx="9.5" ry="7" fill="#fff7ed"/>
+
+  <!-- headphone cable -->
+  <path d="M18 92 Q6 128 20 172" stroke="#111827" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+
+  <!-- neck -->
+  <rect x="38" y="94" width="24" height="20" fill="url(#furGrad)"/>
+
+  <!-- ears -->
+  <path d="M20 44 L9 12 L42 31 Z" fill="url(#furGrad)"/>
+  <path d="M80 44 L91 12 L58 31 Z" fill="url(#furGrad)"/>
+  <path d="M23 40 L17 20 L37 31 Z" fill="#fde68a" opacity="0.6"/>
+  <path d="M77 40 L83 20 L63 31 Z" fill="#fde68a" opacity="0.6"/>
+
+  <!-- head -->
+  <circle cx="50" cy="68" r="37" fill="url(#furGrad)"/>
+
+  <!-- muzzle -->
+  <ellipse cx="50" cy="82" rx="21" ry="17" fill="#fff7ed"/>
+  <path d="M43 73 Q50 69 57 73 Q57 80 50 82 Q43 80 43 73 Z" fill="#1c1917"/>
+
+  <!-- eyes -->
+  <circle cx="36" cy="64" r="4.3" fill="#1c1917"/>
+  <circle cx="64" cy="64" r="4.3" fill="#1c1917"/>
+  <circle cx="37.5" cy="62.3" r="1.3" fill="#fff"/>
+  <circle cx="65.5" cy="62.3" r="1.3" fill="#fff"/>
+
+  <!-- mouth -->
+  <path d="M50 82 Q45 89 37 87" stroke="#1c1917" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+  <path d="M50 82 Q55 89 63 87" stroke="#1c1917" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+  <path d="M45 88 Q50 94 55 88 Q53 98 50 100 Q47 98 45 88 Z" fill="#f87171"/>
+
+  <!-- headphone band -->
+  <path d="M13 60 Q50 18 87 60" fill="none" stroke="#111827" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- headphone ear cups (neon) -->
+  <g filter="url(#neonGlow)">
+    <ellipse cx="12" cy="68" rx="9.5" ry="14" fill="#111827"/>
+    <ellipse cx="12" cy="68" rx="9.5" ry="14" fill="none" stroke="#38bdf8" stroke-width="1.6"/>
+    <ellipse cx="88" cy="68" rx="9.5" ry="14" fill="#111827"/>
+    <ellipse cx="88" cy="68" rx="9.5" ry="14" fill="none" stroke="#f472b6" stroke-width="1.6"/>
+  </g>
+
+  <!-- neon ski goggles pushed up on forehead -->
+  <g filter="url(#neonGlow)">
+    <path d="M14 45 Q50 29 86 45 Q86 57 76 59 L24 59 Q14 57 14 45 Z" fill="#111827"/>
+    <path d="M21 46 Q50 35 79 46 Q79 53 71 55 L29 55 Q21 53 21 46 Z" fill="url(#lensGrad)" opacity="0.92"/>
+    <path d="M17 45 Q50 31 83 45" fill="none" stroke="#e0e7ff" stroke-width="1.4"/>
+    <path d="M22 52 Q50 43 78 52" fill="none" stroke="#f472b6" stroke-width="1.2"/>
+  </g>
 </svg>
 """
 
@@ -190,15 +249,13 @@ def index():
             .badge-status { background: #1e3a8a; color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 10px; }
 
             /* 1. 社長室（3D柴犬アバター＆進捗バー） */
-            .president-card { display: flex; gap: 15px; align-items: center; grid-column: span 1; }
+            .president-card { display: flex; gap: 15px; align-items: flex-end; grid-column: span 1; }
             .hamster-3d {
-                width: 75px; height: 75px; flex-shrink: 0;
-                border-radius: 50%;
-                display: flex; align-items: center; justify-content: center;
-                box-shadow: inset 0 6px 12px rgba(255,255,255,0.35), inset 0 -8px 16px rgba(0,0,0,0.35), 0 8px 16px rgba(0,0,0,0.5);
+                width: 92px; height: 150px; flex-shrink: 0;
+                display: flex; align-items: flex-end; justify-content: center;
+                filter: drop-shadow(0 8px 14px rgba(0,0,0,0.6));
                 position: relative;
                 animation: floatHamster 3s infinite ease-in-out;
-                overflow: hidden;
             }
             @keyframes floatHamster { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
