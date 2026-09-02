@@ -543,4 +543,15 @@ def create_decision():
 
 
 if __name__ == "__main__":
-  app.run(debug=True, port=5000)
+  # localhost専用の起動ポート設定。
+  # 既定は5050（ポート5000はmacOSのAirPlay Receiverが使用しているため）。
+  # 環境変数 PORT で上書き可能。未設定・不正な値の場合は安全に5050へ
+  # フォールバックする。host は外部公開を避けるため常に127.0.0.1固定。
+  _port_env = os.environ.get("PORT")
+  try:
+    _port = int(_port_env) if _port_env else 5050
+    if not (1 <= _port <= 65535):
+      raise ValueError
+  except (TypeError, ValueError):
+    _port = 5050
+  app.run(host="127.0.0.1", debug=True, port=_port)
