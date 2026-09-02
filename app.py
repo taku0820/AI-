@@ -1,8 +1,16 @@
 import sqlite3
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
+
+import hive_db
 
 app = Flask(__name__)
 DB_NAME = "ai_company.db"
+
+# AI Hive OS の新規テーブル（employees / missions / tasks / metrics /
+# reports / proposals / decisions）を安全に作成する。
+# CREATE TABLE IF NOT EXISTS のみを使うため、既存の work_logs テーブルや
+# データには一切影響しない。
+hive_db.init_hive_schema()
 
 SHIBA_AVATAR = """
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
@@ -416,6 +424,257 @@ def get_logs():
   logs = cursor.fetchall()
   conn.close()
   return jsonify(logs)
+
+
+def _json_body():
+  return request.get_json(silent=True) or {}
+
+
+# ---------------------------------------------------------------------------
+# AI Hive OS API
+#
+# 既存の GET / ・GET /api/logs・work_logs テーブルには一切手を加えず、
+# 同じ ai_company.db 上に追加した7テーブル（employees / missions / tasks /
+# metrics / reports / proposals / decisions）に対する CRUD API を追加する。
+# レスポンス形式は {"status": "success", "data": ...} /
+# {"status": "error", "message": ...} に統一する。
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/employees", methods=["GET"])
+def list_employees():
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("employees", order_by="id ASC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/employees", methods=["POST"])
+def create_employee():
+  data = _json_body()
+  if not data.get("name"):
+    return hive_db.error_response("name は必須です。")
+  payload = dict(data)
+  payload.setdefault("status", "active")
+  try:
+    row = hive_db.insert_row("employees", hive_db.EMPLOYEE_COLUMNS, payload)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/missions", methods=["GET"])
+def list_missions():
+  filters = {}
+  for key in ("issued_by", "assigned_to", "status"):
+    value = request.args.get(key)
+    if value is not None:
+      filters[key] = value
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("missions", filters, order_by="id DESC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/missions", methods=["POST"])
+def create_mission():
+  data = _json_body()
+  if not data.get("title"):
+    return hive_db.error_response("title は必須です。")
+  payload = dict(data)
+  payload.setdefault("mission_code", hive_db.gen_code("MSN"))
+  payload.setdefault("status", "open")
+  try:
+    row = hive_db.insert_row("missions", hive_db.MISSION_COLUMNS, payload)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/missions/<int:mission_id>", methods=["GET"])
+def get_mission(mission_id):
+  try:
+    row = hive_db.get_row("missions", mission_id)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+  if row is None:
+    return hive_db.error_response("指定されたmissionが見つかりません。", 404)
+  return hive_db.success_response(row)
+
+
+@app.route("/api/tasks", methods=["GET"])
+def list_tasks():
+  filters = {}
+  for key in ("mission_id", "assigned_to", "status"):
+    value = request.args.get(key)
+    if value is not None:
+      filters[key] = value
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("tasks", filters, order_by="id DESC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/tasks", methods=["POST"])
+def create_task():
+  data = _json_body()
+  if not data.get("title"):
+    return hive_db.error_response("title は必須です。")
+  payload = dict(data)
+  payload.setdefault("task_code", hive_db.gen_code("TSK"))
+  payload.setdefault("status", "todo")
+  try:
+    row = hive_db.insert_row("tasks", hive_db.TASK_COLUMNS, payload)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
+def update_task(task_id):
+  existing = hive_db.get_row("tasks", task_id)
+  if existing is None:
+    return hive_db.error_response("指定されたtaskが見つかりません。", 404)
+  data = _json_body()
+  try:
+    row = hive_db.update_row("tasks", hive_db.TASK_COLUMNS, task_id, data)
+    return hive_db.success_response(row)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/metrics", methods=["GET"])
+def list_metrics():
+  filters = {}
+  mission_id = request.args.get("mission_id")
+  if mission_id is not None:
+    filters["mission_id"] = mission_id
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("metrics", filters, order_by="id DESC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/metrics", methods=["POST"])
+def create_metric():
+  data = _json_body()
+  if not data.get("metric_name"):
+    return hive_db.error_response("metric_name は必須です。")
+  try:
+    row = hive_db.insert_row("metrics", hive_db.METRIC_COLUMNS, data)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/reports", methods=["GET"])
+def list_reports():
+  filters = {}
+  for key in ("mission_id", "task_id", "reported_by"):
+    value = request.args.get(key)
+    if value is not None:
+      filters[key] = value
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("reports", filters, order_by="id DESC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/reports", methods=["POST"])
+def create_report():
+  data = _json_body()
+  payload = dict(data)
+  payload.setdefault("report_code", hive_db.gen_code("RPT"))
+  try:
+    row = hive_db.insert_row("reports", hive_db.REPORT_COLUMNS, payload)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/proposals", methods=["GET"])
+def list_proposals():
+  filters = {}
+  for key in ("mission_id", "proposed_by", "status"):
+    value = request.args.get(key)
+    if value is not None:
+      filters[key] = value
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("proposals", filters, order_by="id DESC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/proposals", methods=["POST"])
+def create_proposal():
+  data = _json_body()
+  if not data.get("title"):
+    return hive_db.error_response("title は必須です。")
+  payload = dict(data)
+  payload.setdefault("proposal_code", hive_db.gen_code("PRP"))
+  payload.setdefault("status", "pending")
+  try:
+    row = hive_db.insert_row("proposals", hive_db.PROPOSAL_COLUMNS, payload)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/proposals/<int:proposal_id>", methods=["PATCH"])
+def update_proposal(proposal_id):
+  existing = hive_db.get_row("proposals", proposal_id)
+  if existing is None:
+    return hive_db.error_response("指定されたproposalが見つかりません。", 404)
+  data = _json_body()
+  try:
+    row = hive_db.update_row(
+        "proposals", hive_db.PROPOSAL_COLUMNS, proposal_id, data
+    )
+    return hive_db.success_response(row)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/decisions", methods=["GET"])
+def list_decisions():
+  filters = {}
+  for key in ("mission_id", "proposal_id", "decided_by"):
+    value = request.args.get(key)
+    if value is not None:
+      filters[key] = value
+  try:
+    return hive_db.success_response(
+        hive_db.list_rows("decisions", filters, order_by="id DESC")
+    )
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
+@app.route("/api/decisions", methods=["POST"])
+def create_decision():
+  data = _json_body()
+  if not data.get("decision"):
+    return hive_db.error_response("decision は必須です。")
+  payload = dict(data)
+  payload.setdefault("decision_code", hive_db.gen_code("DEC"))
+  payload.setdefault("status", "final")
+  try:
+    row = hive_db.insert_row("decisions", hive_db.DECISION_COLUMNS, payload)
+    return hive_db.success_response(row, 201)
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
 
 
 if __name__ == "__main__":
