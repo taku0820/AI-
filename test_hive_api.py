@@ -1,6 +1,9 @@
 """AI Hive OS 追加機能の簡易自動テスト。
 
 本番の ai_company.db を汚さないよう、一時コピーに対してテストを実行する。
+新規Hive APIはMISSION 010でBearerトークン認証必須となったため、
+テスト用のダミートークン（実運用トークンではない）を環境変数
+AI_HIVE_API_TOKEN に設定して検証する。
 実行方法: venv/bin/python test_hive_api.py
 """
 
@@ -11,6 +14,9 @@ import unittest
 
 import app as app_module
 import hive_db
+
+# テスト専用のダミートークン。実運用トークンではなく、コミットしても問題ない。
+TEST_TOKEN = "mission010-test-token-do-not-use-in-prod"
 
 
 class HiveApiTestCase(unittest.TestCase):
@@ -25,13 +31,22 @@ class HiveApiTestCase(unittest.TestCase):
     app_module.DB_NAME = self.temp_db_path
     hive_db.DB_NAME = self.temp_db_path
 
+    self._orig_token_env = os.environ.get("AI_HIVE_API_TOKEN")
+    os.environ["AI_HIVE_API_TOKEN"] = TEST_TOKEN
+
     app_module.app.testing = True
     self.client = app_module.app.test_client()
+    self.auth_headers = {"Authorization": f"Bearer {TEST_TOKEN}"}
 
   def tearDown(self):
     app_module.DB_NAME = self._orig_app_db_name
     hive_db.DB_NAME = self._orig_hive_db_name
     os.remove(self.temp_db_path)
+
+    if self._orig_token_env is None:
+      os.environ.pop("AI_HIVE_API_TOKEN", None)
+    else:
+      os.environ["AI_HIVE_API_TOKEN"] = self._orig_token_env
 
   def test_existing_root_page_still_works(self):
     res = self.client.get("/")
@@ -76,6 +91,7 @@ class HiveApiTestCase(unittest.TestCase):
     res = self.client.post(
         "/api/tasks",
         json={"title": "存在しないmissionを参照するtask", "mission_id": 999999},
+        headers=self.auth_headers,
     )
     self.assertEqual(res.status_code, 500)
     self.assertEqual(res.get_json()["status"], "error")
@@ -84,13 +100,14 @@ class HiveApiTestCase(unittest.TestCase):
     res = self.client.post(
         "/api/employees",
         json={"name": "テスト社員", "role": "QA", "department": "検証部"},
+        headers=self.auth_headers,
     )
     self.assertEqual(res.status_code, 201)
     body = res.get_json()
     self.assertEqual(body["status"], "success")
     employee_id = body["data"]["id"]
 
-    res = self.client.get("/api/employees")
+    res = self.client.get("/api/employees", headers=self.auth_headers)
     self.assertEqual(res.status_code, 200)
     body = res.get_json()
     self.assertEqual(body["status"], "success")
@@ -98,16 +115,19 @@ class HiveApiTestCase(unittest.TestCase):
 
   def test_full_mission_flow(self):
     emp = self.client.post(
-        "/api/employees", json={"name": "発行者"}
+        "/api/employees", json={"name": "発行者"}, headers=self.auth_headers
     ).get_json()["data"]
 
     mission = self.client.post(
         "/api/missions",
         json={"title": "テストMISSION", "issued_by": emp["id"]},
+        headers=self.auth_headers,
     ).get_json()["data"]
     self.assertIsNotNone(mission["mission_code"])
 
-    res = self.client.get(f"/api/missions/{mission['id']}")
+    res = self.client.get(
+        f"/api/missions/{mission['id']}", headers=self.auth_headers
+    )
     self.assertEqual(res.status_code, 200)
     self.assertEqual(res.get_json()["data"]["id"], mission["id"])
 
@@ -118,11 +138,13 @@ class HiveApiTestCase(unittest.TestCase):
             "mission_id": mission["id"],
             "assigned_to": emp["id"],
         },
+        headers=self.auth_headers,
     ).get_json()["data"]
 
     res = self.client.patch(
         f"/api/tasks/{task['id']}",
         json={"status": "done", "completed_at": "2026-09-02 12:00:00"},
+        headers=self.auth_headers,
     )
     self.assertEqual(res.status_code, 200)
     self.assertEqual(res.get_json()["data"]["status"], "done")
@@ -134,6 +156,7 @@ class HiveApiTestCase(unittest.TestCase):
             "metric_name": "revenue",
             "metric_value": 100.0,
         },
+        headers=self.auth_headers,
     )
     self.assertEqual(res.status_code, 201)
 
@@ -145,6 +168,7 @@ class HiveApiTestCase(unittest.TestCase):
             "reported_by": emp["id"],
             "facts": "テスト事実",
         },
+        headers=self.auth_headers,
     ).get_json()["data"]
     self.assertIsNotNone(report["id"])
 
@@ -155,10 +179,13 @@ class HiveApiTestCase(unittest.TestCase):
             "proposed_by": emp["id"],
             "title": "テスト提案",
         },
+        headers=self.auth_headers,
     ).get_json()["data"]
 
     res = self.client.patch(
-        f"/api/proposals/{proposal['id']}", json={"status": "approved"}
+        f"/api/proposals/{proposal['id']}",
+        json={"status": "approved"},
+        headers=self.auth_headers,
     )
     self.assertEqual(res.get_json()["data"]["status"], "approved")
 
@@ -170,23 +197,76 @@ class HiveApiTestCase(unittest.TestCase):
             "decided_by": emp["id"],
             "decision": "承認",
         },
+        headers=self.auth_headers,
     ).get_json()["data"]
     self.assertIsNotNone(decision["id"])
 
-    res = self.client.get(f"/api/tasks?mission_id={mission['id']}")
+    res = self.client.get(
+        f"/api/tasks?mission_id={mission['id']}", headers=self.auth_headers
+    )
     self.assertEqual(len(res.get_json()["data"]), 1)
 
   def test_error_response_format_on_missing_required_field(self):
-    res = self.client.post("/api/employees", json={})
+    res = self.client.post(
+        "/api/employees", json={}, headers=self.auth_headers
+    )
     self.assertEqual(res.status_code, 400)
     body = res.get_json()
     self.assertEqual(body["status"], "error")
     self.assertIn("message", body)
 
   def test_404_on_unknown_mission(self):
-    res = self.client.get("/api/missions/999999")
+    res = self.client.get("/api/missions/999999", headers=self.auth_headers)
     self.assertEqual(res.status_code, 404)
     self.assertEqual(res.get_json()["status"], "error")
+
+  # --- MISSION 010: 認証まわりのテスト ---------------------------------
+
+  def test_hive_api_rejects_request_without_authorization_header(self):
+    res = self.client.get("/api/employees")
+    self.assertEqual(res.status_code, 401)
+    body = res.get_json()
+    self.assertEqual(body["status"], "error")
+    # レスポンスにトークン文字列や内部情報が含まれないこと
+    self.assertNotIn(TEST_TOKEN, str(body))
+
+  def test_hive_api_rejects_malformed_authorization_header(self):
+    res = self.client.get(
+        "/api/employees", headers={"Authorization": "Basic abcdef"}
+    )
+    self.assertEqual(res.status_code, 401)
+    self.assertEqual(res.get_json()["status"], "error")
+
+  def test_hive_api_rejects_invalid_token(self):
+    res = self.client.get(
+        "/api/employees", headers={"Authorization": "Bearer wrong-token"}
+    )
+    self.assertEqual(res.status_code, 401)
+    self.assertEqual(res.get_json()["status"], "error")
+
+  def test_hive_api_fail_closed_when_token_env_unset(self):
+    del os.environ["AI_HIVE_API_TOKEN"]
+    try:
+      # サーバー側にトークンが未設定の場合、たとえ何らかのBearer値を
+      # 送っても常に拒否される（無認証で通過してはならない）。
+      res = self.client.get("/api/employees", headers=self.auth_headers)
+      self.assertEqual(res.status_code, 401)
+      self.assertEqual(res.get_json()["status"], "error")
+    finally:
+      os.environ["AI_HIVE_API_TOKEN"] = TEST_TOKEN
+
+  def test_hive_api_accepts_valid_token(self):
+    res = self.client.get("/api/employees", headers=self.auth_headers)
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.get_json()["status"], "success")
+
+  def test_existing_routes_require_no_auth(self):
+    # AI_HIVE_API_TOKENが設定されていても、既存 GET / ・GET /api/logs は
+    # Authorizationヘッダーなしで従来通り動作する。
+    res = self.client.get("/")
+    self.assertEqual(res.status_code, 200)
+    res = self.client.get("/api/logs")
+    self.assertEqual(res.status_code, 200)
 
 
 if __name__ == "__main__":

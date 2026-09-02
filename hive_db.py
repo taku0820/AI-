@@ -8,11 +8,14 @@ proposals / decisions）を安全に追加・操作するためのモジュー�
 定義・データには一切影響しない（CREATE TABLE IF NOT EXISTS のみ使用）。
 """
 
+import functools
+import hmac
+import os
 import sqlite3
 import time
 import uuid
 
-from flask import jsonify
+from flask import jsonify, request
 
 DB_NAME = "ai_company.db"
 
@@ -257,3 +260,32 @@ def success_response(data, status_code=200):
 
 def error_response(message, status_code=400):
   return jsonify({"status": "error", "message": message}), status_code
+
+
+def require_auth(view_func):
+  """新規Hive API用の認証デコレータ（既存 GET / ・GET /api/logs には適用しない）。
+
+  実トークンは環境変数 AI_HIVE_API_TOKEN からのみ読み取り、コード・ログ・
+  レスポンスには一切出力しない。AI_HIVE_API_TOKEN が未設定/空の場合は
+  fail-closed（常に認証エラー）とし、無認証での通過を許さない。
+  """
+
+  @functools.wraps(view_func)
+  def wrapper(*args, **kwargs):
+    expected_token = os.environ.get("AI_HIVE_API_TOKEN")
+    if not expected_token:
+      return error_response("認証に失敗しました。", 401)
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+      return error_response("認証に失敗しました。", 401)
+
+    provided_token = auth_header[len("Bearer "):]
+    if not hmac.compare_digest(
+        provided_token.encode("utf-8"), expected_token.encode("utf-8")
+    ):
+      return error_response("認証に失敗しました。", 401)
+
+    return view_func(*args, **kwargs)
+
+  return wrapper
