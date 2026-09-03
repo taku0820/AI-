@@ -307,7 +307,7 @@ def _json_body():
 
 
 @app.route("/api/employees", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_employees():
   try:
     return hive_db.success_response(
@@ -318,7 +318,7 @@ def list_employees():
 
 
 @app.route("/api/employees", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_employee():
   data = _json_body()
   if not data.get("name"):
@@ -333,7 +333,7 @@ def create_employee():
 
 
 @app.route("/api/missions", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_missions():
   filters = {}
   for key in ("issued_by", "assigned_to", "status"):
@@ -349,7 +349,7 @@ def list_missions():
 
 
 @app.route("/api/missions", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_mission():
   data = _json_body()
   if not data.get("title"):
@@ -365,7 +365,7 @@ def create_mission():
 
 
 @app.route("/api/missions/<int:mission_id>", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def get_mission(mission_id):
   try:
     row = hive_db.get_row("missions", mission_id)
@@ -377,7 +377,7 @@ def get_mission(mission_id):
 
 
 @app.route("/api/tasks", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_tasks():
   filters = {}
   for key in ("mission_id", "assigned_to", "status"):
@@ -393,7 +393,7 @@ def list_tasks():
 
 
 @app.route("/api/tasks", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_task():
   data = _json_body()
   if not data.get("title"):
@@ -409,7 +409,7 @@ def create_task():
 
 
 @app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def update_task(task_id):
   existing = hive_db.get_row("tasks", task_id)
   if existing is None:
@@ -423,7 +423,7 @@ def update_task(task_id):
 
 
 @app.route("/api/metrics", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_metrics():
   filters = {}
   mission_id = request.args.get("mission_id")
@@ -438,7 +438,7 @@ def list_metrics():
 
 
 @app.route("/api/metrics", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_metric():
   data = _json_body()
   if not data.get("metric_name"):
@@ -451,7 +451,7 @@ def create_metric():
 
 
 @app.route("/api/reports", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_reports():
   filters = {}
   for key in ("mission_id", "task_id", "reported_by"):
@@ -467,7 +467,7 @@ def list_reports():
 
 
 @app.route("/api/reports", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_report():
   data = _json_body()
   payload = dict(data)
@@ -480,7 +480,7 @@ def create_report():
 
 
 @app.route("/api/proposals", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_proposals():
   filters = {}
   for key in ("mission_id", "proposed_by", "status"):
@@ -496,7 +496,7 @@ def list_proposals():
 
 
 @app.route("/api/proposals", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_proposal():
   data = _json_body()
   if not data.get("title"):
@@ -512,7 +512,7 @@ def create_proposal():
 
 
 @app.route("/api/proposals/<int:proposal_id>", methods=["PATCH"])
-@hive_db.require_auth
+@hive_db.require_permission("admin")
 def update_proposal(proposal_id):
   existing = hive_db.get_row("proposals", proposal_id)
   if existing is None:
@@ -528,7 +528,7 @@ def update_proposal(proposal_id):
 
 
 @app.route("/api/decisions", methods=["GET"])
-@hive_db.require_auth
+@hive_db.require_permission("read")
 def list_decisions():
   filters = {}
   for key in ("mission_id", "proposal_id", "decided_by"):
@@ -544,7 +544,7 @@ def list_decisions():
 
 
 @app.route("/api/decisions", methods=["POST"])
-@hive_db.require_auth
+@hive_db.require_permission("write")
 def create_decision():
   data = _json_body()
   if not data.get("decision"):

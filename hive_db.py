@@ -262,30 +262,102 @@ def error_response(message, status_code=400):
   return jsonify({"status": "error", "message": message}), status_code
 
 
-def require_auth(view_func):
-  """新規Hive API用の認証デコレータ（既存 GET / ・GET /api/logs には適用しない）。
+# 権限階層（数値が大きいほど強い権限。上位権限は下位権限の操作も満たす）。
+PERMISSION_LEVELS = {"read": 1, "write": 2, "admin": 3}
 
-  実トークンは環境変数 AI_HIVE_API_TOKEN からのみ読み取り、コード・ログ・
-  レスポンスには一切出力しない。AI_HIVE_API_TOKEN が未設定/空の場合は
-  fail-closed（常に認証エラー）とし、無認証での通過を許さない。
+# 各権限に対応する環境変数名。実トークンの値はここには書かない。
+TOKEN_ENV_VARS = {
+    "read": "AI_HIVE_READ_TOKEN",
+    "write": "AI_HIVE_WRITE_TOKEN",
+    "admin": "AI_HIVE_ADMIN_TOKEN",
+}
+
+
+def _get_configured_tokens():
+  """環境変数から3権限分のトークンを読み取る（値はここでも保持のみ、出力しない）。"""
+  return {
+      level: os.environ.get(env_name)
+      for level, env_name in TOKEN_ENV_VARS.items()
+  }
+
+
+def _tokens_configuration_is_safe(tokens):
+  """異なる権限に同一のトークン値が設定されていないかを確認する。
+
+  read/write/adminのいずれか2つ以上に同じ値が設定されていると、
+  「そのトークンがどの権限を表すか」を安全に一意判定できない。
+  その場合は設定自体を安全でないとみなし、呼び出し側でfail-closedにする。
   """
+  configured = [(level, value) for level, value in tokens.items() if value]
+  for i in range(len(configured)):
+    for j in range(i + 1, len(configured)):
+      _, value_a = configured[i]
+      _, value_b = configured[j]
+      if hmac.compare_digest(value_a.encode("utf-8"), value_b.encode("utf-8")):
+        return False
+  return True
 
-  @functools.wraps(view_func)
-  def wrapper(*args, **kwargs):
-    expected_token = os.environ.get("AI_HIVE_API_TOKEN")
-    if not expected_token:
-      return error_response("認証に失敗しました。", 401)
 
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-      return error_response("認証に失敗しました。", 401)
+def _resolve_permission_level(provided_token, tokens):
+  """提示されたトークンがread/write/adminのどれに一致するかを安全に判定する。
 
-    provided_token = auth_header[len("Bearer "):]
-    if not hmac.compare_digest(
-        provided_token.encode("utf-8"), expected_token.encode("utf-8")
+  どれにも一致しなければNoneを返す。
+  """
+  if not provided_token:
+    return None
+  matched_level = None
+  for level, expected in tokens.items():
+    if expected and hmac.compare_digest(
+        provided_token.encode("utf-8"), expected.encode("utf-8")
     ):
-      return error_response("認証に失敗しました。", 401)
+      matched_level = level
+  return matched_level
 
-    return view_func(*args, **kwargs)
 
-  return wrapper
+def require_permission(min_level):
+  """新規Hive API用の権限別認証デコレータ（既存 GET / ・GET /api/logs には適用しない）。
+
+  min_level: "read" / "write" / "admin" のいずれか。呼び出し元のトークンが
+  この権限以上であることを要求する（admin > write > read）。
+
+  実トークンは環境変数 AI_HIVE_READ_TOKEN / AI_HIVE_WRITE_TOKEN /
+  AI_HIVE_ADMIN_TOKEN からのみ読み取り、コード・ログ・レスポンスには
+  一切出力しない。
+
+  fail-closedの方針：
+  - 3権限のいずれかの環境変数が未設定/空の場合は、Hive API全体を認証エラーにする
+  - 異なる権限に同一トークン値が設定されている（安全に権限判定できない）場合も
+    Hive API全体を認証エラーにする
+  - 未認証・無効トークン・権限不足はいずれも401/403の統一JSON形式のみ返し、
+    内部の設定理由等は開示しない
+  """
+  min_rank = PERMISSION_LEVELS[min_level]
+
+  def decorator(view_func):
+    @functools.wraps(view_func)
+    def wrapper(*args, **kwargs):
+      tokens = _get_configured_tokens()
+
+      if not all(tokens.values()):
+        return error_response("認証に失敗しました。", 401)
+
+      if not _tokens_configuration_is_safe(tokens):
+        return error_response("認証に失敗しました。", 401)
+
+      auth_header = request.headers.get("Authorization", "")
+      if not auth_header.startswith("Bearer "):
+        return error_response("認証に失敗しました。", 401)
+
+      provided_token = auth_header[len("Bearer "):]
+      level = _resolve_permission_level(provided_token, tokens)
+      if level is None:
+        return error_response("認証に失敗しました。", 401)
+
+      if PERMISSION_LEVELS[level] < min_rank:
+        return error_response("権限が不足しています。", 403)
+
+      return view_func(*args, **kwargs)
+
+    return wrapper
+
+  return decorator
