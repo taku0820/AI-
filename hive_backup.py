@@ -212,6 +212,119 @@ def create_backup(db_path=None, backups_root=None):
   }
 
 
+def list_backups(backups_root=None):
+  """backups_root直下の既存バックアップを、新しい順の要約情報として返す
+
+  （MISSION 021）。
+
+  安全方針:
+    - DBファイルは一切開かない。各バックアップの `metadata.json` に
+      既に記録されている内容を読むだけであり、ハッシュの再計算・
+      `PRAGMA integrity_check`等の検証処理は一切自動実行しない
+      （検証したい場合は明示的に `verify` を使うこと）。
+    - `backups_root` 直下のディレクトリのみを対象とする。CLI引数で
+      任意のパスを受け付けることはしない（外部パス・パストラバーサル
+      を構造的に排除する）。
+    - バックアップディレクトリ自身、または内部の `metadata.json`・
+      DBファイルがシンボリックリンクの場合は、実体がどこを指していても
+      安全に無視する（辿らない）。
+    - `metadata.json`・DBファイルのいずれも存在しないディレクトリは、
+      バックアップと無関係とみなし静かに無視する。`metadata.json`は
+      あるがDBファイルが無い、`metadata.json`が壊れている等、
+      「バックアップの痕跡はあるが不完全」なものは、無視はせず
+      安全な理由とともに一覧の末尾へ表示する。
+    - 作成・更新・削除・復元は一切行わない（読み取りのみ）。
+
+  戻り値: 辞書のリスト。正常に読めたバックアップ（`ok: True`）は
+  `created_at` の新しい順、続けて読み取れなかったエントリ（`ok: False`）
+  を識別子順で並べる。
+  """
+  backups_root = BACKUPS_ROOT if backups_root is None else backups_root
+
+  if not os.path.isdir(backups_root) or os.path.islink(backups_root):
+    return []
+
+  valid_entries = []
+  invalid_entries = []
+
+  for entry_name in sorted(os.listdir(backups_root)):
+    entry_path = os.path.join(backups_root, entry_name)
+
+    # バックアップディレクトリ自身がシンボリックリンクの場合は、実体が
+    # どこを指していても安全に無視する(辿らない)。
+    if os.path.islink(entry_path):
+      continue
+    if not os.path.isdir(entry_path):
+      continue
+
+    metadata_path = os.path.join(entry_path, METADATA_FILENAME)
+    db_path = os.path.join(entry_path, BACKUP_DB_FILENAME)
+
+    # metadata.json・DBファイルのいずれも存在しない場合は、バックアップ
+    # とは無関係なディレクトリとみなし静かに無視する。
+    if not os.path.exists(metadata_path) and not os.path.exists(db_path):
+      continue
+
+    # metadata.json・DBファイル自身がシンボリックリンクの場合も安全に
+    # 無視する(不完全なバックアップとして一覧の末尾へ表示する)。
+    if os.path.islink(metadata_path) or os.path.islink(db_path):
+      invalid_entries.append({
+          "identifier": entry_name, "ok": False,
+          "reason": (
+              "metadata.json または ai_company.db がシンボリックリンク"
+              "のため無視しました。"
+          ),
+      })
+      continue
+
+    if not os.path.isfile(metadata_path):
+      invalid_entries.append({
+          "identifier": entry_name, "ok": False,
+          "reason": "metadata.json が見つかりません。",
+      })
+      continue
+
+    try:
+      with open(metadata_path, "r", encoding="utf-8") as f:
+        metadata = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+      invalid_entries.append({
+          "identifier": entry_name, "ok": False,
+          "reason": f"metadata.json の読み込みに失敗しました: {e}",
+      })
+      continue
+
+    if not isinstance(metadata, dict):
+      invalid_entries.append({
+          "identifier": entry_name, "ok": False,
+          "reason": "metadata.json の形式が不正です(オブジェクトではありません)。",
+      })
+      continue
+
+    if not os.path.isfile(db_path):
+      invalid_entries.append({
+          "identifier": entry_name, "ok": False,
+          "reason": "ai_company.db が見つかりません(metadata.jsonのみ存在)。",
+      })
+      continue
+
+    valid_entries.append({
+        "identifier": entry_name,
+        "ok": True,
+        "created_at": metadata.get("created_at"),
+        "sha256": metadata.get("sha256"),
+        "size_bytes": metadata.get("size_bytes"),
+        "integrity_check": metadata.get("integrity_check"),
+        "foreign_key_check_ok": metadata.get("foreign_key_check_ok"),
+        "table_row_counts": metadata.get("table_row_counts") or {},
+    })
+
+  valid_entries.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+  invalid_entries.sort(key=lambda item: item["identifier"])
+
+  return valid_entries + invalid_entries
+
+
 def verify_backup(backup_path, backups_root=None):
   """指定したバックアップの整合性・外部キー整合性・ハッシュを検証する。
 
@@ -432,6 +545,41 @@ def _print_restore_test_result(result, out=None):
   print(f"  総合判定: {'OK' if result['ok'] else 'NG'}", file=out)
 
 
+def _print_list_result(entries, out=None):
+  if out is None:
+    out = sys.stdout
+
+  valid_entries = [e for e in entries if e["ok"]]
+  invalid_entries = [e for e in entries if not e["ok"]]
+
+  if not valid_entries and not invalid_entries:
+    print(f"{BACKUPS_ROOT}/ 配下にバックアップが見つかりません。", file=out)
+    return
+
+  if valid_entries:
+    print(f"バックアップ一覧(新しい順、{len(valid_entries)}件):", file=out)
+    for entry in valid_entries:
+      print(f"- {entry['identifier']}", file=out)
+      print(f"    作成日時: {entry['created_at']}", file=out)
+      print(f"    SHA-256: {entry['sha256']}", file=out)
+      print(f"    サイズ: {entry['size_bytes']}バイト", file=out)
+      print(f"    整合性チェック(作成時点): {entry['integrity_check']}", file=out)
+      print(
+          "    外部キー整合性(作成時点): "
+          + ("問題なし" if entry["foreign_key_check_ok"] else "違反あり"),
+          file=out,
+      )
+      counts = entry["table_row_counts"]
+      if counts:
+        counts_str = ", ".join(f"{t}={c}" for t, c in sorted(counts.items()))
+        print(f"    テーブル件数(作成時点): {counts_str}", file=out)
+
+  if invalid_entries:
+    print(f"無視/エラーとなったエントリ({len(invalid_entries)}件):", file=out)
+    for entry in invalid_entries:
+      print(f"- {entry['identifier']}: {entry['reason']}", file=out)
+
+
 def build_arg_parser():
   parser = argparse.ArgumentParser(
       prog="hive_backup.py",
@@ -446,6 +594,14 @@ def build_arg_parser():
   subparsers.add_parser(
       "create",
       help=f"{DB_NAME} の安全なバックアップを {BACKUPS_ROOT}/ 配下に作成する",
+  )
+
+  subparsers.add_parser(
+      "list",
+      help=(
+          f"{BACKUPS_ROOT}/ 配下の既存バックアップを新しい順に一覧表示する"
+          "(読み取り専用。DBファイルは開かず、metadata.jsonの記録内容のみ表示)"
+      ),
   )
 
   verify_parser = subparsers.add_parser(
@@ -480,6 +636,10 @@ def main(argv=None):
     if args.command == "create":
       result = create_backup()
       _print_create_result(result)
+      return 0
+    if args.command == "list":
+      entries = list_backups()
+      _print_list_result(entries)
       return 0
     if args.command == "verify":
       result = verify_backup(args.backup_path)

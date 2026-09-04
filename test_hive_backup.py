@@ -421,5 +421,208 @@ class HiveRestoreTestDrillTestCase(unittest.TestCase):
       hive_backup.BACKUPS_ROOT = orig_backups_root
 
 
+class HiveBackupListTestCase(unittest.TestCase):
+  """hive_backup.list_backups()（MISSION 021 バックアップ一覧）の単体テスト。
+
+  ここでも、対象は一時ディレクトリ内のbackups_rootのみに限定し、
+  プロジェクト内の `backups/` や本番の `ai_company.db` には一切触れない。
+  """
+
+  def setUp(self):
+    self.tmp_root = tempfile.mkdtemp(prefix="hive_backup_list_test_")
+    self.source_db = os.path.join(self.tmp_root, "ai_company.db")
+    shutil.copy(PROJECT_DB_PATH, self.source_db)
+    self.backups_root = os.path.join(self.tmp_root, "backups")
+
+  def tearDown(self):
+    shutil.rmtree(self.tmp_root, ignore_errors=True)
+
+  def _run_main(self, argv):
+    stdout, stderr = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+      code = hive_backup.main(argv)
+    return code, stdout.getvalue(), stderr.getvalue()
+
+  # --- 基本動作 ---------------------------------------------------------------
+
+  def test_list_returns_empty_when_backups_root_missing(self):
+    self.assertEqual(hive_backup.list_backups(backups_root=self.backups_root), [])
+
+  def test_list_returns_empty_when_backups_root_is_empty_dir(self):
+    os.makedirs(self.backups_root, exist_ok=True)
+    self.assertEqual(hive_backup.list_backups(backups_root=self.backups_root), [])
+
+  def test_list_shows_created_backup_with_expected_fields(self):
+    created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    self.assertEqual(len(entries), 1)
+    entry = entries[0]
+    self.assertTrue(entry["ok"])
+    self.assertEqual(entry["identifier"], os.path.basename(created["backup_dir"]))
+    self.assertEqual(entry["sha256"], created["metadata"]["sha256"])
+    self.assertEqual(entry["created_at"], created["metadata"]["created_at"])
+    self.assertEqual(entry["integrity_check"], "ok")
+    self.assertTrue(entry["foreign_key_check_ok"])
+    self.assertEqual(
+        entry["table_row_counts"], created["metadata"]["table_row_counts"]
+    )
+
+  def test_list_orders_newest_backup_first(self):
+    created1 = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    created2 = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    # created_atの秒精度が同一になる可能性があるため、順序を明確にする
+    # ためにcreated2のcreated_atを明示的に新しい日時へ書き換える。
+    metadata_path = os.path.join(created2["backup_dir"], "metadata.json")
+    with open(metadata_path, encoding="utf-8") as f:
+      metadata = json.load(f)
+    metadata["created_at"] = "2099-01-01T00:00:00"
+    with open(metadata_path, "w", encoding="utf-8") as f:
+      json.dump(metadata, f)
+
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    self.assertEqual(len(entries), 2)
+    self.assertEqual(
+        entries[0]["identifier"], os.path.basename(created2["backup_dir"])
+    )
+    self.assertEqual(
+        entries[1]["identifier"], os.path.basename(created1["backup_dir"])
+    )
+
+  # --- 不正・不完全なエントリの安全な扱い -------------------------------------
+
+  def test_list_ignores_unrelated_directory_without_metadata_or_db(self):
+    hive_backup.create_backup(db_path=self.source_db, backups_root=self.backups_root)
+    unrelated_dir = os.path.join(self.backups_root, "not_a_backup_at_all")
+    os.makedirs(unrelated_dir)
+    with open(os.path.join(unrelated_dir, "random.txt"), "w") as f:
+      f.write("hello")
+
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    identifiers = [e["identifier"] for e in entries]
+    self.assertNotIn("not_a_backup_at_all", identifiers)
+    self.assertEqual(len(entries), 1)
+
+  def test_list_flags_corrupted_metadata_json(self):
+    created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    metadata_path = os.path.join(created["backup_dir"], "metadata.json")
+    with open(metadata_path, "w", encoding="utf-8") as f:
+      f.write("{not valid json!!!")
+
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    self.assertEqual(len(entries), 1)
+    self.assertFalse(entries[0]["ok"])
+    self.assertIn("metadata.json", entries[0]["reason"])
+
+  def test_list_flags_metadata_without_db_file(self):
+    created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    os.remove(created["backup_db_path"])
+
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    self.assertEqual(len(entries), 1)
+    self.assertFalse(entries[0]["ok"])
+    self.assertIn("ai_company.db", entries[0]["reason"])
+
+  def test_list_ignores_symlinked_backup_directory(self):
+    created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    link_path = os.path.join(self.backups_root, "symlinked_backup")
+    os.symlink(created["backup_dir"], link_path)
+
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    identifiers = [e["identifier"] for e in entries]
+    self.assertNotIn("symlinked_backup", identifiers)
+    self.assertEqual(len(entries), 1)
+
+  def test_list_flags_symlinked_internal_db_file(self):
+    created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    os.remove(created["backup_db_path"])
+    os.symlink(self.source_db, created["backup_db_path"])
+
+    entries = hive_backup.list_backups(backups_root=self.backups_root)
+    self.assertEqual(len(entries), 1)
+    self.assertFalse(entries[0]["ok"])
+    self.assertIn("シンボリックリンク", entries[0]["reason"])
+
+  # --- 副作用ゼロ・DB非アクセスの確認 ------------------------------------------
+
+  def test_list_never_opens_any_database_connection(self):
+    hive_backup.create_backup(db_path=self.source_db, backups_root=self.backups_root)
+
+    def fail_if_called(*args, **kwargs):
+      raise AssertionError("list_backups()がsqlite3.connect()を呼び出した")
+
+    orig_connect = hive_backup.sqlite3.connect
+    hive_backup.sqlite3.connect = fail_if_called
+    try:
+      entries = hive_backup.list_backups(backups_root=self.backups_root)
+      self.assertEqual(len(entries), 1)
+      self.assertTrue(entries[0]["ok"])
+    finally:
+      hive_backup.sqlite3.connect = orig_connect
+
+  def test_list_does_not_modify_backup_files_or_create_new_files(self):
+    created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    before = sorted(os.listdir(created["backup_dir"]))
+    db_hash_before = hive_backup._sha256_of_file(created["backup_db_path"])
+
+    hive_backup.list_backups(backups_root=self.backups_root)
+
+    after = sorted(os.listdir(created["backup_dir"]))
+    self.assertEqual(before, after)
+    self.assertEqual(
+        hive_backup._sha256_of_file(created["backup_db_path"]), db_hash_before
+    )
+
+  # --- CLI経由 ---------------------------------------------------------------
+
+  def test_cli_list_end_to_end(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      created = hive_backup.create_backup(
+          db_path=self.source_db, backups_root=self.backups_root
+      )
+      code, out, _err = self._run_main(["list"])
+      self.assertEqual(code, 0)
+      self.assertIn(os.path.basename(created["backup_dir"]), out)
+      self.assertIn("バックアップ一覧", out)
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+  def test_cli_list_reports_no_backups_found(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      code, out, _err = self._run_main(["list"])
+      self.assertEqual(code, 0)
+      self.assertIn("見つかりません", out)
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+  def test_cli_list_accepts_no_extra_arguments(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      with self.assertRaises(SystemExit):
+        self._run_main(["list", "some-unexpected-path"])
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+
 if __name__ == "__main__":
   unittest.main()
