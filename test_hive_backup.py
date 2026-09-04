@@ -224,5 +224,202 @@ class HiveBackupTestCase(unittest.TestCase):
       hive_backup.BACKUPS_ROOT = orig_backups_root
 
 
+class HiveRestoreTestDrillTestCase(unittest.TestCase):
+  """hive_backup.restore_test()（MISSION 017 隔離復旧訓練）の単体テスト。
+
+  ここでも、対象DB・バックアップ先はすべて一時ディレクトリ内に限定し、
+  プロジェクト内の `backups/` や本番の `ai_company.db` には一切触れない。
+  """
+
+  def setUp(self):
+    self.tmp_root = tempfile.mkdtemp(prefix="hive_restore_test_")
+    self.source_db = os.path.join(self.tmp_root, "ai_company.db")
+    shutil.copy(PROJECT_DB_PATH, self.source_db)
+    self.backups_root = os.path.join(self.tmp_root, "backups")
+    self.created = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+
+  def tearDown(self):
+    shutil.rmtree(self.tmp_root, ignore_errors=True)
+
+  def _source_hash(self):
+    return hive_backup._sha256_of_file(self.source_db)
+
+  def _backup_hash(self):
+    return hive_backup._sha256_of_file(self.created["backup_db_path"])
+
+  # --- 正常系: 検証済みバックアップからの隔離復旧 ----------------------------
+
+  def test_restore_test_succeeds_from_verified_backup(self):
+    result = hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    self.assertTrue(result["ok"])
+    self.assertTrue(result["integrity_ok"])
+    self.assertTrue(result["foreign_key_check_ok"])
+    self.assertTrue(result["table_counts_match"])
+    self.assertTrue(result["backup_source_hash_unchanged"])
+
+  def test_restored_table_counts_match_metadata(self):
+    result = hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    self.assertEqual(
+        result["restored_table_row_counts"], result["expected_table_row_counts"]
+    )
+    self.assertEqual(
+        result["restored_table_row_counts"],
+        self.created["metadata"]["table_row_counts"],
+    )
+    self.assertIn("work_logs", result["restored_table_row_counts"])
+    self.assertIn("audit_logs", result["restored_table_row_counts"])
+
+  def test_restore_test_accepts_direct_db_file_path(self):
+    result = hive_backup.restore_test(
+        self.created["backup_db_path"], backups_root=self.backups_root
+    )
+    self.assertTrue(result["ok"])
+
+  # --- 一時領域の隔離・後始末 -------------------------------------------------
+
+  def test_temp_dir_is_deleted_after_drill(self):
+    result = hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    self.assertFalse(os.path.isdir(result["temp_dir_used"]))
+
+  def test_temp_dir_is_outside_project_and_backups_root(self):
+    result = hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    project_root_real = os.path.realpath(os.path.dirname(hive_backup.__file__))
+    backups_root_real = os.path.realpath(self.backups_root)
+    temp_dir_used = result["temp_dir_used"]
+    self.assertFalse(
+        temp_dir_used == project_root_real
+        or temp_dir_used.startswith(project_root_real + os.sep)
+    )
+    self.assertFalse(
+        temp_dir_used == backups_root_real
+        or temp_dir_used.startswith(backups_root_real + os.sep)
+    )
+    self.assertNotEqual(temp_dir_used, os.path.realpath(self.source_db))
+
+  def test_temp_dir_is_cleaned_up_even_when_counts_would_mismatch(self):
+    # metadata.jsonを直接改ざんして件数不一致を発生させても
+    # (バックアップDB自体・ハッシュは無傷のまま)、一時ディレクトリは
+    # 必ず削除されることを確認する。
+    metadata_path = os.path.join(self.created["backup_dir"], "metadata.json")
+    with open(metadata_path, encoding="utf-8") as f:
+      metadata = json.load(f)
+    tampered_hash_target = metadata["sha256"]
+    metadata["table_row_counts"]["work_logs"] = 999
+    with open(metadata_path, "w", encoding="utf-8") as f:
+      json.dump(metadata, f)
+
+    # ハッシュ自体は変えていないので、verify_backup自体はOKのまま
+    # restore_testの処理に進む(検証はハッシュ・integrity・fkのみを見る)。
+    self.assertEqual(self._backup_hash(), tampered_hash_target)
+
+    result = hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    self.assertFalse(result["ok"])
+    self.assertFalse(result["table_counts_match"])
+    self.assertFalse(os.path.isdir(result["temp_dir_used"]))
+
+  # --- 実DB・バックアップ元への影響なし ---------------------------------------
+
+  def test_backup_source_hash_unchanged_before_and_after_drill(self):
+    hash_before = self._backup_hash()
+    hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    self.assertEqual(self._backup_hash(), hash_before)
+
+  def test_original_source_db_unchanged_before_and_after_drill(self):
+    hash_before = self._source_hash()
+    hive_backup.restore_test(
+        self.created["backup_dir"], backups_root=self.backups_root
+    )
+    self.assertEqual(self._source_hash(), hash_before)
+
+  def test_restore_test_has_no_destination_override_parameters(self):
+    # 復旧先を指定できるパラメータ(destination/output_dir等)が
+    # 存在しないこと=CLI引数・環境変数で復旧先を変更できないことの
+    # コード上の裏付け。
+    import inspect
+    params = list(inspect.signature(hive_backup.restore_test).parameters)
+    self.assertEqual(params, ["backup_path", "backups_root"])
+
+  # --- 不正・改変・検証未済バックアップの安全な拒否 ---------------------------
+
+  def test_restore_test_rejects_tampered_backup(self):
+    with open(self.created["backup_db_path"], "r+b") as f:
+      f.seek(50)
+      original_byte = f.read(1)
+      f.seek(50)
+      f.write(bytes([original_byte[0] ^ 0xFF]))
+
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_test(
+          self.created["backup_dir"], backups_root=self.backups_root
+      )
+
+  def test_restore_test_rejects_path_outside_backups_root(self):
+    outside_dir = os.path.join(self.tmp_root, "not_a_backup")
+    os.makedirs(outside_dir, exist_ok=True)
+    shutil.copy(
+        self.created["backup_db_path"],
+        os.path.join(outside_dir, hive_backup.BACKUP_DB_FILENAME),
+    )
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_test(outside_dir, backups_root=self.backups_root)
+
+  def test_restore_test_rejects_path_traversal(self):
+    traversal_path = os.path.join(self.backups_root, "..")
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_test(traversal_path, backups_root=self.backups_root)
+
+  def test_restore_test_rejects_missing_backup(self):
+    missing = os.path.join(self.backups_root, "backup_does_not_exist")
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_test(missing, backups_root=self.backups_root)
+
+  # --- CLI経由 ---------------------------------------------------------------
+
+  def _run_main(self, argv):
+    stdout, stderr = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+      code = hive_backup.main(argv)
+    return code, stdout.getvalue(), stderr.getvalue()
+
+  def test_cli_restore_test_round_trip(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      code, out, _err = self._run_main(
+          ["restore-test", self.created["backup_dir"]]
+      )
+      self.assertEqual(code, 0)
+      self.assertIn("隔離復旧訓練", out)
+      self.assertIn("総合判定: OK", out)
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+  def test_cli_restore_test_fails_safely_for_invalid_path(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      code, _out, err = self._run_main(
+          ["restore-test", os.path.join(self.tmp_root, "not_under_backups_root")]
+      )
+      self.assertEqual(code, 1)
+      self.assertIn("エラー", err)
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+
 if __name__ == "__main__":
   unittest.main()

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""localhost限定 SQLiteバックアップ・検証CLI（MISSION 016）。
+"""localhost限定 SQLiteバックアップ・検証・隔離復旧訓練CLI
+
+（MISSION 016: create/verify、MISSION 017: restore-test）。
 
 対象は常にプロジェクト内の `ai_company.db`（`work_logs`・AI Hive OSの
 7テーブル・`audit_logs` を含むDBファイル全体）。バックアップ先は常に
@@ -23,10 +25,19 @@
     行い、`backups/` 配下から外れたパス・存在しないパスは安全に
     拒否する。実DBへの復元（上書き・削除・置換）はこのスクリプトには
     一切実装しない。
+  - 隔離復旧訓練（`restore-test`）は、`verify`で検証済みのバックアップ
+    だけを入力として受け付け、`tempfile`が作る完全な一時ディレクトリ
+    （プロジェクト外・`backups/`外・`ai_company.db`とは絶対に重ならない）
+    へのみ復旧コピーする。復旧先をCLI引数・環境変数で変更できる設定は
+    一切追加していない。訓練終了後、一時ディレクトリは成功・失敗を
+    問わず必ず削除する。実DB(`ai_company.db`)・バックアップ元は
+    一切変更しない。
 
-実行例（docs/MISSION016_backup_recovery_runbook.md も参照）:
+実行例（docs/MISSION016_backup_recovery_runbook.md ・
+docs/MISSION017_isolated_restore_drill_runbook.md も参照）:
     python hive_backup.py create
     python hive_backup.py verify backups/backup_20260905_010203_ab12cd
+    python hive_backup.py restore-test backups/backup_20260905_010203_ab12cd
 """
 
 import argparse
@@ -34,8 +45,10 @@ import datetime
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import sys
+import tempfile
 import uuid
 
 # 対象DB・バックアップ先はどちらも固定する。CLI引数・環境変数で
@@ -261,6 +274,106 @@ def verify_backup(backup_path, backups_root=None):
   }
 
 
+def restore_test(backup_path, backups_root=None):
+  """検証済みバックアップを、プロジェクト外の完全な一時領域へ復旧コピー
+
+  する「隔離復旧訓練」を実行し、結果を辞書で返す（MISSION 017）。
+
+  安全方針:
+    - まず verify_backup() を実行し、ハッシュ一致・整合性・外部キー
+      整合性のすべてを満たした「検証済み」バックアップだけを以降の
+      処理へ進める。検証に失敗するバックアップ（改変済み・破損・
+      backups/配下から外れたパス・存在しないパス等）は、復旧コピーを
+      一切試みずBackupErrorとして拒否する。
+    - 復旧先は `tempfile.mkdtemp()` が新規作成する一時ディレクトリに
+      固定する。CLI引数・環境変数で復旧先を変更できる設定は追加しない。
+      念のため、生成された一時ディレクトリがプロジェクトルート配下
+      （＝`backups/`・`ai_company.db`を含む）に入っていないことも
+      その場で確認し、万一該当した場合は復旧コピーを行わず中止する。
+    - コピーには create_backup() と同じ SQLite Online Backup API
+      （`sqlite3.Connection.backup()`）を使い、バックアップDB側は
+      読み取り専用接続で開く。
+    - 復旧後は一時DBに対してのみ integrity_check・foreign_key_check・
+      テーブル件数を確認し、バックアップの metadata.json に記録された
+      テーブル件数と照合する。
+    - 一時ディレクトリは、成功・失敗を問わず必ず削除する（try/finally）。
+    - 実DB(ai_company.db)・バックアップ元のファイルには一切書き込みを
+      行わない。
+  """
+  backups_root = BACKUPS_ROOT if backups_root is None else backups_root
+
+  verify_result = verify_backup(backup_path, backups_root=backups_root)
+  if not verify_result["ok"]:
+    raise BackupError(
+        "検証(verify)に失敗したバックアップは隔離復旧訓練に使用できません: "
+        f"{backup_path}"
+    )
+
+  backup_dir = verify_result["backup_dir"]
+  backup_db_path = verify_result["db_path"]
+  metadata_path = os.path.join(backup_dir, METADATA_FILENAME)
+  with open(metadata_path, "r", encoding="utf-8") as f:
+    metadata = json.load(f)
+  expected_counts = metadata.get("table_row_counts", {})
+
+  project_root_real = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
+  temp_dir = tempfile.mkdtemp(prefix="hive_restore_drill_")
+  try:
+    temp_dir_real = os.path.realpath(temp_dir)
+    if temp_dir_real == project_root_real or temp_dir_real.startswith(
+        project_root_real + os.sep
+    ):
+      raise BackupError(
+          "復旧先の一時ディレクトリがプロジェクト内に生成されたため、"
+          "安全のため隔離復旧訓練を中止しました。"
+      )
+
+    restored_db_path = os.path.join(temp_dir_real, "restored_ai_company.db")
+
+    backup_hash_before = _sha256_of_file(backup_db_path)
+
+    source_uri = f"file:{os.path.abspath(backup_db_path)}?mode=ro"
+    src_conn = sqlite3.connect(source_uri, uri=True)
+    dest_conn = sqlite3.connect(restored_db_path)
+    try:
+      src_conn.backup(dest_conn)
+    finally:
+      dest_conn.close()
+      src_conn.close()
+
+    backup_hash_after = _sha256_of_file(backup_db_path)
+    backup_source_hash_unchanged = backup_hash_before == backup_hash_after
+
+    check_result = _check_integrity(restored_db_path)
+    restored_counts = check_result["table_row_counts"]
+    integrity_ok = check_result["integrity_check"] == "ok"
+    fk_ok = check_result["foreign_key_check_ok"]
+    counts_match = restored_counts == expected_counts
+
+    ok = bool(
+        integrity_ok and fk_ok and counts_match
+        and backup_source_hash_unchanged
+    )
+
+    return {
+        "ok": ok,
+        "backup_dir": backup_dir,
+        "backup_db_path": backup_db_path,
+        "temp_dir_used": temp_dir_real,
+        "integrity_check": check_result["integrity_check"],
+        "integrity_ok": integrity_ok,
+        "foreign_key_check_ok": fk_ok,
+        "foreign_key_violation_count": check_result["foreign_key_violation_count"],
+        "restored_table_row_counts": restored_counts,
+        "expected_table_row_counts": expected_counts,
+        "table_counts_match": counts_match,
+        "backup_source_hash_unchanged": backup_source_hash_unchanged,
+    }
+  finally:
+    # 成功・失敗を問わず、一時DB・一時ディレクトリを確実に削除する。
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _print_create_result(result, out=None):
   if out is None:
     out = sys.stdout
@@ -292,6 +405,33 @@ def _print_verify_result(result, out=None):
   print(f"  総合判定: {'OK' if result['ok'] else 'NG'}", file=out)
 
 
+def _print_restore_test_result(result, out=None):
+  if out is None:
+    out = sys.stdout
+  print(f"隔離復旧訓練: {result['backup_dir']} を一時領域へ復旧しました。", file=out)
+  print(f"  一時領域(訓練後に削除済み): {result['temp_dir_used']}", file=out)
+  print(f"  整合性チェック: {result['integrity_check']}", file=out)
+  print(
+      "  外部キー整合性: "
+      + ("問題なし" if result["foreign_key_check_ok"] else "違反あり"),
+      file=out,
+  )
+  print(
+      "  テーブル件数の一致(metadata.json比較): "
+      + ("一致" if result["table_counts_match"] else "不一致"),
+      file=out,
+  )
+  if not result["table_counts_match"]:
+    print(f"    期待値: {result['expected_table_row_counts']}", file=out)
+    print(f"    復旧後: {result['restored_table_row_counts']}", file=out)
+  print(
+      "  バックアップ元ハッシュ不変: "
+      + ("はい" if result["backup_source_hash_unchanged"] else "いいえ"),
+      file=out,
+  )
+  print(f"  総合判定: {'OK' if result['ok'] else 'NG'}", file=out)
+
+
 def build_arg_parser():
   parser = argparse.ArgumentParser(
       prog="hive_backup.py",
@@ -317,6 +457,18 @@ def build_arg_parser():
       help=f"{BACKUPS_ROOT}/ 配下のバックアップディレクトリ、またはそのDBファイル",
   )
 
+  restore_test_parser = subparsers.add_parser(
+      "restore-test",
+      help=(
+          "検証済みバックアップを、プロジェクト外の一時領域へ隔離復旧する"
+          "訓練を実行する(実DBは変更しない。訓練後に一時領域は自動削除)"
+      ),
+  )
+  restore_test_parser.add_argument(
+      "backup_path",
+      help=f"{BACKUPS_ROOT}/ 配下の検証済みバックアップディレクトリ、またはそのDBファイル",
+  )
+
   return parser
 
 
@@ -332,6 +484,10 @@ def main(argv=None):
     if args.command == "verify":
       result = verify_backup(args.backup_path)
       _print_verify_result(result)
+      return 0 if result["ok"] else 1
+    if args.command == "restore-test":
+      result = restore_test(args.backup_path)
+      _print_restore_test_result(result)
       return 0 if result["ok"] else 1
   except BackupError as e:
     print(f"エラー: {e}", file=sys.stderr)
