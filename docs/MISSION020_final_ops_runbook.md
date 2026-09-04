@@ -155,11 +155,11 @@ python hive_backup.py restore-test backups/backup_<日時>_<suffix>
 
 ## 6. 復元には別途の個別承認が必要であること
 
-- **本MISSION、およびこれまでのすべてのMISSION（016〜019）を通じて、
-  実DB(`ai_company.db`)への復元・上書き・削除の機能は一切実装していない。**
-  `hive_backup.py`が持つのは `create`（新規作成）・`verify`（検証）・
-  `restore-test`（一時領域への隔離復旧訓練）のみであり、いずれも実DBを
-  書き換えることはできない
+- **本MISSION以降のMISSION（021以降）を含め、実DB(`ai_company.db`)への
+  復元・上書き・削除の機能は一切実装していない。**
+  `hive_backup.py`が持つのは `create`（新規作成）・`list`（一覧表示、
+  MISSION 021で追加）・`verify`（検証）・`restore-test`（一時領域への
+  隔離復旧訓練）のみであり、いずれも実DBを書き換えることはできない
 - 実際に本番DBを復旧する場合は、5章のチェックリストをすべて満たした上で、
   利用者の明示的な個別承認を得てから、別MISSIONとして計画・実施すること
 - 5章のチェックリストや`restore-test`で「総合判定: OK」を確認できたことは、
