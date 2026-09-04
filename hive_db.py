@@ -12,6 +12,7 @@ import functools
 import hmac
 import os
 import sqlite3
+import threading
 import time
 import uuid
 
@@ -138,6 +139,23 @@ CREATE INDEX IF NOT EXISTS idx_proposals_proposed_by ON proposals(proposed_by);
 CREATE INDEX IF NOT EXISTS idx_decisions_mission_id ON decisions(mission_id);
 CREATE INDEX IF NOT EXISTS idx_decisions_proposal_id ON decisions(proposal_id);
 CREATE INDEX IF NOT EXISTS idx_decisions_decided_by ON decisions(decided_by);
+
+-- 新規Hive APIの監査ログ。Authorizationヘッダー・トークン・環境変数値・
+-- リクエスト本文・生の個人情報は一切保存しない（記録するのは操作の
+-- メタ情報のみ）。既存 GET / ・GET /api/logs・work_logsは対象外。
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    event_type TEXT NOT NULL,
+    http_method TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    status_code INTEGER NOT NULL,
+    permission TEXT,
+    result_summary TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_recorded_at ON audit_logs(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_event_type ON audit_logs(event_type);
 """
 
 EMPLOYEE_COLUMNS = [
@@ -201,57 +219,71 @@ def rows_to_list(rows):
 
 def get_row(table, row_id):
   conn = get_connection()
-  row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
-  conn.close()
-  return row_to_dict(row)
+  try:
+    row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
+    return row_to_dict(row)
+  finally:
+    conn.close()
 
 
 def list_rows(table, filters=None, order_by="id DESC"):
   conn = get_connection()
-  query = f"SELECT * FROM {table}"
-  params = []
-  if filters:
-    conditions = [f"{key} = ?" for key in filters]
-    params = list(filters.values())
-    if conditions:
-      query += " WHERE " + " AND ".join(conditions)
-  query += f" ORDER BY {order_by}"
-  rows = conn.execute(query, params).fetchall()
-  conn.close()
-  return rows_to_list(rows)
+  try:
+    query = f"SELECT * FROM {table}"
+    params = []
+    if filters:
+      conditions = [f"{key} = ?" for key in filters]
+      params = list(filters.values())
+      if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += f" ORDER BY {order_by}"
+    rows = conn.execute(query, params).fetchall()
+    return rows_to_list(rows)
+  finally:
+    conn.close()
 
 
 def insert_row(table, allowed_columns, data):
-  """data のうち allowed_columns に含まれるキーのみINSERTし、挿入行を返す。"""
+  """data のうち allowed_columns に含まれるキーのみINSERTし、挿入行を返す。
+
+  途中で例外が発生した場合も、必ず接続をクローズする（ロック残留防止）。
+  """
   keys = [c for c in allowed_columns if c in data]
   conn = get_connection()
-  placeholders = ", ".join("?" for _ in keys)
-  col_sql = ", ".join(keys)
-  cursor = conn.execute(
-      f"INSERT INTO {table} ({col_sql}) VALUES ({placeholders})",
-      [data[k] for k in keys],
-  )
-  conn.commit()
-  new_id = cursor.lastrowid
-  row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (new_id,)).fetchone()
-  conn.close()
-  return row_to_dict(row)
+  try:
+    placeholders = ", ".join("?" for _ in keys)
+    col_sql = ", ".join(keys)
+    cursor = conn.execute(
+        f"INSERT INTO {table} ({col_sql}) VALUES ({placeholders})",
+        [data[k] for k in keys],
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
+    row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (new_id,)).fetchone()
+    return row_to_dict(row)
+  finally:
+    conn.close()
 
 
 def update_row(table, allowed_columns, row_id, data):
-  """data のうち allowed_columns に含まれるキーのみUPDATEし、更新後の行を返す。"""
+  """data のうち allowed_columns に含まれるキーのみUPDATEし、更新後の行を返す。
+
+  途中で例外が発生した場合も、必ず接続をクローズする（ロック残留防止）。
+  """
   keys = [c for c in allowed_columns if c in data]
   conn = get_connection()
-  if keys:
-    set_sql = ", ".join(f"{k} = ?" for k in keys)
-    conn.execute(
-        f"UPDATE {table} SET {set_sql} WHERE id = ?",
-        [data[k] for k in keys] + [row_id],
-    )
-    conn.commit()
-  row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
-  conn.close()
-  return row_to_dict(row)
+  try:
+    if keys:
+      set_sql = ", ".join(f"{k} = ?" for k in keys)
+      conn.execute(
+          f"UPDATE {table} SET {set_sql} WHERE id = ?",
+          [data[k] for k in keys] + [row_id],
+      )
+      conn.commit()
+    row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
+    return row_to_dict(row)
+  finally:
+    conn.close()
 
 
 def success_response(data, status_code=200):
@@ -314,6 +346,152 @@ def _resolve_permission_level(provided_token, tokens):
   return matched_level
 
 
+# ---------------------------------------------------------------------------
+# 監査ログ（audit_logs）
+# ---------------------------------------------------------------------------
+
+AUDIT_LOG_MAX_AGE_DAYS = 30
+AUDIT_LOG_MAX_ROWS = 1000
+
+
+def _summarize_response(resp_obj, status_code):
+  """レスポンスから、秘密情報を含まない短い要約文字列を作る。
+
+  リクエスト本文・ヘッダーは一切参照しない。レスポンスの成功データからは
+  id/件数のみを拾い、それ以外の値（名前等）は記録しない。
+  """
+  try:
+    body = resp_obj.get_json(silent=True) or {}
+  except Exception:
+    body = {}
+
+  if body.get("status") == "success":
+    data = body.get("data")
+    if isinstance(data, dict) and "id" in data:
+      return f"success id={data['id']}"
+    if isinstance(data, list):
+      return f"success count={len(data)}"
+    return "success"
+
+  message = body.get("message")
+  if message:
+    return str(message)[:200]
+  return f"status={status_code}"
+
+
+def _record_audit_log(
+    event_type, http_method, endpoint, status_code, permission, result_summary
+):
+  """audit_logsへ1件記録し、直後に保持上限の自動整理を行う。
+
+  Authorizationヘッダー・トークン・環境変数値・リクエスト本文は一切
+  渡さないこと（呼び出し側の責務）。
+
+  記録そのものが失敗した場合は例外を呼び出し元へ伝播させる（監査記録の
+  失敗を隠さない）。一方、記録成功後のprune_audit_logs()（整理処理）が
+  失敗しても、この関数・ひいては呼び出し元のAPIレスポンスには影響させ
+  ない（整理処理はベストエフォートであり、認証・業務データ操作を壊さ
+  ないことを優先する）。整理処理自体はここでは監査記録を行わない
+  （再帰記録の防止）。
+  """
+  conn = get_connection()
+  try:
+    conn.execute(
+        "INSERT INTO audit_logs"
+        " (event_type, http_method, endpoint, status_code, permission,"
+        "  result_summary)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (event_type, http_method, endpoint, status_code, permission,
+         result_summary),
+    )
+    conn.commit()
+  finally:
+    conn.close()
+
+  try:
+    prune_audit_logs()
+  except Exception:
+    # 整理処理の失敗でAPIの応答・認証・業務データ操作を壊さない。
+    # audit_logsへは再帰記録しない。
+    pass
+
+
+def prune_audit_logs():
+  """audit_logsのみを対象に、保持上限を超えた古い記録を安全に整理する。
+
+  - 記録日時が30日を超えたもの
+  - 上記適用後もなお最新1000件を超える場合、古い順に超過分
+
+  audit_logs以外のテーブルには一切触れない。_record_audit_log()から
+  監査記録の追加直後に自動的に呼ばれるほか、運用者・テストから明示的に
+  呼び出すこともできる（保守目的）。
+  """
+  conn = get_connection()
+  try:
+    conn.execute(
+        "DELETE FROM audit_logs WHERE recorded_at < datetime('now','localtime',?)",
+        (f"-{AUDIT_LOG_MAX_AGE_DAYS} days",),
+    )
+    total = conn.execute("SELECT COUNT(*) FROM audit_logs").fetchone()[0]
+    if total > AUDIT_LOG_MAX_ROWS:
+      excess = total - AUDIT_LOG_MAX_ROWS
+      conn.execute(
+          "DELETE FROM audit_logs WHERE id IN ("
+          "  SELECT id FROM audit_logs ORDER BY id ASC LIMIT ?"
+          ")",
+          (excess,),
+      )
+    conn.commit()
+  finally:
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# レート制限（プロセス内メモリのみ、外部ストア不使用。localhost運用前提）
+# ---------------------------------------------------------------------------
+
+# (最大リクエスト数, ウィンドウ秒数)。localhostでの通常操作を妨げない
+# 安全な初期値。read/write/adminはエンドポイントが要求する権限区分ごと、
+# auth_failureは認証エラー(401/403)の連続発生をまとめて抑制する。
+RATE_LIMITS = {
+    "read": (120, 60),
+    "write": (60, 60),
+    "admin": (30, 60),
+    "auth_failure": (20, 60),
+}
+
+_rate_limit_lock = threading.Lock()
+_rate_limit_state = {}
+
+
+def reset_rate_limits():
+  """レート制限の内部状態をリセットする（テスト専用。APIからは呼ばれない）。"""
+  with _rate_limit_lock:
+    _rate_limit_state.clear()
+
+
+def _consume_rate_limit(bucket):
+  """bucket（read/write/admin/auth_failure）の使用枠を1消費できればTrue、
+  上限超過であればFalseを返す（この場合は消費しない）。
+  """
+  max_requests, window_seconds = RATE_LIMITS[bucket]
+  now = time.time()
+  with _rate_limit_lock:
+    timestamps = _rate_limit_state.setdefault(bucket, [])
+    cutoff = now - window_seconds
+    while timestamps and timestamps[0] < cutoff:
+      timestamps.pop(0)
+    if len(timestamps) >= max_requests:
+      return False
+    timestamps.append(now)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# 認証・権限デコレータ
+# ---------------------------------------------------------------------------
+
+
 def require_permission(min_level):
   """新規Hive API用の権限別認証デコレータ（既存 GET / ・GET /api/logs には適用しない）。
 
@@ -330,33 +508,69 @@ def require_permission(min_level):
     Hive API全体を認証エラーにする
   - 未認証・無効トークン・権限不足はいずれも401/403の統一JSON形式のみ返し、
     内部の設定理由等は開示しない
+
+  加えて、read/write/admin区分ごと、および認証失敗(auth_failure)区分ごとに
+  レート制限を適用し、超過時は429を返す。許可された操作・admin専用操作・
+  401・403・429はいずれもaudit_logsへ記録する（秘密情報は記録しない）。
   """
   min_rank = PERMISSION_LEVELS[min_level]
+
+  def _deny(method, endpoint, status_code, level, reason):
+    if not _consume_rate_limit("auth_failure"):
+      _record_audit_log(
+          "rate_limited", method, endpoint, 429, level,
+          "レート制限超過(auth_failure)",
+      )
+      return error_response("リクエストが多すぎます。しばらく待ってから再試行してください。", 429)
+
+    event_type = "permission_denied" if status_code == 403 else "auth_denied"
+    _record_audit_log(event_type, method, endpoint, status_code, level, reason)
+    if status_code == 403:
+      return error_response("権限が不足しています。", 403)
+    return error_response("認証に失敗しました。", 401)
 
   def decorator(view_func):
     @functools.wraps(view_func)
     def wrapper(*args, **kwargs):
+      method = request.method
+      endpoint = request.path
+
       tokens = _get_configured_tokens()
 
       if not all(tokens.values()):
-        return error_response("認証に失敗しました。", 401)
+        return _deny(method, endpoint, 401, None, "認証設定が無効です")
 
       if not _tokens_configuration_is_safe(tokens):
-        return error_response("認証に失敗しました。", 401)
+        return _deny(method, endpoint, 401, None, "認証設定が無効です")
 
       auth_header = request.headers.get("Authorization", "")
       if not auth_header.startswith("Bearer "):
-        return error_response("認証に失敗しました。", 401)
+        return _deny(method, endpoint, 401, None, "Authorizationヘッダーがありません")
 
       provided_token = auth_header[len("Bearer "):]
       level = _resolve_permission_level(provided_token, tokens)
       if level is None:
-        return error_response("認証に失敗しました。", 401)
+        return _deny(method, endpoint, 401, None, "トークンが無効です")
 
       if PERMISSION_LEVELS[level] < min_rank:
-        return error_response("権限が不足しています。", 403)
+        return _deny(method, endpoint, 403, level, "権限が不足しています")
 
-      return view_func(*args, **kwargs)
+      if not _consume_rate_limit(min_level):
+        _record_audit_log(
+            "rate_limited", method, endpoint, 429, level,
+            f"レート制限超過({min_level})",
+        )
+        return error_response("リクエストが多すぎます。しばらく待ってから再試行してください。", 429)
+
+      result = view_func(*args, **kwargs)
+      resp_obj, status_code = (
+          result if isinstance(result, tuple) else (result, 200)
+      )
+      event_type = "admin_operation" if min_level == "admin" else "api_call"
+      summary = _summarize_response(resp_obj, status_code)
+      _record_audit_log(event_type, method, endpoint, status_code, level, summary)
+
+      return result
 
     return wrapper
 
