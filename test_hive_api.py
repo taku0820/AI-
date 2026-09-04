@@ -726,6 +726,146 @@ class HiveApiTestCase(unittest.TestCase):
     conn.close()
     self.assertEqual(remaining, 0)
 
+  # --- MISSION 014: 監査ログ参照API(admin専用・読み取り専用) --------------
+
+  def test_audit_logs_requires_admin_token(self):
+    # 未認証・不正トークンは401。
+    res = self.client.get("/api/audit-logs")
+    self.assertEqual(res.status_code, 401)
+    self.assertEqual(res.get_json()["status"], "error")
+
+    res = self.client.get(
+        "/api/audit-logs", headers={"Authorization": "Bearer wrong-token"}
+    )
+    self.assertEqual(res.status_code, 401)
+    self.assertEqual(res.get_json()["status"], "error")
+
+    # read/writeトークンは権限不足で403。
+    res = self.client.get("/api/audit-logs", headers=self.read_headers)
+    self.assertEqual(res.status_code, 403)
+    self.assertEqual(res.get_json()["status"], "error")
+
+    res = self.client.get("/api/audit-logs", headers=self.write_headers)
+    self.assertEqual(res.status_code, 403)
+    self.assertEqual(res.get_json()["status"], "error")
+
+  def test_admin_token_lists_audit_logs_newest_first(self):
+    # 事前のセットアップ操作自体もaudit_logsへ記録されるため、ここでは
+    # 明確に順序を判定できるダミー行を直接挿入する。
+    self._insert_raw_audit_log("+0 seconds", "order-check-older")
+    self._insert_raw_audit_log("+0 seconds", "order-check-newer")
+
+    res = self.client.get("/api/audit-logs", headers=self.admin_headers)
+    self.assertEqual(res.status_code, 200)
+    body = res.get_json()
+    self.assertEqual(body["status"], "success")
+    rows = body["data"]
+    self.assertTrue(rows)
+    # idの降順(=挿入が新しい順)で返る。
+    ids = [r["id"] for r in rows]
+    self.assertEqual(ids, sorted(ids, reverse=True))
+
+    summaries = [r["result_summary"] for r in rows]
+    self.assertLess(
+        summaries.index("order-check-newer"),
+        summaries.index("order-check-older"),
+    )
+
+  def test_audit_logs_default_limit_is_50(self):
+    for i in range(60):
+      self._insert_raw_audit_log("+0 seconds", f"default-limit-row-{i}")
+
+    res = self.client.get("/api/audit-logs", headers=self.admin_headers)
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(len(res.get_json()["data"]), 50)
+
+  def test_audit_logs_limit_param_is_honored_within_max(self):
+    for i in range(20):
+      self._insert_raw_audit_log("+0 seconds", f"limit-param-row-{i}")
+
+    res = self.client.get(
+        "/api/audit-logs?limit=5", headers=self.admin_headers
+    )
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(len(res.get_json()["data"]), 5)
+
+  def test_audit_logs_limit_is_capped_at_100(self):
+    for i in range(120):
+      self._insert_raw_audit_log("+0 seconds", f"cap-row-{i}")
+
+    res = self.client.get(
+        "/api/audit-logs?limit=1000", headers=self.admin_headers
+    )
+    self.assertEqual(res.status_code, 200)
+    self.assertLessEqual(len(res.get_json()["data"]), 100)
+
+  def test_audit_logs_invalid_limit_returns_safe_json_error(self):
+    for bad_value in ("0", "-1", "abc", "12.5"):
+      res = self.client.get(
+          f"/api/audit-logs?limit={bad_value}", headers=self.admin_headers
+      )
+      self.assertEqual(res.status_code, 400)
+      body = res.get_json()
+      self.assertEqual(body["status"], "error")
+      self.assertIn("message", body)
+
+  def test_audit_logs_endpoint_is_read_only(self):
+    for method in ("post", "patch", "delete"):
+      res = getattr(self.client, method)(
+          "/api/audit-logs", headers=self.admin_headers
+      )
+      self.assertEqual(res.status_code, 405)
+
+  def test_audit_logs_response_never_contains_tokens_or_headers(self):
+    self.client.get("/api/employees", headers=self.read_headers)
+    self.client.post(
+        "/api/employees", json={"name": "秘密情報混入確認用214"},
+        headers=self.write_headers,
+    )
+
+    res = self.client.get("/api/audit-logs", headers=self.admin_headers)
+    self.assertEqual(res.status_code, 200)
+    dump = str(res.get_json())
+    for secret in (TEST_READ_TOKEN, TEST_WRITE_TOKEN, TEST_ADMIN_TOKEN):
+      self.assertNotIn(secret, dump)
+    self.assertNotIn(f"Bearer {TEST_ADMIN_TOKEN}", dump)
+    self.assertNotIn("秘密情報混入確認用214", dump)
+
+  def test_access_to_audit_logs_itself_is_audited_as_admin_operation(self):
+    res = self.client.get("/api/audit-logs", headers=self.admin_headers)
+    self.assertEqual(res.status_code, 200)
+
+    logs = self._all_audit_logs()
+    matching = [
+        l for l in logs
+        if l["endpoint"] == "/api/audit-logs" and l["http_method"] == "GET"
+    ]
+    self.assertTrue(matching)
+    entry = matching[-1]
+    self.assertEqual(entry["event_type"], "admin_operation")
+    self.assertEqual(entry["status_code"], 200)
+    self.assertEqual(entry["permission"], "admin")
+
+  def test_audit_logs_rate_limited_uses_admin_bucket(self):
+    original_limits = dict(hive_db.RATE_LIMITS)
+    hive_db.RATE_LIMITS["admin"] = (1, 60)
+    try:
+      res1 = self.client.get("/api/audit-logs", headers=self.admin_headers)
+      res2 = self.client.get("/api/audit-logs", headers=self.admin_headers)
+      self.assertEqual(res1.status_code, 200)
+      self.assertEqual(res2.status_code, 429)
+      self.assertEqual(res2.get_json()["status"], "error")
+    finally:
+      hive_db.RATE_LIMITS.clear()
+      hive_db.RATE_LIMITS.update(original_limits)
+      hive_db.reset_rate_limits()
+
+  def test_existing_endpoints_unaffected_by_new_audit_logs_endpoint(self):
+    res = self.client.get("/")
+    self.assertEqual(res.status_code, 200)
+    res = self.client.get("/api/logs")
+    self.assertEqual(res.status_code, 200)
+
 
 if __name__ == "__main__":
   unittest.main()

@@ -559,6 +559,37 @@ def create_decision():
     return hive_db.error_response(str(e), 500)
 
 
+# ---------------------------------------------------------------------------
+# MISSION 014: 監査ログ参照API（admin専用・読み取り専用）
+#
+# GET /api/audit-logs のみを追加する。POST/PATCH/DELETEは実装しない。
+# audit_logs以外のテーブルへは一切書き込まない。認証・権限判定・
+# レート制限・「この参照操作自体をadmin操作として監査記録する」処理は
+# すべて hive_db.require_permission("admin") が既存の仕組みのまま担う。
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/audit-logs", methods=["GET"])
+@hive_db.require_permission("admin")
+def list_audit_logs():
+  limit_param = request.args.get("limit")
+  if limit_param is None:
+    limit = hive_db.AUDIT_LOG_DEFAULT_LIMIT
+  else:
+    try:
+      limit = int(limit_param)
+    except (TypeError, ValueError):
+      return hive_db.error_response("limitは正の整数で指定してください。")
+    if limit <= 0:
+      return hive_db.error_response("limitは正の整数で指定してください。")
+    if limit > hive_db.AUDIT_LOG_MAX_LIMIT:
+      limit = hive_db.AUDIT_LOG_MAX_LIMIT
+  try:
+    return hive_db.success_response(hive_db.list_audit_logs(limit))
+  except sqlite3.Error as e:
+    return hive_db.error_response(str(e), 500)
+
+
 if __name__ == "__main__":
   # localhost専用の起動ポート設定。
   # 既定は5050（ポート5000はmacOSのAirPlay Receiverが使用しているため）。

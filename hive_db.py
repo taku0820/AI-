@@ -353,6 +353,10 @@ def _resolve_permission_level(provided_token, tokens):
 AUDIT_LOG_MAX_AGE_DAYS = 30
 AUDIT_LOG_MAX_ROWS = 1000
 
+# GET /api/audit-logs（admin専用参照API）の件数制限。
+AUDIT_LOG_DEFAULT_LIMIT = 50
+AUDIT_LOG_MAX_LIMIT = 100
+
 
 def _summarize_response(resp_obj, status_code):
   """レスポンスから、秘密情報を含まない短い要約文字列を作る。
@@ -414,6 +418,24 @@ def _record_audit_log(
     # 整理処理の失敗でAPIの応答・認証・業務データ操作を壊さない。
     # audit_logsへは再帰記録しない。
     pass
+
+
+def list_audit_logs(limit):
+  """audit_logsを最新順（id降順）でlimit件返す（admin専用参照APIから利用）。
+
+  呼び出し元（app.py側）でlimitが正の整数かつ上限以内であることを検証
+  済みである前提。Authorizationヘッダー・トークン・環境変数値・
+  リクエスト本文はここでも一切扱わない（audit_logsに元々含まれない）。
+  """
+  conn = get_connection()
+  try:
+    rows = conn.execute(
+        "SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return rows_to_list(rows)
+  finally:
+    conn.close()
 
 
 def prune_audit_logs():
