@@ -79,6 +79,28 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .revenue-priorities li{margin-bottom:4px}
 .revenue-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.revenue-grid{grid-template-columns:1fr}}
+.content-studio{max-width:1000px;margin:0 auto}
+.cs-theme{font-size:12px;color:var(--sub);margin:0 0 16px}
+.cs-theme b{color:var(--ink)}
+.cs-legend{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.cs-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);background:var(--panel);border:1px solid var(--edge);border-radius:999px;padding:5px 12px}
+.cs-status-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px}
+.cs-status-badge.status-candidate{background:#063d2c;color:var(--green)}
+.cs-status-badge.status-review{background:#3d3106;color:#fbbf24}
+.cs-status-badge.status-pass{background:#2a2f3d;color:#94a3b8}
+.cs-topic-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px 18px;margin-bottom:16px}
+.cs-topic-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.cs-topic-head h3{margin:0;font-size:16px}
+.cs-status-note{margin:0 0 10px;font-size:11px;color:var(--sub);line-height:1.5}
+.cs-genre-label{font-size:11px;color:var(--sub);margin:0 0 6px}
+.cs-genre-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.cs-genre-chip{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:11px;color:var(--ink)}
+.cs-media-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.cs-media-card{background:#0f1524;border:1px solid var(--edge);border-radius:12px;padding:10px 12px}
+.cs-media-card h4{margin:0 0 6px;font-size:11px;color:var(--blue);font-weight:700;letter-spacing:.03em}
+.cs-media-card p{margin:0;font-size:12px;line-height:1.6;color:var(--ink)}
+.cs-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
+@media(max-width:760px){.cs-topic-head{flex-direction:column}}
 </style>
 """
 
@@ -96,6 +118,7 @@ def _page(room, title, lead, scene):
       ("break", "/office/break-room", "休憩室"),
       ("ceo", "/office/ceo-office", "社長室"),
       ("revenue", "/revenue", "収益化ボード"),
+      ("content", "/content-studio", "投稿企画工場"),
   ]
   nav = "".join(
       f'<a class="{"active" if key == room else ""}" href="{href}" '
@@ -185,6 +208,151 @@ def _render_revenue_scene(focus):
       '</div>'
       '<p class="revenue-footnote">この画面はlocalhost限定で表示される'
       '社内検討用の資料です。送信・公開・自動実行は行われません。</p>'
+      '</section>'
+  )
+
+
+# MISSION 030: 投稿企画工場(ローカル専用のコンテンツ企画たたき台)。
+#
+# ここに書く内容もREVENUE_FOCUSと同様、すべて「社内向けの下書き」で
+# あり、投稿・公開・送信・商品紹介の実行は一切行わない(表示専用の
+# 静的コンテンツ)。楽天アフィリエイトにつながり得る商品ジャンルの
+# 候補は入れてよいが、商品名・価格・ランキング・成果(クリック数等)は
+# 一切含めない(候補ジャンルの言葉だけを列挙する)。将来テーマ・媒体・
+# 文章案を差し替える場合は、このデータ構造(CONTENT_STUDIO_TOPICS)を
+# 編集するだけでよく、HTML生成コードには手を入れなくてよいように
+# 分離している。
+CONTENT_STUDIO_THEME = "AIとガジェットで、仕事と暮らしを少しラクにする"
+
+# 3段階の凡例。表示のみに使う値であり、実際の投稿判断・承認フローとは
+# 独立している(この画面から投稿が実行されることはない)。
+CONTENT_STUDIO_STATUS_LABELS = {
+    "candidate": "投稿候補",
+    "review": "要確認",
+    "pass": "見送り",
+}
+
+CONTENT_STUDIO_TOPICS = [
+    {
+        "title": "AI初心者が最初に試す便利な使い方",
+        "status": "candidate",
+        "status_note": "初心者向けの導入コンテンツとして反応が見込みやすいたたき台。",
+        "product_genre_ideas": ["AIアシスタント対応スマートスピーカー", "音声入力対応キーボード"],
+        "drafts": {
+            "Instagram": "リール構成案：①「AI使ったことない人へ」で入る ②実際の画面操作を3カットで見せる "
+                          "③最後に「保存して後で試してね」で締める。",
+            "Threads": "「AIって結局なにに使えるの？」とゆるく問いかける短文投稿案。コメント欄で使い方の実例を"
+                       "集める設計にする。",
+            "Pinterest": "タイトル案:「AI初心者向け・最初にやること3選」／説明文案: 迷いがちな最初の一歩を"
+                         "3つに絞って紹介する保存用ピン。",
+            "note": "見出し案:「AIを何となく怖いと思っている人が、最初の一歩を踏み出すための3つのステップ」",
+        },
+    },
+    {
+        "title": "仕事の文章作成・要約をラクにするAI活用",
+        "status": "candidate",
+        "status_note": "実務に直結し保存されやすいテーマとして優先度が高いたたき台。",
+        "product_genre_ideas": ["音声文字起こしデバイス", "ノートPC用外付けマイク"],
+        "drafts": {
+            "Instagram": "カルーセル構成案：1枚目「その文章、AIに手伝わせよう」 2〜4枚目で下書き→要約→"
+                          "整文のビフォーアフター例 5枚目でまとめ。",
+            "Threads": "「長文の要約、皆どうしてる？」と実務あるあるを軽く投げかける短文投稿案。",
+            "Pinterest": "タイトル案:「文章作成が苦手な人のためのAI活用メモ」／説明文案: 要約・下書き・"
+                         "整文の3場面での使い分けを紹介する保存用ピン。",
+            "note": "見出し案:「文章が苦手でも大丈夫。AIと役割分担して仕事を進める考え方」",
+        },
+    },
+    {
+        "title": "デスク周りを整える便利ガジェット",
+        "status": "review",
+        "status_note": "紹介する商品ジャンルの選定基準を先に整理したいため要確認。",
+        "product_genre_ideas": ["モニターアーム", "デスクライト", "ケーブル収納グッズ"],
+        "drafts": {
+            "Instagram": "リール構成案：①散らかったデスクのビフォー ②ガジェット導入 ③整ったデスクの"
+                          "アフターで見せる構成。",
+            "Threads": "「デスク周りで一番効果があった小物は？」と気軽に聞く短文投稿案。",
+            "Pinterest": "タイトル案:「作業がはかどるデスク周りグッズまとめ」／説明文案: ジャンル別に"
+                         "整理して探しやすくする保存用ピン。",
+            "note": "見出し案:「机の上を変えるだけで集中力が変わる、デスク環境の整え方」",
+        },
+    },
+    {
+        "title": "スマホ・PC作業を快適にする周辺機器",
+        "status": "review",
+        "status_note": "対象ガジェットの範囲が広く、切り口の絞り込みが必要なため要確認。",
+        "product_genre_ideas": ["USB-Cハブ", "ワイヤレス充電スタンド", "ノートPCスタンド"],
+        "drafts": {
+            "Instagram": "カルーセル構成案：用途別(充電/接続/持ち運び)に周辺機器の役割を1枚ずつ紹介する構成。",
+            "Threads": "「地味だけど手放せない周辺機器」をテーマにした短文投稿案。",
+            "Pinterest": "タイトル案:「スマホ・PC作業がはかどる周辺機器ジャンルまとめ」／説明文案: "
+                         "用途別に整理した保存用ピン。",
+            "note": "見出し案:「持ち物を少し変えるだけで、外出先の作業効率は変わる」",
+        },
+    },
+    {
+        "title": "買う前に確認したいAI対応ガジェットの選び方",
+        "status": "pass",
+        "status_note": "情報の鮮度管理が必要で、継続更新の体制が整うまで一旦保留。",
+        "product_genre_ideas": ["AI搭載イヤホン", "スマートディスプレイ"],
+        "drafts": {
+            "Instagram": "リール構成案：①よくある失敗例 ②確認すべきポイント3つ ③選び方のまとめ、で"
+                          "構成する案。",
+            "Threads": "「AI対応と書いてあると迷う」という共感から入る短文投稿案。",
+            "Pinterest": "タイトル案:「買う前にチェック・AI対応ガジェットの選び方」／説明文案: "
+                         "購入前に確認したい観点を整理した保存用ピン。",
+            "note": "見出し案:「『AI対応』の表示だけで選ばない。後悔しないガジェット選びの基準」",
+        },
+    },
+]
+
+
+def _render_content_studio_scene(theme, topics, status_labels):
+  """投稿企画工場のカード群を、CONTENT_STUDIO_TOPICSのデータから組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
+  アクセスは一切行わない。
+  """
+  legend_items = "".join(
+      f'<span class="cs-legend-item"><span class="cs-status-badge status-{key}">'
+      f'{label}</span></span>'
+      for key, label in status_labels.items()
+  )
+  topic_cards = []
+  for topic in topics:
+    status_key = topic["status"]
+    status_label = status_labels[status_key]
+    genre_chips = "".join(
+        f'<span class="cs-genre-chip">{genre}</span>'
+        for genre in topic["product_genre_ideas"]
+    )
+    media_cards = "".join(
+        f'<div class="cs-media-card"><h4>{medium}</h4><p>{draft}</p></div>'
+        for medium, draft in topic["drafts"].items()
+    )
+    topic_cards.append(
+        '<div class="cs-topic-card">'
+        '<div class="cs-topic-head">'
+        f'<h3>{topic["title"]}</h3>'
+        f'<span class="cs-status-badge status-{status_key}">{status_label}</span>'
+        '</div>'
+        f'<p class="cs-status-note">{topic["status_note"]}</p>'
+        '<p class="cs-genre-label">関連商品ジャンル候補（価格・順位・実績は未確定・未記載）</p>'
+        f'<div class="cs-genre-chips">{genre_chips}</div>'
+        f'<div class="cs-media-grid">{media_cards}</div>'
+        '</div>'
+    )
+  return (
+      '<section class="content-studio" aria-label="投稿企画工場">'
+      '<div class="revenue-notice">'
+      '<b>社内向けの投稿企画たたき台です。</b>'
+      'ここに表示する内容はすべて下書きであり、投稿・公開・送信・商品紹介は'
+      '一切実行されません。'
+      '</div>'
+      f'<p class="cs-theme">対象テーマ：<b>{theme}</b></p>'
+      f'<div class="cs-legend">{legend_items}</div>'
+      + "".join(topic_cards) +
+      '<p class="cs-footnote">この画面はlocalhost限定で表示される社内検討用の'
+      '資料です。SNS投稿・note投稿・広告出稿・営業送信は行われません。</p>'
       '</section>'
   )
 
@@ -496,5 +664,17 @@ def register_office_views(app):
         "revenue", "収益化ボード",
         "外部公開・営業送信の前に、収益化の方針と今週の優先行動を確認するための"
         "社内検討用ボードです。",
+        scene,
+    )
+
+  @app.route("/content-studio")
+  def content_studio():
+    scene = _render_content_studio_scene(
+        CONTENT_STUDIO_THEME, CONTENT_STUDIO_TOPICS, CONTENT_STUDIO_STATUS_LABELS
+    )
+    return _page(
+        "content", "投稿企画工場",
+        "Instagram・Threads・Pinterest・noteへ展開する前に、1つのテーマから"
+        "媒体別の投稿案を比較する社内検討用ボードです。",
         scene,
     )

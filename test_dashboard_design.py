@@ -550,6 +550,121 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(title, res.get_data(as_text=True))
 
+  # --- MISSION 030: 投稿企画工場(ローカル専用コンテンツ企画) --------------------
+
+  def test_revenue_board_links_to_content_studio(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('href="/content-studio"', html)
+    self.assertIn("投稿企画工場", html)
+
+  def test_content_studio_page_loads(self):
+    res = self.client.get("/content-studio")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("投稿企画工場", html)
+    self.assertIn("<title>投稿企画工場 | AI Hive</title>", html)
+
+  def test_content_studio_reachable_from_all_office_pages(self):
+    for path in ("/office", "/office/break-room", "/office/ceo-office", "/revenue"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('href="/content-studio"', html)
+
+  def test_content_studio_shows_target_theme(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("対象テーマ", html)
+    self.assertIn("AIとガジェットで、仕事と暮らしを少しラクにする", html)
+
+  def test_content_studio_shows_all_five_topics(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for title in (
+        "AI初心者が最初に試す便利な使い方",
+        "仕事の文章作成・要約をラクにするAI活用",
+        "デスク周りを整える便利ガジェット",
+        "スマホ・PC作業を快適にする周辺機器",
+        "買う前に確認したいAI対応ガジェットの選び方",
+    ):
+      self.assertIn(title, html)
+
+  def test_content_studio_shows_media_specific_drafts_for_every_topic(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for medium in ("Instagram", "Threads", "Pinterest", "note"):
+      self.assertEqual(html.count(f'<h4>{medium}</h4>'), 5)
+
+  def test_content_studio_shows_three_comparison_tiers(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("投稿候補", html)
+    self.assertIn("要確認", html)
+    self.assertIn("見送り", html)
+    # 5テーマすべてにステータスバッジが付与されている
+    # (凡例3件 + テーマ5件 = 8件)。
+    self.assertEqual(html.count('class="cs-status-badge'), 8)
+
+  def test_content_studio_product_genres_have_no_fabricated_price_or_rank(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("関連商品ジャンル候補", html)
+    self.assertIn("価格・順位・実績は未確定・未記載", html)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+    self.assertNotIn("位獲得", html)
+    self.assertNotIn("楽天市場URL", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("https://", html)
+
+  def test_content_studio_states_internal_draft_not_published_or_sent(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("社内向けの投稿企画たたき台です", html)
+    self.assertIn("投稿・公開・送信・商品紹介は", html)
+    self.assertIn("SNS投稿・note投稿・広告出稿・営業送信は行われません", html)
+    self.assertIn("localhost限定", html)
+
+  def test_content_studio_has_no_external_resources_or_scripts(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("<script", html)
+    self.assertNotIn("fetch(", html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
+
+  def test_content_studio_is_fully_read_only_no_api_or_write_methods(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_content_studio_has_responsive_layout(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("@media(max-width:760px){.cs-topic-head", html)
+
+  def test_content_studio_content_is_data_driven_for_future_edits(self):
+    import office_views
+    self.assertEqual(len(office_views.CONTENT_STUDIO_TOPICS), 5)
+    for topic in office_views.CONTENT_STUDIO_TOPICS:
+      self.assertIn(topic["status"], office_views.CONTENT_STUDIO_STATUS_LABELS)
+      self.assertEqual(
+          set(topic["drafts"].keys()), {"Instagram", "Threads", "Pinterest", "note"}
+      )
+    rendered = office_views._render_content_studio_scene(
+        office_views.CONTENT_STUDIO_THEME,
+        office_views.CONTENT_STUDIO_TOPICS,
+        office_views.CONTENT_STUDIO_STATUS_LABELS,
+    )
+    self.assertIn(office_views.CONTENT_STUDIO_THEME, rendered)
+
+  def test_existing_pages_unaffected_by_content_studio_tab_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
   def test_manual_chat_form_is_unaffected_by_quick_actions(self):
     # 手入力チャット(#chat-form)のハンドラは、クイックアクション追加後も
     # 引き続きAPI通信をしないローカル演出のままであることを確認する
