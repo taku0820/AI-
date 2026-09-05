@@ -881,6 +881,74 @@ class DashboardDesignTestCase(unittest.TestCase):
     rendered = office_views._render_first_post_scene(office_views.FIRST_POST_PACKAGE)
     self.assertIn(office_views.FIRST_POST_PACKAGE["theme"], rendered)
 
+  # --- MISSION 032.1: Pinterest用PNG保存機能 -----------------------------------
+
+  def test_first_post_png_file_exists_with_correct_2_3_dimensions(self):
+    import office_views
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.FIRST_POST_PNG_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    # PNGシグネチャ + IHDRチャンクから幅・高さを読み取り、正確に
+    # 1000x1500(2:3)であることを確認する(外部ライブラリを使わない
+    # 最小限の検証)。
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1000, 1500))
+
+  def test_first_post_png_is_served_as_a_plain_static_file(self):
+    res = self.client.get("/static/images/first-post-pin-2x3.png")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_first_post_has_png_download_button_as_plain_link(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn('class="fp-png-download"', html)
+    self.assertIn("Pinterest用PNGを保存", html)
+    self.assertIn(
+        'href="/static/images/first-post-pin-2x3.png" download="pinterest-first-post.png"',
+        html,
+    )
+    # ダウンロードは通常の<a href>のみで完結し、JS必須の処理や外部通信を
+    # 追加していない(既存のnavigator.clipboard関連のコピー機能はあるが、
+    # PNG保存ボタン自体は素のリンクであること)。
+    self.assertNotIn("createObjectURL", html)
+    self.assertNotIn("toDataURL", html)
+
+  def test_first_post_png_button_explains_manual_upload_and_no_auto_post(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn(
+        "保存したPNGをPinterestで手動アップロードしてください", html
+    )
+    self.assertIn("このボタンからの投稿・送信・連携は行われません", html)
+
+  def test_first_post_existing_svg_and_fields_unchanged_by_png_addition(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn('<svg viewBox="0 0 1000 1500"', html)
+    self.assertIn("縦長 2:3（画面内SVG・外部画像なし）", html)
+    self.assertIn('id="fp-title"', html)
+    self.assertIn('id="fp-description"', html)
+    self.assertIn('id="fp-alt"', html)
+    self.assertIn("投稿前チェックリスト", html)
+    self.assertEqual(html.count('type="checkbox"'), 5)
+    self.assertIn("Threads投稿案（同テーマ）", html)
+    self.assertIn('id="fp-threads"', html)
+
+  def test_first_post_png_route_does_not_require_pillow_at_app_import_time(self):
+    # office_views.py自体のimportにPillowが必須になっていないこと
+    # (PNG生成コードは遅延importであり、通常のアプリ起動には影響しない)
+    # をソースコード上で確認する。
+    import office_views
+    import inspect
+    module_source = inspect.getsource(office_views)
+    head = module_source.split("def generate_first_post_pin_png", 1)[0]
+    self.assertNotIn("from PIL", head)
+    self.assertNotIn("import PIL", head)
+
   def test_existing_pages_unaffected_by_first_post_addition(self):
     for path, title in (
         ("/office", "ライブオフィス"),

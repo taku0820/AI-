@@ -1,1 +1,7 @@
 Flask
+
+# Pillow is only needed to regenerate the static Pinterest PNG asset
+# (office_views.generate_first_post_pin_png). The running Flask app does
+# not import it; static/images/first-post-pin-2x3.png is served as a
+# plain pre-generated file.
+Pillow

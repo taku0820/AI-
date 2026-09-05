@@ -4,6 +4,8 @@
 社長室の会話も保存されないローカルの定型リアクションである。
 """
 
+import os
+
 from flask import render_template_string
 
 
@@ -141,6 +143,9 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .fp-svg-wrap{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:10px;position:relative}
 .fp-svg-wrap svg{display:block;width:100%;height:auto;border-radius:10px}
 .fp-svg-ratio{font-size:10px;color:var(--sub);text-align:center;margin-top:6px}
+.fp-png-download{display:block;text-align:center;margin-top:10px;background:#0b2540;color:var(--blue);border:1px solid var(--blue);border-radius:999px;padding:9px 12px;font-size:12px;text-decoration:none}
+.fp-png-download:hover{background:#123258}
+.fp-png-hint{font-size:10px;color:var(--sub);text-align:center;margin-top:6px;line-height:1.5}
 .fp-fields{display:grid;gap:12px}
 .fp-field{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px}
 .fp-field-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
@@ -768,6 +773,109 @@ def _render_first_post_pin_svg(pin):
   )
 
 
+# MISSION 032.1: Pinterest用PNG(1000x1500・2:3)。
+#
+# 画面内SVGプレビュー(_render_first_post_pin_svg)と同じ
+# FIRST_POST_PACKAGE["pin"]のデータから生成するため、内容・見た目は常に
+# 一致する。このPNGはあらかじめ生成してstatic/images/へ書き出した静的
+# ファイルであり、Flaskアプリの起動・リクエスト処理では画像生成を一切
+# 行わない(通常の静的ファイル配信のみ)。生成コード自体は将来テーマや
+# 文言を差し替えた際に再生成できるよう残しているが、Pillow(PIL)を遅延
+# importしているため、office_views.py自体のimportや通常のアプリ起動には
+# Pillowのインストールを必要としない。
+FIRST_POST_PNG_RELATIVE_PATH = "images/first-post-pin-2x3.png"
+_FIRST_POST_PNG_FONT_PATH = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+
+
+def _draw_first_post_icon(draw, cx, cy, kind, color):
+  """PNG版アイコン(装飾のみ)を描画する。SVG版と同じ3種類の図形。"""
+  if kind == "mail":
+    draw.rectangle([cx - 26, cy - 18, cx + 26, cy + 18], outline=color, width=3)
+    draw.line(
+        [(cx - 26, cy - 14), (cx, cy + 4), (cx + 26, cy - 14)],
+        fill=color, width=3, joint="curve",
+    )
+  elif kind == "summary":
+    draw.rectangle([cx - 24, cy - 26, cx + 24, cy + 26], outline=color, width=3)
+    draw.line([(cx - 14, cy - 12), (cx + 14, cy - 12)], fill=color, width=3)
+    draw.line([(cx - 14, cy), (cx + 14, cy)], fill=color, width=3)
+    draw.line([(cx - 14, cy + 12), (cx + 6, cy + 12)], fill=color, width=3)
+  elif kind == "idea":
+    draw.ellipse([cx - 22, cy - 28, cx + 22, cy + 16], outline=color, width=3)
+    draw.line([(cx - 8, cy + 34), (cx + 8, cy + 34)], fill=color, width=3)
+    draw.line([(cx - 5, cy + 41), (cx + 5, cy + 41)], fill=color, width=3)
+
+
+def generate_first_post_pin_png(pin, out_path=None):
+  """Pinterest用PNG(1000x1500)を生成し、ファイルへ保存する(開発時専用)。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。テーマや
+  文言(FIRST_POST_PACKAGE)を差し替えた場合、この関数を手動で再実行して
+  PNGを作り直すこと。実行にはPillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; \\
+          o.generate_first_post_pin_png(o.FIRST_POST_PACKAGE['pin'])"
+  """
+  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+
+  width, height = 1000, 1500
+  bg_top, bg_bottom = (11, 18, 32), (27, 44, 74)
+  white, blue, sub = (241, 245, 249), (56, 189, 248), (163, 178, 198)
+  card_bg, card_edge, badge_bg = (16, 26, 48), (41, 57, 88), (11, 37, 64)
+
+  img = Image.new("RGB", (width, height), bg_top)
+  draw = ImageDraw.Draw(img)
+  for y in range(height):
+    t = y / (height - 1)
+    draw.line(
+        [(0, y), (width, y)],
+        fill=tuple(int(bg_top[i] + (bg_bottom[i] - bg_top[i]) * t) for i in range(3)),
+    )
+
+  headline_font = ImageFont.truetype(_FIRST_POST_PNG_FONT_PATH, 62)
+  subtitle_font = ImageFont.truetype(_FIRST_POST_PNG_FONT_PATH, 30)
+  number_font = ImageFont.truetype(_FIRST_POST_PNG_FONT_PATH, 42)
+  label_font = ImageFont.truetype(_FIRST_POST_PNG_FONT_PATH, 38)
+  footer_font = ImageFont.truetype(_FIRST_POST_PNG_FONT_PATH, 26)
+
+  cx = width // 2
+  y = 110
+  for line in pin["svg_headline"]:
+    draw.text((cx, y), line, font=headline_font, fill=white, anchor="ma")
+    y += 76
+  draw.text((cx, y + 20), pin["svg_subtitle"], font=subtitle_font, fill=blue, anchor="ma")
+
+  card_h, gap, start_y = 280, 36, 430
+  for index, item in enumerate(pin["svg_items"]):
+    card_y = start_y + index * (card_h + gap)
+    draw.rounded_rectangle(
+        [60, card_y, 940, card_y + card_h], radius=28,
+        fill=card_bg, outline=card_edge, width=2,
+    )
+    badge_cy = card_y + card_h // 2
+    draw.ellipse(
+        [150 - 46, badge_cy - 46, 150 + 46, badge_cy + 46],
+        fill=badge_bg, outline=blue, width=3,
+    )
+    draw.text((150, badge_cy), item["number"], font=number_font, fill=blue, anchor="mm")
+    _draw_first_post_icon(draw, 260, badge_cy, item["icon"], blue)
+    ly = badge_cy - 26
+    for line in item["lines"]:
+      draw.text((320, ly), line, font=label_font, fill=white, anchor="lm")
+      ly += 46
+
+  draw.text((cx, 1440), pin["svg_footer"], font=footer_font, fill=sub, anchor="mm")
+
+  out_path = out_path or os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static", FIRST_POST_PNG_RELATIVE_PATH
+  )
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
 def _render_first_post_scene(package):
   """初回手動投稿パッケージ(Pinterest+Threads)のHTMLを組み立てる。
 
@@ -793,7 +901,15 @@ def _render_first_post_scene(package):
       '<h3 class="fp-section-title">Pinterest投稿素材</h3>'
       '<div class="fp-pin-layout">'
       f'<div><div class="fp-svg-wrap">{svg_markup}</div>'
-      '<p class="fp-svg-ratio">縦長 2:3（画面内SVG・外部画像なし）</p></div>'
+      '<p class="fp-svg-ratio">縦長 2:3（画面内SVG・外部画像なし）</p>'
+      # MISSION 032.1: 通常のダウンロードリンク(<a href download>)のみで
+      # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
+      # 生成済みのローカルPNGファイル(static/配下)を指すだけであり、
+      # クリックしてもSNSへの投稿・送信・連携は一切発生しない。
+      f'<a class="fp-png-download" href="/static/{FIRST_POST_PNG_RELATIVE_PATH}" '
+      'download="pinterest-first-post.png">Pinterest用PNGを保存</a>'
+      '<p class="fp-png-hint">保存したPNGをPinterestで手動アップロードしてください。'
+      'このボタンからの投稿・送信・連携は行われません。</p></div>'
       '<div class="fp-fields">'
       '<div class="fp-field"><div class="fp-field-head"><h4>タイトル</h4>'
       '<button type="button" class="fp-copy-btn" data-copy-target="fp-title">コピー</button></div>'
