@@ -29,6 +29,16 @@ LIVE_DATA_STYLE = """
 .status-chip.status-pending,.status-chip.status-none{background:#4c5b78}
 .desk em{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
 .approval small{display:block;margin-top:4px;font-size:9px;font-weight:400;opacity:.85}
+.command{margin-top:14px;background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px}
+.command-stats{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 10px}
+.command-stats .stat{background:#0f1a2c;border:1px solid var(--edge);border-radius:10px;padding:10px 16px;min-width:88px;text-align:center}
+.command-stats .stat b{display:block;font-size:20px;color:var(--ink);line-height:1.2}
+.command-stats .stat span{font-size:10px;color:var(--sub)}
+.command-note{margin:0 0 12px;font-size:11px;color:var(--sub)}
+.command-block{margin-top:12px}
+.command-block h3{margin:0 0 6px;font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.03em}
+.command-block ul{margin:0;padding-left:18px;font-size:12px;line-height:1.7;color:var(--ink)}
+.command-block p{margin:0;font-size:12px;line-height:1.5;color:var(--ink)}
 </style>
 """
 
@@ -134,27 +144,58 @@ def register_office_views(app):
         '<section class="scene ceo" aria-label="柴犬社長の執務室"><div class="label">PRESIDENT’S OFFICE<span>承認デスク</span></div>'
         '<div class="ceo-window" aria-hidden="true">☀</div>'
         f'<div class="ceo-desk">{figure("president", "柴犬社長")}'
-        '<div class="approval" id="ceo-approval" aria-live="polite">今日の作業ログ'
-        '<br><b id="ceo-today-count">-</b> 件（完了 <b id="ceo-today-done">-</b> 件）'
-        '<small id="ceo-total-note">記録全体を確認中…</small></div></div>'
+        '<div class="approval">承認デスク</div></div>'
         '<div class="bubble">「おつかれさま。今日は何を一緒に整理しようか？」</div></section>'
-        # MISSION 025: 既存 GET /api/logs (読み取り専用・work_logs) だけを
-        # 参照し、「今日」の件数・完了数と、参考として記録全体の件数・完了数
-        # を表示する。書き込みは一切行わない。「今日」はこのページを開いた
-        # ブラウザのローカル日付で判定する(サーバー側の状態は変更しない)。
+        # MISSION 026: 社長室を「業務司令室」として拡張し、今日の作業件数・
+        # 完了件数・進行中件数、最新の仕事(最大3件)、いま優先することを、
+        # 既存 GET /api/logs (読み取り専用・work_logs) だけから表示する。
+        # 「完了」以外はすべて「進行中」として扱う判定基準は、ライブオフィス
+        # の各デスク(office())の判定基準(log[4]==="完了")と完全に一致させて
+        # おり、フロア側の表示と矛盾しないようにしている。書き込みは一切
+        # 行わない。「今日」はこのページを開いたブラウザのローカル日付で
+        # 判定する(サーバー側の状態は変更しない)。
+        '<section class="command" aria-label="業務司令室"><h2 class="sr-only">業務司令室</h2>'
+        '<div class="command-stats" aria-live="polite">'
+        '<div class="stat"><b id="ceo-today-count">-</b><span>今日の作業</span></div>'
+        '<div class="stat"><b id="ceo-today-done">-</b><span>完了</span></div>'
+        '<div class="stat"><b id="ceo-today-progress">-</b><span>進行中</span></div>'
+        '</div>'
+        '<p class="command-note" id="ceo-total-note">記録全体を確認中…</p>'
+        '<div class="command-block"><h3>最新の仕事（最大3件）</h3>'
+        '<ul id="ceo-recent-list" aria-live="polite"><li>読み込んでいます…</li></ul></div>'
+        '<div class="command-block"><h3>いま優先すること</h3>'
+        '<p id="ceo-priority" aria-live="polite">確認しています…</p></div>'
+        '</section>'
         '<script>fetch("/api/logs").then(r=>r.ok?r.json():Promise.reject()).then(logs=>{'
+        'const isDone=l=>l[4]==="完了";'
         'const todayStr=new Date().toISOString().slice(0,10);'
         'const todayLogs=logs.filter(l=>String(l[1]).slice(0,10)===todayStr);'
-        'const todayDone=todayLogs.filter(l=>l[4]==="完了").length;'
-        'const totalDone=logs.filter(l=>l[4]==="完了").length;'
+        'const todayDone=todayLogs.filter(isDone).length;'
+        'const todayProgress=todayLogs.length-todayDone;'
+        'const totalDone=logs.filter(isDone).length;'
         'document.querySelector("#ceo-today-count").textContent=todayLogs.length;'
         'document.querySelector("#ceo-today-done").textContent=todayDone;'
+        'document.querySelector("#ceo-today-progress").textContent=todayProgress;'
         'document.querySelector("#ceo-total-note").textContent='
         '"記録全体："+logs.length+"件（完了 "+totalDone+"件）";'
+        'const recentList=document.querySelector("#ceo-recent-list");'
+        'recentList.innerHTML=logs.length?'
+        'logs.slice(0,3).map(l=>"<li>"+l[2]+"（"+l[4]+"）</li>").join(""):'
+        '"<li>表示できる作業ログはまだありません。</li>";'
+        'const priorityEl=document.querySelector("#ceo-priority");'
+        'const nextUp=logs.find(l=>!isDone(l));'
+        'priorityEl.textContent=nextUp?'
+        'nextUp[2]+"を進めましょう（現在："+nextUp[4]+"）":'
+        '(logs.length?"記録されている作業はすべて完了しています。":'
+        '"表示できる作業ログはまだありません。");'
         '}).catch(()=>{'
         'document.querySelector("#ceo-today-count").textContent="―";'
         'document.querySelector("#ceo-today-done").textContent="―";'
+        'document.querySelector("#ceo-today-progress").textContent="―";'
         'document.querySelector("#ceo-total-note").textContent="作業ログを取得できませんでした。";'
+        'document.querySelector("#ceo-recent-list").innerHTML='
+        '"<li>作業ログを取得できませんでした。</li>";'
+        'document.querySelector("#ceo-priority").textContent="作業ログを取得できませんでした。";'
         '});</script>'
         '<section class="chat" aria-labelledby="chat-title"><h2 id="chat-title">柴犬社長に話しかける</h2><p>進捗・相談・次の一歩を入力できます。内容は保存・送信されません。</p>'
         '<div id="log" class="log" aria-live="polite"><p class="boss">🐕 柴犬社長：今日の調子はどう？一緒に優先順位を決めよう。</p></div>'

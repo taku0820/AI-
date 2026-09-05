@@ -238,6 +238,67 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn(".catch(()=>{", office_html)
     self.assertIn(".catch(()=>{", ceo_html)
 
+  # --- MISSION 026: 社長室(業務司令室)への拡張 --------------------------------
+
+  def test_ceo_office_shows_today_progress_count_in_addition_to_done(self):
+    # 「今日の作業件数・完了件数・進行中件数」の3つがすべて表示される。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="ceo-today-count"', html)
+    self.assertIn('id="ceo-today-done"', html)
+    self.assertIn('id="ceo-today-progress"', html)
+    self.assertIn("今日の作業", html)
+    self.assertIn("完了", html)
+    self.assertIn("進行中", html)
+
+  def test_ceo_office_shows_up_to_three_recent_items(self):
+    # 最新の仕事を最大3件表示する一覧が存在し、slice(0,3)で件数を
+    # 制限していることをスクリプト内容で確認する。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="ceo-recent-list"', html)
+    self.assertIn("最新の仕事", html)
+    self.assertIn("logs.slice(0,3)", html)
+
+  def test_ceo_office_shows_priority_derived_from_real_data(self):
+    # 「いま優先すること」は、実データのうち未完了(進行中)の最新項目から
+    # 導出される(該当が無ければ安全なフォールバック文言になる)。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="ceo-priority"', html)
+    self.assertIn("いま優先すること", html)
+    self.assertIn("logs.find(l=>!isDone(l))", html)
+    self.assertIn("すべて完了しています", html)
+
+  def test_ceo_office_and_office_desks_use_identical_completion_rule(self):
+    # 社長室とライブオフィスの各デスクが、"完了"以外はすべて"進行中"として
+    # 扱うという同一の判定基準を使っていることを確認する(表示の整合性)。
+    office_html = self.client.get("/office").get_data(as_text=True)
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('log[4]==="完了"', office_html)
+    self.assertIn('l[4]==="完了"', ceo_html)
+
+  def test_ceo_office_command_center_reads_only_logs_and_never_writes(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertNotIn("/api/employees", html)
+    self.assertNotIn("/api/missions", html)
+    self.assertNotIn("/api/tasks", html)
+    self.assertNotIn("/api/audit-logs", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_ceo_office_command_center_has_fallback_text_for_all_new_fields(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn(
+        'document.querySelector("#ceo-today-progress").textContent="―"', html
+    )
+    self.assertIn(
+        '"<li>作業ログを取得できませんでした。</li>"', html
+    )
+    self.assertIn(
+        'document.querySelector("#ceo-priority").textContent='
+        '"作業ログを取得できませんでした。"',
+        html,
+    )
+
   def test_ceo_chat_is_explicitly_local_and_non_persistent(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("内容は保存・送信されません", html)
