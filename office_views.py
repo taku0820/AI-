@@ -43,6 +43,21 @@ LIVE_DATA_STYLE = """
 .qa-btn{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit}
 .qa-btn:hover,.qa-btn:focus-visible{border-color:var(--blue);color:var(--blue)}
 a.qa-btn{text-decoration:none;display:inline-block}
+.desk{background:none;border:0;margin:0;padding:0;font:inherit;color:inherit;text-align:center;cursor:pointer}
+.desk:focus-visible{outline:3px solid var(--blue);outline-offset:4px;border-radius:12px}
+@keyframes desk-highlight{0%,100%{outline-color:var(--blue)}50%{outline-color:var(--green)}}
+.desk.is-target{outline:3px solid var(--blue);outline-offset:4px;border-radius:12px;animation:desk-highlight 1.6s ease-in-out 3}
+.desk-detail{margin-top:12px;padding:14px 16px;background:var(--panel);border:1px solid var(--edge);border-radius:16px;position:relative}
+.desk-detail[hidden]{display:none}
+.desk-detail-close{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:50%;background:#0f1a2c;border:1px solid var(--edge);color:var(--ink);cursor:pointer;font-size:14px;line-height:1;font-family:inherit}
+.desk-detail-close:hover,.desk-detail-close:focus-visible{border-color:var(--blue);color:var(--blue)}
+.desk-detail h2{margin:0 26px 2px 0;font-size:16px}
+.desk-detail-role{margin:0 0 10px;font-size:11px;color:var(--sub)}
+.desk-detail-facts{margin:0 0 10px;display:grid;gap:6px}
+.desk-detail-facts div{display:flex;gap:8px;font-size:12px;flex-wrap:wrap}
+.desk-detail-facts dt{color:var(--sub);min-width:96px;flex-shrink:0}
+.desk-detail-facts dd{margin:0;color:var(--ink)}
+.desk-detail-disclaimer{margin:0;font-size:10px;color:var(--sub);line-height:1.5;border-top:1px dashed var(--edge);padding-top:8px}
 </style>
 """
 
@@ -79,33 +94,115 @@ def register_office_views(app):
   @app.route("/office")
   def office():
     desks = (
-        ("misaki", "美咲", "進行を整理中", "&lt;/&gt;"), ("umi", "海", "デザイン調整中", "✦"),
-        ("minato", "湊", "実装中", "▍_"), ("ito", "伊藤", "テスト中", "✓"),
-        ("kotoe", "琴衣", "確認中", "▣"), ("aoi", "蒼", "投稿準備中", "●"),
+        ("misaki", "美咲", "WEBディレクター", "進行を整理中", "&lt;/&gt;"),
+        ("umi", "海", "UIデザイナー", "デザイン調整中", "✦"),
+        ("minato", "湊", "フロントエンド", "実装中", "▍_"),
+        ("ito", "伊藤", "QA・SEO", "テスト中", "✓"),
+        ("kotoe", "琴衣", "運用チーム", "確認中", "▣"),
+        ("aoi", "蒼", "運用チーム", "投稿準備中", "●"),
     )
-    # MISSION 025: 各デスクの<em>と状態チップにIDを振り、後続のスクリプトから
-    # 実データ(/api/logs)で書き換えられるようにする。IDが無い状態(=JS未実行/
-    # フェッチ失敗)でも、元の役割文言がそのまま表示され続けるフォールバックと
-    # なる。
+    # MISSION 025/028: 各デスクをクリック・キーボード操作可能な<button>に
+    # している(<button>はEnter/Spaceでの活性化を標準で備えるため、
+    # キーボード操作対応を別途実装する必要がない)。<em>と状態チップの
+    # IDは、後続のスクリプトから実データ(/api/logs)で書き換えるために
+    # 使う。IDが無い状態(=JS未実行/フェッチ失敗)でも、元の役割文言が
+    # そのまま表示され続けるフォールバックとなる。
     desk_html = "".join(
-        f'<div class="desk d{i + 1}" data-screen="{screen}">{figure(key, name)}<b>{name}</b>'
+        f'<button type="button" class="desk d{i + 1}" id="desk-{key}" data-key="{key}" '
+        f'data-screen="{screen}" aria-haspopup="true" aria-expanded="false" '
+        f'aria-controls="desk-detail-panel">{figure(key, name)}<b>{name}</b>'
         f'<em id="desk-task-{key}">{task}</em>'
-        f'<i class="status-chip status-pending" id="desk-status-{key}" aria-hidden="true"></i></div>'
-        for i, (key, name, task, screen) in enumerate(desks)
+        f'<i class="status-chip status-pending" id="desk-status-{key}" aria-hidden="true"></i></button>'
+        for i, (key, name, role, task, screen) in enumerate(desks)
     )
-    desk_keys_js = ",".join(f'"{key}"' for key, _name, _task, _screen in desks)
+    desk_keys_js = ",".join(f'"{key}"' for key, _n, _r, _t, _s in desks)
+    desk_info_js = ",".join(
+        f'"{key}":{{name:"{name}",role:"{role}"}}' for key, name, role, _t, _s in desks
+    )
     scene = (
         '<section class="scene office" aria-label="作業フロア"><div class="label">WEB制作・運用フロア<span>● LIVE</span></div>'
         '<div class="live-board" id="office-live-status" aria-live="polite"><b>実データを確認中</b><span>作業ログを読み込んでいます…</span></div>'
         '<div class="windows" aria-hidden="true"><i></i><i></i><i></i></div><div class="plant" aria-hidden="true">🪴</div>'
         '<div class="door"><b>☕</b><small>BREAK ROOM</small></div><div class="route" aria-hidden="true"></div>' + desk_html +
         f'<div class="walker">{figure("ayaka", "彩・休憩へ移動中")}<span>彩・休憩へ</span></div></section>'
-        # MISSION 025: 既存 GET /api/logs (読み取り専用・work_logs) のみを
+        # MISSION 028: デスクの詳細パネル。通常のドキュメントフロー内に置き、
+        # クリック/キーボードで選択したデスクの情報をJSで書き込んで表示する
+        # (初期状態はhiddenで、DB/APIへの副作用は一切ない)。個別の担当データが
+        # 実在しない旨の注記(desk-detail-disclaimer)を必ず含める。
+        '<div class="desk-detail" id="desk-detail-panel" role="region" '
+        'aria-label="デスクの詳細" hidden>'
+        '<button type="button" class="desk-detail-close" id="desk-detail-close" '
+        'aria-label="詳細を閉じる">×</button>'
+        '<h2 id="desk-detail-title">-</h2>'
+        '<p class="desk-detail-role" id="desk-detail-role">-</p>'
+        '<dl class="desk-detail-facts">'
+        '<div><dt>現在の状態</dt><dd id="desk-detail-status">-</dd></div>'
+        '<div><dt>最新の作業内容</dt><dd id="desk-detail-task">-</dd></div>'
+        '<div><dt>更新時刻</dt><dd id="desk-detail-time">-</dd></div>'
+        '</dl>'
+        '<p class="desk-detail-disclaimer" id="desk-detail-disclaimer">'
+        '※ このデスク専用に紐づく個別の担当データは存在しないため、既存の'
+        '作業ログを順番に表示している演出です。実際にこのAIが個人で担当した'
+        '記録ではありません。</p>'
+        '</div>'
+        # MISSION 025/028: 既存 GET /api/logs (読み取り専用・work_logs) のみを
         # 参照する。書き込み系メソッド・他のAPIエンドポイントは一切呼び出さ
         # ない。実データが6デスク分に満たない場合は、既存ログを巡回して割り
         # 当てる(件数が足りない分は元の役割文言のまま=フォールバック)。
         # 「完了」以外の状態はすべて進行中扱いとして安全側に倒す。
-        '<script>fetch("/api/logs").then(r=>r.ok?r.json():Promise.reject()).then(logs=>{'
+        # デスクをクリック/Enter/Spaceで選択すると、その時点で取得済みの
+        # 実データを詳細パネルへ表示する(取得前・失敗時は安全なフォール
+        # バック文言)。URLに #desk-<key> が付与されている場合は、該当デスク
+        # を視覚的に強調表示し、フォーカスを移し、詳細を自動表示する
+        # (社長室の「オフィスへ案内」からの遷移に対応)。
+        '<script>'
+        f'const deskInfo={{{desk_info_js}}};'
+        'let deskData={};'
+        'let lastFocusedDesk=null;'
+        'const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;'
+        'function fmtTime(ts){return ts?String(ts):"―";}'
+        'function openDeskDetail(key){'
+        'const info=deskInfo[key];'
+        'if(!info)return;'
+        'const panel=document.querySelector("#desk-detail-panel");'
+        'document.querySelector("#desk-detail-title").textContent=info.name;'
+        'document.querySelector("#desk-detail-role").textContent=info.role;'
+        'const data=deskData[key];'
+        'if(data){'
+        'document.querySelector("#desk-detail-status").textContent=data.status;'
+        'document.querySelector("#desk-detail-task").textContent=data.theme;'
+        'document.querySelector("#desk-detail-time").textContent=fmtTime(data.time);'
+        '}else{'
+        'document.querySelector("#desk-detail-status").textContent="データを取得できませんでした";'
+        'document.querySelector("#desk-detail-task").textContent="データを取得できませんでした";'
+        'document.querySelector("#desk-detail-time").textContent="―";'
+        '}'
+        'panel.hidden=false;'
+        'panel.dataset.openFor=key;'
+        'const btn=document.querySelector("#desk-"+key);'
+        'if(btn)btn.setAttribute("aria-expanded","true");'
+        'lastFocusedDesk=btn;'
+        'document.querySelector("#desk-detail-close").focus();'
+        '}'
+        'function closeDeskDetail(){'
+        'const panel=document.querySelector("#desk-detail-panel");'
+        'if(panel.hidden)return;'
+        'const openKey=panel.dataset.openFor;'
+        'if(openKey){'
+        'const btn=document.querySelector("#desk-"+openKey);'
+        'if(btn){btn.setAttribute("aria-expanded","false");btn.classList.remove("is-target");}'
+        '}'
+        'panel.hidden=true;'
+        'if(lastFocusedDesk)lastFocusedDesk.focus();'
+        '}'
+        'document.querySelectorAll(".desk").forEach(btn=>{'
+        'btn.addEventListener("click",()=>openDeskDetail(btn.dataset.key));'
+        '});'
+        'document.querySelector("#desk-detail-close").addEventListener("click",closeDeskDetail);'
+        'document.addEventListener("keydown",e=>{'
+        'if(e.key==="Escape")closeDeskDetail();'
+        '});'
+        'fetch("/api/logs").then(r=>r.ok?r.json():Promise.reject()).then(logs=>{'
         'const board=document.querySelector("#office-live-status");'
         'if(!logs.length){board.innerHTML="<b>実データ</b><span>表示できる作業ログはまだありません。</span>";}'
         'else{const latest=logs[0];board.innerHTML="<b>実データ</b><span>最新ログ："+latest[2]+"（"+latest[4]+"）</span>";}'
@@ -113,19 +210,33 @@ def register_office_views(app):
         'keys.forEach((key,i)=>{'
         'const em=document.querySelector("#desk-task-"+key);'
         'const chip=document.querySelector("#desk-status-"+key);'
-        'if(!em||!chip)return;'
-        'if(!logs.length){chip.className="status-chip status-none";return;}'
+        'if(!logs.length){if(chip)chip.className="status-chip status-none";deskData[key]=null;return;}'
         'const log=logs[i%logs.length];'
         'const done=log[4]==="完了";'
+        'deskData[key]={theme:log[2],status:log[4],time:log[1]};'
+        'if(!em||!chip)return;'
         'const theme=log[2].length>8?log[2].slice(0,8)+"…":log[2];'
         'em.textContent=theme+"（"+log[4]+"）";'
         'em.title=log[2]+"（"+log[4]+"）";'
         'chip.className="status-chip "+(done?"status-done":"status-progress");'
         '});'
+        'const hashMatch=location.hash.match(/^#desk-([a-z]+)$/);'
+        'if(hashMatch&&deskInfo[hashMatch[1]]){'
+        'const targetKey=hashMatch[1];'
+        'const targetBtn=document.querySelector("#desk-"+targetKey);'
+        'if(targetBtn){'
+        'targetBtn.classList.add("is-target");'
+        'targetBtn.scrollIntoView({behavior:reduceMotion?"auto":"smooth",block:"center"});'
+        'openDeskDetail(targetKey);'
+        '}'
+        '}'
         '}).catch(()=>{'
         'document.querySelector("#office-live-status").innerHTML="<b>実データ</b><span>作業ログを取得できませんでした。</span>";'
         'document.querySelectorAll(".status-chip").forEach(c=>{c.className="status-chip status-none";});'
-        '});</script>'
+        f'const keys=[{desk_keys_js}];'
+        'keys.forEach(key=>{deskData[key]=null;});'
+        '});'
+        '</script>'
         '<p class="note"><span class="dot"></span><b>いまの様子</b>彩が経理デスクから休憩室へ向かい、しばらくするとフロアへ戻ります。</p>'
     )
     return _page("office", "ライブオフィス", "デスクでの作業と小さな移動を眺められるフロアです。", scene)
@@ -138,7 +249,11 @@ def register_office_views(app):
         f'<div class="sofa">{figure("kotoe", "琴衣・休憩中")}{figure("umi", "海・休憩中")}<small>琴衣と海がひと息</small></div>'
         f'<div class="break-walker">{figure("aoi", "蒼・ドリンクを取りに移動中")}<small>蒼</small></div>'
         f'<div class="reading">{figure("ito", "伊藤・チェックリストを確認中")}<span>チェックリストを確認中</span></div></section>'
-        '<p class="note"><span class="dot"></span><b>小休憩中</b>移動は画面演出です。勤怠・タスク・データは変更されません。</p>'
+        # MISSION 028: 「休憩理由」「戻る予定」に相当する文言(誰が何を
+        # している/どこへ向かっているという表現)は、いずれも実データに
+        # 基づかない画面演出であることを明記する。
+        '<p class="note"><span class="dot"></span><b>小休憩中</b>移動・休憩理由・戻る予定はすべて画面演出であり、'
+        '実データに基づくものではありません。勤怠・タスク・データは変更されません。</p>'
     )
     return _page("break", "休憩室", "作業の合間に、メンバーが順番に小休憩するスペースです。", scene)
 
@@ -170,7 +285,14 @@ def register_office_views(app):
         '<div class="command-block"><h3>いま優先すること</h3>'
         '<p id="ceo-priority" aria-live="polite">確認しています…</p></div>'
         '</section>'
-        '<script>fetch("/api/logs").then(r=>r.ok?r.json():Promise.reject()).then(logs=>{'
+        # MISSION 028: 「オフィスへ案内」のリンク先を、実データ上「いま
+        # 優先すること」に対応するデスクのハッシュ(#desk-<key>)へ動的に
+        # 差し替える。deskKeysの並び順はoffice()側のdesksタプルと同一に
+        # しており、両画面のデスク割り当て(logs[i % logs.length])が
+        # 一致するようにしている。あくまで通常の<a href>属性を書き換える
+        # だけであり、location.href等によるJS遷移は行わない。
+        '<script>const deskKeys=["misaki","umi","minato","ito","kotoe","aoi"];'
+        'fetch("/api/logs").then(r=>r.ok?r.json():Promise.reject()).then(logs=>{'
         'const isDone=l=>l[4]==="完了";'
         'const todayStr=new Date().toISOString().slice(0,10);'
         'const todayLogs=logs.filter(l=>String(l[1]).slice(0,10)===todayStr);'
@@ -192,6 +314,11 @@ def register_office_views(app):
         'nextUp[2]+"を進めましょう（現在："+nextUp[4]+"）":'
         '(logs.length?"記録されている作業はすべて完了しています。":'
         '"表示できる作業ログはまだありません。");'
+        'if(nextUp){'
+        'const idx=logs.indexOf(nextUp);'
+        'const targetKey=deskKeys[idx%deskKeys.length];'
+        'document.querySelector("#qa-office").setAttribute("href","/office#desk-"+targetKey);'
+        '}'
         '}).catch(()=>{'
         'document.querySelector("#ceo-today-count").textContent="―";'
         'document.querySelector("#ceo-today-done").textContent="―";'

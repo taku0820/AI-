@@ -343,6 +343,112 @@ class DashboardDesignTestCase(unittest.TestCase):
         '"🐕 柴犬社長：作業ログを取得できませんでした。"', html
     )
 
+  # --- MISSION 028: デスク詳細と案内(クリック・キーボード操作対応) --------------
+
+  def test_desks_are_keyboard_and_click_operable_buttons(self):
+    # <button>はEnter/Space/クリックのいずれでも標準で活性化するため、
+    # 各デスクを<button>にしていることでキーボード操作対応も満たす。
+    html = self.client.get("/office").get_data(as_text=True)
+    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+      self.assertIn(f'id="desk-{key}"', html)
+      self.assertIn(f'data-key="{key}"', html)
+    self.assertEqual(html.count('<button type="button" class="desk d'), 6)
+    self.assertIn('aria-haspopup="true"', html)
+    self.assertIn('aria-expanded="false"', html)
+    self.assertIn('aria-controls="desk-detail-panel"', html)
+
+  def test_desk_detail_panel_has_required_fields_and_is_hidden_initially(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('id="desk-detail-panel"', html)
+    self.assertIn('id="desk-detail-panel" role="region"', html)
+    self.assertIn("hidden>", html)  # 初期状態は非表示
+    self.assertIn('id="desk-detail-title"', html)  # AI名
+    self.assertIn('id="desk-detail-role"', html)  # 役割
+    self.assertIn('id="desk-detail-status"', html)  # 現在の状態
+    self.assertIn('id="desk-detail-task"', html)  # 最新の作業内容
+    self.assertIn('id="desk-detail-time"', html)  # 更新時刻
+
+  def test_desk_detail_disclaimer_is_honest_about_no_individual_assignment(self):
+    # 実データにAI個別の担当情報が存在しないことを、断定せず誠実に示す。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('id="desk-detail-disclaimer"', html)
+    self.assertIn("個別の担当データは存在しない", html)
+    self.assertIn("既存の作業ログを順番に表示している演出", html)
+    self.assertIn("実際にこのAIが個人で担当した", html)
+
+  def test_desk_detail_close_and_escape_are_supported(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('id="desk-detail-close"', html)
+    self.assertIn("closeDeskDetail", html)
+    self.assertIn('e.key==="Escape"', html)
+    # 閉じた後、直前にフォーカスしていたデスクへフォーカスを戻す。
+    self.assertIn("lastFocusedDesk.focus()", html)
+
+  def test_desk_click_and_detail_scripts_use_only_existing_logs_api(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('fetch("/api/logs")', html)
+    self.assertNotIn("/api/employees", html)
+    self.assertNotIn("/api/missions", html)
+    self.assertNotIn("/api/tasks", html)
+    self.assertNotIn("/api/audit-logs", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_hash_deep_link_highlights_and_opens_target_desk(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn("location.hash.match", html)
+    self.assertIn("classList.add(\"is-target\")", html)
+    self.assertIn("openDeskDetail(targetKey)", html)
+    self.assertIn("scrollIntoView", html)
+
+  def test_ceo_office_link_points_to_desk_hash_dynamically(self):
+    # 既定はプレーンな/officeへのリンクだが(JS未実行/フェッチ失敗時の
+    # フォールバック)、実データが取得できれば「いま優先すること」に
+    # 対応するデスクの#desk-<key>へ、通常のhref書き換えのみで更新される。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="qa-office" href="/office"', html)
+    self.assertIn('setAttribute("href","/office#desk-"+targetKey)', html)
+    self.assertIn(
+        'const deskKeys=["misaki","umi","minato","ito","kotoe","aoi"];', html
+    )
+    self.assertNotIn("location.href", html)
+
+  def test_desk_order_is_identical_between_office_and_ceo_office(self):
+    # 社長室のdeskKeysとオフィスのdesksタプルの並び順が一致していることを
+    # 確認する(ログのローテーション割り当てが両画面で食い違わないため)。
+    office_html = self.client.get("/office").get_data(as_text=True)
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn(
+        'const keys=["misaki","umi","minato","ito","kotoe","aoi"];', office_html
+    )
+    self.assertIn(
+        'const deskKeys=["misaki","umi","minato","ito","kotoe","aoi"];', ceo_html
+    )
+
+  def test_reduced_motion_is_respected_for_scroll_and_highlight(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    # CSSアニメーション(強調表示のパルス)は既存のprefers-reduced-motion
+    # 一括縮退の対象になる。
+    self.assertIn("@keyframes desk-highlight", html)
+    self.assertIn(".desk.is-target", html)
+    # scrollIntoViewのsmoothスクロールは、CSSではなくJSでreduced-motionを
+    # 判定して切り替える必要がある。
+    self.assertIn(
+        'window.matchMedia("(prefers-reduced-motion: reduce)").matches', html
+    )
+    self.assertIn('reduceMotion?"auto":"smooth"', html)
+
+  def test_desk_role_labels_are_present(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO", "運用チーム"):
+      self.assertIn(role, html)
+
+  def test_break_room_reason_and_return_plan_marked_as_not_real_data(self):
+    html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn("休憩理由・戻る予定はすべて画面演出であり", html)
+    self.assertIn("実データに基づくものではありません", html)
+
   def test_manual_chat_form_is_unaffected_by_quick_actions(self):
     # 手入力チャット(#chat-form)のハンドラは、クイックアクション追加後も
     # 引き続きAPI通信をしないローカル演出のままであることを確認する
