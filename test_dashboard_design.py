@@ -449,6 +449,107 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("休憩理由・戻る予定はすべて画面演出であり", html)
     self.assertIn("実データに基づくものではありません", html)
 
+  # --- MISSION 029: ローカル収益化ボード ---------------------------------------
+
+  def test_dashboard_links_to_revenue_board(self):
+    self.assertIn('href="/revenue"', self.html)
+    self.assertIn("収益化ボードを見る", self.html)
+
+  def test_revenue_board_page_loads(self):
+    res = self.client.get("/revenue")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("収益化ボード", html)
+    self.assertIn("<title>収益化ボード | AI Hive</title>", html)
+
+  def test_revenue_board_reachable_from_ceo_office_and_office_rooms(self):
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('href="/revenue"', html)
+        self.assertIn("収益化ボード", html)
+
+  def test_revenue_board_shows_first_priority_business(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("第一優先事業", html)
+    self.assertIn("美容サロン向けWeb制作", html)
+
+  def test_revenue_board_shows_all_required_content_cards(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("事業の目的", html)
+    self.assertIn("美容サロンの集客・予約導線を整えるWeb制作支援", html)
+    self.assertIn("想定するお客さま像", html)
+    self.assertIn("地域の美容サロン、小規模店、Web集客を改善したい事業者", html)
+    self.assertIn("サービス案", html)
+    self.assertIn("LP制作", html)
+    self.assertIn("既存サイト改善", html)
+    self.assertIn("予約導線・SNS導線の整理", html)
+    self.assertIn("受注までの段階", html)
+    for stage in ("準備", "提案", "商談", "受注"):
+      self.assertIn(stage, html)
+    self.assertIn("今週の優先行動", html)
+    self.assertIn("ポートフォリオ整理", html)
+    self.assertIn("提案テンプレート作成", html)
+    self.assertIn("見込みサロンの条件整理", html)
+
+  def test_revenue_board_price_is_an_explicit_draft_not_final(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("価格帯", html)
+    self.assertIn("未確定", html)
+    self.assertIn("確定した金額・契約内容ではありません", html)
+    self.assertIn("未定", html)
+    # 具体的な金額(円記号)を捏造して確定価格のように見せていないこと。
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+
+  def test_revenue_board_states_it_is_internal_draft_not_sent_or_published(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("社内の企画たたき台です", html)
+    self.assertIn("外部への送信・公開", html)
+    self.assertIn("自動的な実行は一切行われません", html)
+    self.assertIn("localhost限定", html)
+
+  def test_revenue_board_has_no_external_resources_or_scripts(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("<script", html)
+    self.assertNotIn("fetch(", html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
+
+  def test_revenue_board_is_fully_read_only_no_api_or_write_methods(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_revenue_board_has_responsive_layout(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("@media(max-width:760px){.revenue-grid", html)
+
+  def test_revenue_board_content_is_data_driven_for_future_edits(self):
+    # 将来の差し替えやすさ: HTML生成コードとは独立したデータ構造
+    # (REVENUE_FOCUS)から画面が組み立てられていることを確認する。
+    import office_views
+    self.assertIn("business_name", office_views.REVENUE_FOCUS)
+    self.assertIn("price_tiers", office_views.REVENUE_FOCUS)
+    self.assertIn("weekly_priorities", office_views.REVENUE_FOCUS)
+    rendered = office_views._render_revenue_scene(office_views.REVENUE_FOCUS)
+    self.assertIn(office_views.REVENUE_FOCUS["business_name"], rendered)
+
+  def test_existing_office_pages_unaffected_by_revenue_tab_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
   def test_manual_chat_form_is_unaffected_by_quick_actions(self):
     # 手入力チャット(#chat-form)のハンドラは、クイックアクション追加後も
     # 引き続きAPI通信をしないローカル演出のままであることを確認する

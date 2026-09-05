@@ -58,6 +58,27 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .desk-detail-facts dt{color:var(--sub);min-width:96px;flex-shrink:0}
 .desk-detail-facts dd{margin:0;color:var(--ink)}
 .desk-detail-disclaimer{margin:0;font-size:10px;color:var(--sub);line-height:1.5;border-top:1px dashed var(--edge);padding-top:8px}
+.revenue-board{max-width:900px;margin:0 auto}
+.revenue-notice{background:#1c2c1f;border:1px solid #2f5136;color:#bfe8c6;padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:16px}
+.revenue-notice b{color:#eafff0;display:block;margin-bottom:2px;font-size:13px}
+.revenue-card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:14px 16px}
+.revenue-card.revenue-focus{background:linear-gradient(135deg,#16233c,#0f1a2c);border:1px solid var(--blue);margin-bottom:16px}
+.revenue-tag{display:inline-block;background:#0b2540;color:var(--blue);font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 10px;border-radius:999px;margin-bottom:6px}
+.revenue-focus h2{margin:0;font-size:20px}
+.revenue-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.revenue-card h3{margin:0 0 8px;font-size:13px;color:var(--sub);font-weight:700;letter-spacing:.03em}
+.revenue-card p{margin:0;font-size:13px;line-height:1.6}
+.revenue-card ul,.revenue-card ol{margin:0;padding-left:18px;font-size:12px;line-height:1.8}
+.revenue-price-note{font-size:11px;color:var(--sub);margin:0 0 8px}
+.revenue-price-tiers{list-style:none;padding:0;display:grid;gap:6px}
+.revenue-price-tiers li{display:flex;justify-content:space-between;gap:8px;background:#0f1a2c;border:1px solid var(--edge);border-radius:8px;padding:6px 10px;font-size:12px}
+.revenue-price-tiers b{color:var(--sub);font-weight:600}
+.revenue-pipeline{display:flex;gap:6px;list-style:none;padding:0;flex-wrap:wrap}
+.revenue-pipeline li{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:5px 12px;font-size:11px}
+.revenue-pipeline li:not(:last-child):after{content:"→";margin-left:8px;color:var(--sub)}
+.revenue-priorities li{margin-bottom:4px}
+.revenue-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
+@media(max-width:760px){.revenue-grid{grid-template-columns:1fr}}
 </style>
 """
 
@@ -74,6 +95,7 @@ def _page(room, title, lead, scene):
       ("office", "/office", "オフィス"),
       ("break", "/office/break-room", "休憩室"),
       ("ceo", "/office/ceo-office", "社長室"),
+      ("revenue", "/revenue", "収益化ボード"),
   ]
   nav = "".join(
       f'<a class="{"active" if key == room else ""}" href="{href}" '
@@ -86,6 +108,84 @@ def _page(room, title, lead, scene):
       f'</head><body><header class="head"><div><h1>{title}</h1><p>{lead}</p></div>'
       f'<a href="/">← ダッシュボードへ戻る</a></header><nav class="tabs" aria-label="部屋を選ぶ">{nav}'
       f'</nav><main>{scene}</main></body></html>'
+  )
+
+
+# MISSION 029: ローカル収益化ボード。
+#
+# ここに書く内容は、すべて「社内の企画たたき台」であり、外部への送信・
+# 公開や、自動的な実行は一切行わない(表示専用の静的コンテンツ)。将来、
+# 検討する事業を差し替える場合は、このデータ構造(REVENUE_FOCUS)の値を
+# 書き換えるだけでよく、以下のHTML生成コード自体には手を入れなくてよい
+# ように分離している。
+REVENUE_FOCUS = {
+    "business_name": "美容サロン向けWeb制作",
+    "purpose": "美容サロンの集客・予約導線を整えるWeb制作支援",
+    "target_customer": "地域の美容サロン、小規模店、Web集客を改善したい事業者",
+    "service_ideas": [
+        "LP制作",
+        "既存サイト改善",
+        "予約導線・SNS導線の整理",
+    ],
+    "price_note": "価格帯はすべて未確定の「たたき台」です。確定した金額・契約内容ではありません。",
+    "price_tiers": [
+        ("エントリー帯", "未定"),
+        ("スタンダード帯", "未定"),
+        ("プレミアム帯", "未定"),
+    ],
+    "pipeline_stages": ["準備", "提案", "商談", "受注"],
+    "weekly_priorities": [
+        "ポートフォリオ整理",
+        "提案テンプレート作成",
+        "見込みサロンの条件整理",
+    ],
+}
+
+
+def _render_revenue_scene(focus):
+  """収益化ボードのカード群を、REVENUE_FOCUSのデータから組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・外部通信への
+  アクセスは一切行わない。
+  """
+  service_items = "".join(f"<li>{item}</li>" for item in focus["service_ideas"])
+  price_items = "".join(
+      f"<li><span>{label}</span><b>{value}</b></li>"
+      for label, value in focus["price_tiers"]
+  )
+  pipeline_items = "".join(f"<li>{stage}</li>" for stage in focus["pipeline_stages"])
+  priority_items = "".join(
+      f"<li>{item}</li>" for item in focus["weekly_priorities"]
+  )
+  return (
+      '<section class="revenue-board" aria-label="収益化ボード">'
+      '<div class="revenue-notice">'
+      '<b>社内の企画たたき台です。</b>'
+      'ここに表示する内容は検討中の案であり、外部への送信・公開、'
+      '自動的な実行は一切行われません。'
+      '</div>'
+      '<div class="revenue-card revenue-focus">'
+      '<span class="revenue-tag">第一優先事業</span>'
+      f'<h2>{focus["business_name"]}</h2>'
+      '</div>'
+      '<div class="revenue-grid">'
+      '<div class="revenue-card"><h3>事業の目的</h3>'
+      f'<p>{focus["purpose"]}</p></div>'
+      '<div class="revenue-card"><h3>想定するお客さま像</h3>'
+      f'<p>{focus["target_customer"]}</p></div>'
+      '<div class="revenue-card"><h3>サービス案</h3>'
+      f'<ul>{service_items}</ul></div>'
+      '<div class="revenue-card"><h3>価格帯（たたき台）</h3>'
+      f'<p class="revenue-price-note">{focus["price_note"]}</p>'
+      f'<ul class="revenue-price-tiers">{price_items}</ul></div>'
+      '<div class="revenue-card"><h3>受注までの段階</h3>'
+      f'<ol class="revenue-pipeline">{pipeline_items}</ol></div>'
+      '<div class="revenue-card"><h3>今週の優先行動</h3>'
+      f'<ol class="revenue-priorities">{priority_items}</ol></div>'
+      '</div>'
+      '<p class="revenue-footnote">この画面はlocalhost限定で表示される'
+      '社内検討用の資料です。送信・公開・自動実行は行われません。</p>'
+      '</section>'
   )
 
 
@@ -388,3 +488,13 @@ def register_office_views(app):
         '</script>'
     )
     return _page("ceo", "社長室", "柴犬社長と、今日の仕事について気軽に話せる小さな部屋です。", scene)
+
+  @app.route("/revenue")
+  def revenue_board():
+    scene = _render_revenue_scene(REVENUE_FOCUS)
+    return _page(
+        "revenue", "収益化ボード",
+        "外部公開・営業送信の前に、収益化の方針と今週の優先行動を確認するための"
+        "社内検討用ボードです。",
+        scene,
+    )

@@ -334,6 +334,7 @@ def index():
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
                 <a class="btn-top" href="/office" style="text-decoration:none;">ライブオフィスを見る</a>
+                <a class="btn-top" href="/revenue" style="text-decoration:none;">収益化ボードを見る</a>
                 <button class="btn-top" type="button" id="details-toggle" aria-expanded="false" aria-controls="details-panel">詳細を表示</button>
             </div>
         </div>
