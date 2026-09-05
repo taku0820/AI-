@@ -183,11 +183,79 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn('fetch("/api/employees")', html)
     self.assertNotIn('method="POST"', html)
 
+  # --- MISSION 025: 役割別ライブオフィス連携(実データ表示) --------------------
+
+  def test_fixed_desk_avatars_have_status_elements_for_real_data(self):
+    # 固定アバター(琴衣・蒼・美咲・海・湊・伊藤)それぞれのデスクに、
+    # 実データで更新される担当状況テキストと状態チップが用意されている。
+    html = self.client.get("/office").get_data(as_text=True)
+    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+      self.assertIn(f'id="desk-task-{key}"', html)
+      self.assertIn(f'id="desk-status-{key}"', html)
+    self.assertIn("status-chip", html)
+    self.assertIn("status-done", html)
+    self.assertIn("status-progress", html)
+
+  def test_office_script_only_reads_logs_and_never_writes(self):
+    # 実データ連携のスクリプトが、GET /api/logs 以外のエンドポイントや
+    # 書き込み系メソッドを一切呼び出していないことを確認する
+    # (hive_db.require_permission配下の新規Hive APIは一切対象にしない)。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertNotIn("/api/employees", html)
+    self.assertNotIn("/api/missions", html)
+    self.assertNotIn("/api/tasks", html)
+    self.assertNotIn("/api/audit-logs", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_desk_status_reflects_completed_vs_in_progress_logs(self):
+    # 実データ(work_logs)の"完了"ステータスはstatus-done、それ以外(進行中等)
+    # はstatus-progressへ安全に切り替わるロジックが含まれていることを、
+    # レスポンスHTML中のスクリプト文字列で確認する(実際のDOM挙動そのものは
+    # ヘッドレスブラウザでの目視確認で別途行った)。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('log[4]==="完了"', html)
+    self.assertIn('done?"status-done":"status-progress"', html)
+
+  def test_ceo_office_shows_today_and_total_task_counts_from_real_logs(self):
+    # 社長室に「今日の最新タスク数・完了数」を実データ(work_logs)から
+    # 表示する。書き込みは一切行わない。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="ceo-today-count"', html)
+    self.assertIn('id="ceo-today-done"', html)
+    self.assertIn('id="ceo-total-note"', html)
+    self.assertIn('fetch("/api/logs")', html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("/api/employees", html)
+    self.assertNotIn("/api/tasks", html)
+
+  def test_ceo_office_and_desk_scripts_have_graceful_fallback_on_fetch_failure(self):
+    # 作業ログの取得に失敗しても、例外を投げずに安全な表示へ切り替わる
+    # (catch節が存在する)ことを確認する。
+    office_html = self.client.get("/office").get_data(as_text=True)
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn(".catch(()=>{", office_html)
+    self.assertIn(".catch(()=>{", ceo_html)
+
   def test_ceo_chat_is_explicitly_local_and_non_persistent(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("内容は保存・送信されません", html)
     self.assertIn('id="chat-form"', html)
-    self.assertNotIn("/api/", html)
+    self.assertNotIn("/api/employees", html)
+    self.assertNotIn("/api/missions", html)
+    self.assertNotIn("/api/tasks", html)
+    self.assertNotIn("/api/audit-logs", html)
+    self.assertNotIn('method="POST"', html)
+    # 社長室にはMISSION 025で GET /api/logs (読み取り専用) を使った実データ
+    # 表示を追加したが、チャットの送信ハンドラ自体は依然として通信しない
+    # (定型リアクションをローカルに表示するだけ)ことをピンポイントで確認する。
+    chat_script_match = re.search(
+        r'const f=document\.querySelector\("#chat-form"\).*?</script>',
+        html, re.S,
+    )
+    self.assertIsNotNone(chat_script_match)
+    self.assertNotIn("fetch(", chat_script_match.group(0))
 
 
 if __name__ == "__main__":
