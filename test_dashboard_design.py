@@ -1006,6 +1006,141 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIsNotNone(chat_script_match)
     self.assertNotIn("fetch(", chat_script_match.group(0))
 
+  # --- MISSION 033: 7日間コンテンツ計画 ----------------------------------------
+
+  def test_content_studio_links_to_weekly_plan(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/content-studio/weekly-plan"', html)
+    self.assertIn("7日間コンテンツ計画", html)
+
+  def test_weekly_plan_page_loads(self):
+    res = self.client.get("/content-studio/weekly-plan")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("7日間コンテンツ計画", html)
+    self.assertIn("<title>7日間コンテンツ計画 | AI Hive</title>", html)
+
+  def test_weekly_plan_shows_seven_days_with_existing_themes_only(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    for day in range(1, 8):
+      self.assertIn(f"{day}日目：", html)
+    # 既存の投稿企画(初回投稿テーマ + CONTENT_STUDIO_TOPICSの4件)だけを
+    # 使っており、新しいテーマ名を発明していないことを確認する。
+    import office_views
+    self.assertIn(
+        office_views.FIRST_POST_PACKAGE["theme"], html
+    )
+    for topic in office_views.CONTENT_STUDIO_TOPICS[:4]:
+      self.assertIn(topic["title"], html)
+    # 「見送り」ステータスのテーマは計画に含めない。
+    passed_over = office_views.CONTENT_STUDIO_TOPICS[4]
+    self.assertEqual(passed_over["status"], "pass")
+    self.assertNotIn(passed_over["title"], html)
+
+  def test_weekly_plan_shows_medium_purpose_and_status_for_each_day(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    for medium in ("Pinterest", "Threads", "Instagram", "note"):
+      self.assertIn(f"<b>{medium}</b>", html)
+    for status_label in ("公開済み", "下書き", "確認待ち", "手動投稿候補"):
+      self.assertIn(status_label, html)
+    self.assertIn("目的：", html)
+
+  def test_weekly_plan_day_one_is_published_without_fabricated_numbers(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    day1_card = html.split("1日目：", 1)[1].split("2日目：", 1)[0]
+    self.assertIn("公開済み", day1_card)
+    self.assertIn("初回手動投稿パッケージ", day1_card)
+    self.assertIn("手動でPinterestへ投稿済み", day1_card)
+    self.assertIn("反応・成果は", day1_card)
+    for word in ("表示回数", "保存数", "クリック数"):
+      self.assertNotIn(f"{word}：", day1_card)  # 数値付きの記載ではない
+      self.assertNotIn(f"{word}が", day1_card)
+
+  def test_weekly_plan_days_two_to_seven_are_draft_not_scheduled_or_posted(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    rest = html.split("2日目：", 1)[1]
+    self.assertNotIn("自動投稿済み", rest)
+    self.assertNotIn("予約済み", rest)
+    self.assertNotIn("予約投稿済み", rest)
+    self.assertNotIn("自動投稿しました", rest)
+    # 「予約投稿」という語自体は、末尾の安全注記
+    # (「…予約投稿・広告出稿・営業送信は行われません」)にのみ、
+    # 「行われません」という否定形で登場することを確認する。
+    for occurrence in re.finditer("予約投稿", rest):
+      surrounding = rest[occurrence.start():occurrence.start() + 40]
+      self.assertIn("行われません", surrounding)
+    self.assertIn("下書き・計画段階", rest)
+    self.assertIn("投稿・公開・送信は行われていません", rest)
+
+  def test_weekly_plan_has_24_hour_post_publish_check_guidance(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertIn("公開後24時間で確認すること", html)
+    self.assertIn("表示回数", html)
+    self.assertIn("保存数", html)
+    self.assertIn("クリック数", html)
+    self.assertIn("手動確認", html)
+
+  def test_weekly_plan_explains_review_then_decide_flow(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertIn("初回投稿の実績", html)
+    self.assertIn("確認したうえで", html)
+    self.assertIn("自動化するかを判断します", html)
+
+  def test_weekly_plan_states_internal_draft_not_published_or_sent(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertIn("社内向けの確認用計画です", html)
+    self.assertIn("予約投稿・", html)
+    self.assertIn("自動投稿は一切行われません", html)
+    self.assertIn("localhost限定", html)
+    self.assertIn(
+        "SNS投稿・予約投稿・広告出稿・営業送信は行われません", html
+    )
+
+  def test_weekly_plan_has_no_external_resources_scripts_or_writes(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("<script", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+    # xmlns宣言等を含まないページのため、http(s)参照は皆無であるはず。
+    self.assertNotIn("http://", html)
+
+  def test_weekly_plan_has_responsive_layout(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("@media(max-width:760px){.wp-day-meta", html)
+
+  def test_weekly_plan_content_is_data_driven_for_future_edits(self):
+    import office_views
+    self.assertEqual(len(office_views.WEEKLY_PLAN), 7)
+    for entry in office_views.WEEKLY_PLAN:
+      self.assertIn(entry["status"], office_views.WEEKLY_PLAN_STATUS_LABELS)
+    rendered = office_views._render_weekly_plan_scene(
+        office_views.WEEKLY_PLAN,
+        office_views.WEEKLY_PLAN_STATUS_LABELS,
+        office_views.WEEKLY_PLAN_POST_PUBLISH_CHECKS,
+    )
+    self.assertIn("weekly-plan-board", rendered)
+
+  def test_existing_pages_unaffected_by_weekly_plan_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
 
 if __name__ == "__main__":
   unittest.main()

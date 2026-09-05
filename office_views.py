@@ -159,6 +159,27 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .fp-threads-card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
 .fp-footnote{margin-top:18px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.fp-pin-layout{grid-template-columns:1fr}.fp-svg-wrap{max-width:280px;margin:0 auto}}
+.weekly-plan-board{max-width:900px;margin:0 auto}
+.wp-notice{background:#1c2c1f;border:1px solid #2f5136;color:#bfe8c6;padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.wp-notice b{color:#eafff0;display:block;margin-bottom:2px;font-size:13px}
+.wp-callout{background:#101827;border:1px solid var(--blue);color:var(--ink);padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:18px}
+.wp-callout b{color:var(--blue);display:block;margin-bottom:4px;font-size:13px}
+.wp-callout ul{margin:6px 0 0;padding-left:18px}
+.wp-day-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.wp-day-card.is-published{border:2px solid var(--green)}
+.wp-day-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.wp-day-head h3{margin:0;font-size:15px}
+.wp-day-status{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px}
+.wp-day-status.status-published{background:#063d2c;color:var(--green)}
+.wp-day-status.status-manual_candidate{background:#0b2540;color:var(--blue)}
+.wp-day-status.status-review{background:#3d3106;color:#fbbf24}
+.wp-day-status.status-draft{background:#2a2f3d;color:#94a3b8}
+.wp-day-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--sub);margin-bottom:8px}
+.wp-day-meta span b{color:var(--ink);font-weight:600}
+.wp-day-checks{margin:8px 0 0;padding-left:18px;font-size:12px;line-height:1.7;color:var(--ink)}
+.wp-day-note{font-size:11px;color:var(--sub);margin:8px 0 0;line-height:1.6}
+.wp-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
+@media(max-width:760px){.wp-day-meta{flex-direction:column;gap:4px}}
 </style>
 """
 
@@ -635,7 +656,9 @@ def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
       '</div>'
       f'<p class="cs-theme">対象テーマ：<b>{theme}</b></p>'
       '<a class="cs-first-post-link" href="/content-studio/first-post">'
-      '→ 初回手動投稿パッケージを見る（Pinterest向け）</a>'
+      '→ 初回手動投稿パッケージを見る（Pinterest向け）</a> '
+      '<a class="cs-first-post-link" href="/content-studio/weekly-plan">'
+      '→ 7日間コンテンツ計画を見る</a>'
       f'<div class="cs-legend">{legend_items}</div>'
       + "".join(topic_cards)
       + (
@@ -952,8 +975,152 @@ def _render_first_post_scene(package):
   )
 
 
+# MISSION 033: 7日間コンテンツ計画(ローカル専用・確認用の見取り図)。
+#
+# 新しい投稿企画を考案するのではなく、既存の投稿企画(CONTENT_STUDIO_TOPICS
+# ・FIRST_POST_PACKAGE)だけを使って、7日分の「テーマ・想定媒体・目的・
+# 状態・投稿前に確認すること」を並べた見取り図。予約投稿・自動投稿の
+# スケジュールではなく、あくまで下書き・計画段階の一覧であることを
+# 明記する。1日目のみ、初回Pinterest投稿(FIRST_POST_PACKAGE)を
+# 「公開済み」として記録するが、反応数・成果は一切表示・推測しない。
+# 将来、日ごとの割り当てを差し替える場合は、このデータ構造
+# (WEEKLY_PLAN)を編集するだけでよい。
+WEEKLY_PLAN_POST_PUBLISH_CHECKS = [
+    "表示回数（インプレッション）をPinterest上で手動確認する",
+    "保存数をPinterest上で手動確認する",
+    "クリック数をPinterest上で手動確認する",
+]
+
+WEEKLY_PLAN = [
+    {
+        "day": 1,
+        "theme": "AI初心者が仕事で最初に試す3つの使い方",
+        "medium": "Pinterest",
+        "purpose": "保存・検索からの流入（初回投稿）",
+        "status": "published",
+        "note": (
+            "初回手動投稿パッケージ（/content-studio/first-post）の内容を、"
+            "柴犬社長が手動でPinterestへ投稿済みとして記録しています。"
+            "表示回数・保存数・クリック数などの反応・成果は、この画面では"
+            "一切表示・推測しません。"
+        ),
+    },
+    {
+        "day": 2,
+        "theme": "AI初心者が仕事で最初に試す3つの使い方",
+        "medium": "Threads",
+        "purpose": "初回投稿について会話のきっかけを作る",
+        "status": "draft",
+        "checks": ["断定的な表現になっていないか", "初回投稿の内容と矛盾していないか"],
+    },
+    {
+        "day": 3,
+        "theme": "AI初心者が最初に試す便利な使い方",
+        "medium": "Instagram",
+        "purpose": "保存・シェアされる分かりやすさ",
+        "status": "manual_candidate",
+        "checks": ["誰向けかが明確か", "誇大表現・断定的な言い回しがないか"],
+    },
+    {
+        "day": 4,
+        "theme": "AI初心者が最初に試す便利な使い方",
+        "medium": "note",
+        "purpose": "深く読んでもらい信頼を積み上げる",
+        "status": "manual_candidate",
+        "checks": ["見出しが内容を正しく表しているか", "誇大表現がないか"],
+    },
+    {
+        "day": 5,
+        "theme": "仕事の文章作成・要約をラクにするAI活用",
+        "medium": "Pinterest",
+        "purpose": "保存・検索からの流入",
+        "status": "manual_candidate",
+        "checks": ["タイトルが検索されやすいか", "altテキストが正しいか"],
+    },
+    {
+        "day": 6,
+        "theme": "デスク周りを整える便利ガジェット",
+        "medium": "Threads",
+        "purpose": "会話のきっかけづくり",
+        "status": "review",
+        "checks": ["紹介する商品ジャンルの選定基準が整理されているか（要確認事項）"],
+    },
+    {
+        "day": 7,
+        "theme": "スマホ・PC作業を快適にする周辺機器",
+        "medium": "Instagram",
+        "purpose": "保存・シェアされる分かりやすさ",
+        "status": "review",
+        "checks": ["対象ガジェットの切り口が絞り込まれているか（要確認事項）"],
+    },
+]
+
+WEEKLY_PLAN_STATUS_LABELS = {
+    "published": "公開済み（初回投稿）",
+    "draft": "下書き",
+    "review": "確認待ち",
+    "manual_candidate": "手動投稿候補",
+}
+
+
+def _render_weekly_plan_scene(plan, status_labels, publish_checks):
+  """7日間コンテンツ計画のHTMLを組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
+  アクセスは一切行わない。予約投稿・自動投稿は行っておらず、2日目以降は
+  すべて下書き・計画段階であることを明記する。
+  """
+  day_cards = []
+  for entry in plan:
+    status_key = entry["status"]
+    status_label = status_labels[status_key]
+    is_published = status_key == "published"
+    card_class = "wp-day-card is-published" if is_published else "wp-day-card"
+    meta = (
+        f'<div class="wp-day-meta">'
+        f'<span>想定媒体：<b>{entry["medium"]}</b></span>'
+        f'<span>目的：<b>{entry["purpose"]}</b></span>'
+        '</div>'
+    )
+    if is_published:
+      body = f'<p class="wp-day-note">{entry["note"]}</p>'
+    else:
+      checks_html = "".join(f'<li>{item}</li>' for item in entry["checks"])
+      body = (
+          '<p class="wp-day-note">投稿・公開・送信は行われていません（下書き・計画段階です）。</p>'
+          f'<ul class="wp-day-checks">{checks_html}</ul>'
+      )
+    day_cards.append(
+        f'<div class="{card_class}">'
+        '<div class="wp-day-head">'
+        f'<h3>{entry["day"]}日目：{entry["theme"]}</h3>'
+        f'<span class="wp-day-status status-{status_key}">{status_label}</span>'
+        '</div>'
+        f'{meta}{body}'
+        '</div>'
+    )
+
+  publish_checks_html = "".join(f'<li>{item}</li>' for item in publish_checks)
+
+  return (
+      '<section class="weekly-plan-board" aria-label="7日間コンテンツ計画">'
+      '<div class="wp-notice"><b>社内向けの確認用計画です。</b>'
+      'ここに表示する7日分の内容はすべて下書き・計画段階であり、予約投稿・'
+      '自動投稿は一切行われません。既存の投稿企画（投稿企画工場・初回手動'
+      '投稿パッケージ）だけを使って構成しています。</div>'
+      '<div class="wp-callout"><b>公開後24時間で確認すること（1日目・初回投稿）</b>'
+      f'<ul>{publish_checks_html}</ul></div>'
+      + "".join(day_cards) +
+      '<p class="wp-footnote">初回投稿の実績（表示回数・保存数・クリック数など）を柴犬社長が'
+      '確認したうえで、2日目以降のどの内容をどこまで自動化するかを判断します。'
+      'この画面はlocalhost限定で表示される社内検討用の資料であり、'
+      'SNS投稿・予約投稿・広告出稿・営業送信は行われません。</p>'
+      '</section>'
+  )
+
+
 def register_office_views(app):
-  """Flaskアプリへ3つの表示専用ルートを登録する。"""
+  """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
   def office():
     desks = (
@@ -1282,5 +1449,17 @@ def register_office_views(app):
         "content", "初回手動投稿パッケージ",
         "柴犬社長がPinterestへ手動投稿するための、最初の投稿素材一式を"
         "確認する画面です。",
+        scene,
+    )
+
+  @app.route("/content-studio/weekly-plan")
+  def content_studio_weekly_plan():
+    scene = _render_weekly_plan_scene(
+        WEEKLY_PLAN, WEEKLY_PLAN_STATUS_LABELS, WEEKLY_PLAN_POST_PUBLISH_CHECKS
+    )
+    return _page(
+        "content", "7日間コンテンツ計画",
+        "初回Pinterest投稿の反応を待つ間に、次の投稿候補と確認順を"
+        "柴犬社長が見渡すための社内検討用の計画表です。",
         scene,
     )
