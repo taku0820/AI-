@@ -124,6 +124,36 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cs-criteria-mark{flex-shrink:0;font-weight:700}
 .cs-criteria-mark.mark-pass{color:var(--green)}
 .cs-criteria-mark.mark-fail{color:#fbbf24}
+.cs-first-post-link{display:inline-block;margin:0 0 18px;font-size:12px;background:#0b2540;color:var(--blue);border:1px solid var(--blue);border-radius:999px;padding:8px 14px;text-decoration:none}
+.cs-first-post-link:hover{background:#123258}
+.first-post-board{max-width:1000px;margin:0 auto}
+.fp-notice{background:#1c2c1f;border:1px solid #2f5136;color:#bfe8c6;padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.fp-notice b{color:#eafff0;display:block;margin-bottom:2px;font-size:13px}
+.fp-note{padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:0 0 14px}
+.fp-note.fp-note-warn{background:#2c1f1c;border:1px solid #513629;color:#f0c9a5}
+.fp-note.fp-note-info{background:#101827;border:1px solid var(--edge);color:var(--sub)}
+.fp-note b{color:#ffe9d6}
+.fp-note-info b{color:var(--ink)}
+.fp-theme{font-size:12px;color:var(--sub);margin:0 0 16px}
+.fp-theme b{color:var(--ink)}
+.fp-section-title{font-size:16px;margin:22px 0 12px}
+.fp-pin-layout{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start}
+.fp-svg-wrap{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:10px;position:relative}
+.fp-svg-wrap svg{display:block;width:100%;height:auto;border-radius:10px}
+.fp-svg-ratio{font-size:10px;color:var(--sub);text-align:center;margin-top:6px}
+.fp-fields{display:grid;gap:12px}
+.fp-field{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px}
+.fp-field-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.fp-field-head h4{margin:0;font-size:11px;color:var(--sub);font-weight:700;letter-spacing:.03em}
+.fp-copy-btn{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit}
+.fp-copy-btn:hover,.fp-copy-btn:focus-visible{border-color:var(--blue);color:var(--blue)}
+.fp-field p{margin:0;font-size:13px;line-height:1.6}
+.fp-checklist{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.fp-checklist li{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 10px}
+.fp-checklist input{margin-top:2px}
+.fp-threads-card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
+.fp-footnote{margin-top:18px;font-size:11px;color:var(--sub);text-align:center}
+@media(max-width:760px){.fp-pin-layout{grid-template-columns:1fr}.fp-svg-wrap{max-width:280px;margin:0 auto}}
 </style>
 """
 
@@ -599,6 +629,8 @@ def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
       '一切実行されません。'
       '</div>'
       f'<p class="cs-theme">対象テーマ：<b>{theme}</b></p>'
+      '<a class="cs-first-post-link" href="/content-studio/first-post">'
+      '→ 初回手動投稿パッケージを見る（Pinterest向け）</a>'
       f'<div class="cs-legend">{legend_items}</div>'
       + "".join(topic_cards)
       + (
@@ -607,6 +639,199 @@ def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
       ) +
       '<p class="cs-footnote">この画面はlocalhost限定で表示される社内検討用の'
       '資料です。SNS投稿・note投稿・広告出稿・営業送信は行われません。</p>'
+      '</section>'
+  )
+
+
+# MISSION 032: 初回手動投稿パッケージ(Pinterest向け・ローカル専用)。
+#
+# ここに書く内容も、これまでの投稿企画工場と同様「社内向けの下書き」で
+# あり、SNSへの投稿・送信・連携は一切行わない(表示専用の静的コンテンツ、
+# 画像もローカルの画面内SVGのみで外部画像は使わない)。楽天アフィリエイト
+# リンクはまだ付けず、「今回の商品紹介はなし」であることを明記する。
+# 将来テーマ・文面・SVGの中身を差し替える場合は、このデータ構造
+# (FIRST_POST_PACKAGE)を編集するだけでよい。
+FIRST_POST_PACKAGE = {
+    "theme": "AI初心者が仕事で最初に試す3つの使い方",
+    "pin": {
+        "title": "仕事がラクになる、AIの使い方3選（AI初心者向け）",
+        "description": (
+            "メールの下書き・長い文章の要約・アイデア出しの壁打ち。AIを初めて使う人が、"
+            "今日から試せる3つの使い方をまとめました。特定の商品の紹介はありません。"
+        ),
+        "alt_text": (
+            "仕事がラクになるAIの使い方3選のイラスト。1. メールの下書きを1文で頼む "
+            "2. 長い文章を要約してもらう 3. アイデア出しの壁打ち相手にする。"
+            "AI初心者向けの使い方紹介画像で、特定の商品は写っていません。"
+        ),
+        "svg_headline": ["仕事がラクになる", "AIの使い方 3選"],
+        "svg_subtitle": "AI初心者向け",
+        "svg_items": [
+            {"number": "1", "lines": ["メールの下書きを", "1文で頼む"], "icon": "mail"},
+            {"number": "2", "lines": ["長い文章を", "要約してもらう"], "icon": "summary"},
+            {"number": "3", "lines": ["アイデア出しの", "壁打ち相手にする"], "icon": "idea"},
+        ],
+        "svg_footer": "毎日の仕事に、AIをひとつまみ。",
+    },
+    "threads_draft": (
+        "AIって結局なにに使えばいいの？って人へ。まずはメールの下書きを1文で頼む"
+        "ところから始めてみませんか。長い文章の要約やアイデア出しの壁打ちにも使えます。"
+    ),
+    "checklist": [
+        "タイトル・説明文に誇大表現や断定的な成果表現がないか確認した",
+        "商品名・価格・ランキング・実績などの未確認情報が含まれていないか確認した",
+        "画像内の文字が読みやすいか（誤字・はみ出しがないか）確認した",
+        "altテキストが画像の内容を正しく説明しているか確認した",
+        "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
+    ],
+    "no_product_note": "今回の商品紹介はなし（楽天アフィリエイトリンクは未設定です）。",
+    "manual_post_note": (
+        "この投稿は、柴犬社長がPinterestで手動投稿してください。投稿後、実際のURLや"
+        "反応（保存数・クリック数など）を確認したうえで、次にどこまで自動化するかを"
+        "判断します。現時点では自動投稿・自動連携は行いません。"
+    ),
+}
+
+# SVGアイコン(装飾のみ・画面内完結・外部素材なし)。
+_FIRST_POST_ICONS = {
+    "mail": (
+        '<rect x="-26" y="-18" width="52" height="36" rx="6" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<path d="M-26 -14 L0 4 L26 -14" fill="none" stroke="#38bdf8" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "summary": (
+        '<rect x="-24" y="-26" width="48" height="52" rx="6" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<line x1="-14" y1="-12" x2="14" y2="-12" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<line x1="-14" y1="0" x2="14" y2="0" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<line x1="-14" y1="12" x2="6" y2="12" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+    ),
+    "idea": (
+        '<circle cx="0" cy="-6" r="22" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<line x1="-8" y1="20" x2="8" y2="20" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<line x1="-5" y1="27" x2="5" y2="27" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+    ),
+}
+
+
+def _render_first_post_pin_svg(pin):
+  """Pinterest用の縦長2:3(1000x1500)ローカルSVG画像を組み立てる。
+
+  外部画像・外部フォント・外部素材は一切使わず、すべて画面内SVGの図形と
+  テキストだけで構成する。商品名・価格・実績・ランキング・断定的な
+  成果表現は一切含めない。
+  """
+  headline_lines = "".join(
+      f'<tspan x="500" dy="{0 if i == 0 else 70}">{line}</tspan>'
+      for i, line in enumerate(pin["svg_headline"])
+  )
+  item_blocks = []
+  card_height = 280
+  gap = 36
+  start_y = 430
+  for index, item in enumerate(pin["svg_items"]):
+    card_y = start_y + index * (card_height + gap)
+    icon_shape = _FIRST_POST_ICONS[item["icon"]]
+    label_lines = "".join(
+        f'<tspan x="220" dy="{0 if i == 0 else 46}">{line}</tspan>'
+        for i, line in enumerate(item["lines"])
+    )
+    item_blocks.append(
+        f'<g transform="translate(0,{card_y})">'
+        '<rect x="60" y="0" width="880" height="' + str(card_height) + '" rx="28" '
+        'fill="#101a30" stroke="#293958" stroke-width="2"/>'
+        '<circle cx="150" cy="' + str(card_height // 2) + '" r="46" fill="#0b2540" '
+        'stroke="#38bdf8" stroke-width="3"/>'
+        '<text x="150" y="' + str(card_height // 2 + 16) + '" text-anchor="middle" '
+        f'font-size="44" font-weight="700" fill="#38bdf8">{item["number"]}</text>'
+        f'<g transform="translate(80,{card_height // 2})">{icon_shape}</g>'
+        f'<text x="220" y="{card_height // 2 - 20}" font-size="40" font-weight="700" '
+        f'fill="#f1f5f9">{label_lines}</text>'
+        '</g>'
+    )
+  return (
+      '<svg viewBox="0 0 1000 1500" xmlns="http://www.w3.org/2000/svg" '
+      'role="img" aria-labelledby="pin-svg-title pin-svg-desc">'
+      f'<title id="pin-svg-title">{pin["title"]}</title>'
+      f'<desc id="pin-svg-desc">{pin["alt_text"]}</desc>'
+      '<defs><linearGradient id="pinBg" x1="0" y1="0" x2="0" y2="1">'
+      '<stop offset="0%" stop-color="#0b1220"/><stop offset="100%" stop-color="#1b2c4a"/>'
+      '</linearGradient></defs>'
+      '<rect width="1000" height="1500" fill="url(#pinBg)"/>'
+      '<text x="500" y="160" text-anchor="middle" font-size="64" font-weight="800" '
+      f'fill="#f1f5f9">{headline_lines}</text>'
+      '<text x="500" y="330" text-anchor="middle" font-size="30" font-weight="600" '
+      f'fill="#38bdf8">{pin["svg_subtitle"]}</text>'
+      + "".join(item_blocks) +
+      '<text x="500" y="1440" text-anchor="middle" font-size="26" fill="#a3b2c6">'
+      f'{pin["svg_footer"]}</text>'
+      '</svg>'
+  )
+
+
+def _render_first_post_scene(package):
+  """初回手動投稿パッケージ(Pinterest+Threads)のHTMLを組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
+  アクセスは一切行わない。コピー用ボタンはクライアント側JSのみで完結し、
+  クリップボード操作が失敗しても例外を伝播させず、安全なフォールバック
+  表示にする(register_office_views側のスクリプトで実装)。
+  """
+  pin = package["pin"]
+  svg_markup = _render_first_post_pin_svg(pin)
+  checklist_items = "".join(
+      f'<li><input type="checkbox" id="fp-check-{i}"><label for="fp-check-{i}">{item}</label></li>'
+      for i, item in enumerate(package["checklist"])
+  )
+  return (
+      '<section class="first-post-board" aria-label="初回手動投稿パッケージ">'
+      '<div class="fp-notice"><b>社内向けの投稿パッケージです。</b>'
+      'SNSへの投稿・送信・連携は一切行われません。柴犬社長が内容を確認し、'
+      '手動でPinterestへ投稿するための準備画面です。</div>'
+      f'<p class="fp-theme">対象テーマ：<b>{package["theme"]}</b></p>'
+      f'<div class="fp-note fp-note-warn"><b>商品紹介について。</b>{package["no_product_note"]}</div>'
+      f'<div class="fp-note fp-note-warn"><b>手動投稿について。</b>{package["manual_post_note"]}</div>'
+      '<h3 class="fp-section-title">Pinterest投稿素材</h3>'
+      '<div class="fp-pin-layout">'
+      f'<div><div class="fp-svg-wrap">{svg_markup}</div>'
+      '<p class="fp-svg-ratio">縦長 2:3（画面内SVG・外部画像なし）</p></div>'
+      '<div class="fp-fields">'
+      '<div class="fp-field"><div class="fp-field-head"><h4>タイトル</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="fp-title">コピー</button></div>'
+      f'<p id="fp-title">{pin["title"]}</p></div>'
+      '<div class="fp-field"><div class="fp-field-head"><h4>説明文</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="fp-description">コピー</button></div>'
+      f'<p id="fp-description">{pin["description"]}</p></div>'
+      '<div class="fp-field"><div class="fp-field-head"><h4>altテキスト</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="fp-alt">コピー</button></div>'
+      f'<p id="fp-alt">{pin["alt_text"]}</p></div>'
+      '</div>'
+      '</div>'
+      '<h3 class="fp-section-title">投稿前チェックリスト</h3>'
+      f'<ul class="fp-checklist">{checklist_items}</ul>'
+      '<h3 class="fp-section-title">Threads投稿案（同テーマ）</h3>'
+      '<div class="fp-threads-card"><div class="fp-field-head"><h4>Threads下書き</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="fp-threads">コピー</button></div>'
+      f'<p id="fp-threads">{package["threads_draft"]}</p></div>'
+      # MISSION 032: コピー操作はクライアント側JSのみで完結し、外部通信
+      # は行わない。navigator.clipboardが使えない/失敗する環境でも、
+      # 例外を投げずに安全な文言へフォールバックする。
+      '<script>document.querySelectorAll(".fp-copy-btn").forEach(btn=>{'
+      'btn.addEventListener("click",()=>{'
+      'const el=document.getElementById(btn.dataset.copyTarget);'
+      'if(!el)return;'
+      'const original=btn.textContent;'
+      'const showResult=ok=>{btn.textContent=ok?"コピーしました":"コピーできませんでした";'
+      'setTimeout(()=>{btn.textContent=original;},1800);};'
+      'try{'
+      'if(navigator.clipboard&&navigator.clipboard.writeText){'
+      'navigator.clipboard.writeText(el.textContent).then(()=>showResult(true))'
+      '.catch(()=>showResult(false));'
+      '}else{showResult(false);}'
+      '}catch(e){showResult(false);}'
+      '});'
+      '});</script>'
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の資料です。'
+      'Pinterest・Instagram・Threads・note・楽天への投稿・送信・連携は行われません。</p>'
       '</section>'
   )
 
@@ -931,5 +1156,15 @@ def register_office_views(app):
         "content", "投稿企画工場",
         "Instagram・Threads・Pinterest・noteへ展開する前に、1つのテーマから"
         "媒体別の投稿案を比較する社内検討用ボードです。",
+        scene,
+    )
+
+  @app.route("/content-studio/first-post")
+  def content_studio_first_post():
+    scene = _render_first_post_scene(FIRST_POST_PACKAGE)
+    return _page(
+        "content", "初回手動投稿パッケージ",
+        "柴犬社長がPinterestへ手動投稿するための、最初の投稿素材一式を"
+        "確認する画面です。",
         scene,
     )

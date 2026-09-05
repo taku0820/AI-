@@ -761,6 +761,139 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
     self.assertIn(office_views.CONTENT_STUDIO_REFINEMENT["topic_title"], rendered)
 
+  # --- MISSION 032: 初回手動投稿パッケージ(Pinterest向け) ----------------------
+
+  def test_content_studio_links_to_first_post_package(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/content-studio/first-post"', html)
+    self.assertIn("初回手動投稿パッケージ", html)
+
+  def test_first_post_page_loads(self):
+    res = self.client.get("/content-studio/first-post")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("初回手動投稿パッケージ", html)
+    self.assertIn("<title>初回手動投稿パッケージ | AI Hive</title>", html)
+
+  def test_first_post_shows_theme(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn("対象テーマ", html)
+    self.assertIn("AI初心者が仕事で最初に試す3つの使い方", html)
+
+  def test_first_post_svg_has_vertical_2_3_ratio_and_is_local_only(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn('<svg viewBox="0 0 1000 1500"', html)  # 1000:1500 = 2:3
+    self.assertIn("縦長 2:3", html)
+    self.assertNotIn("<img", html)
+    # xmlns="http://www.w3.org/2000/svg" はSVGの標準名前空間宣言であり、
+    # 外部リソースの読み込みではない。それ以外にhttp(s)参照がないことを
+    # 確認する。
+    self.assertIn('xmlns="http://www.w3.org/2000/svg"', html)
+    self.assertEqual(html.count("http://"), 1)
+    self.assertNotIn("https://", html)
+
+  def test_first_post_svg_shows_three_ways_in_readable_japanese(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn("仕事がラクになる", html)
+    self.assertIn("AIの使い方", html)
+    self.assertIn("AI初心者向け", html)
+    for line in (
+        "メールの下書きを", "1文で頼む", "長い文章を", "要約してもらう",
+        "アイデア出しの", "壁打ち相手にする",
+    ):
+      self.assertIn(line, html)
+
+  def test_first_post_shows_pinterest_title_description_and_alt_text(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn('id="fp-title"', html)
+    self.assertIn("仕事がラクになる、AIの使い方3選（AI初心者向け）", html)
+    self.assertIn('id="fp-description"', html)
+    self.assertIn('id="fp-alt"', html)
+    self.assertIn("特定の商品は写っていません", html)
+
+  def test_first_post_has_no_product_price_ranking_or_definitive_claims(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn("今回の商品紹介はなし", html)
+    self.assertIn("楽天アフィリエイトリンクは未設定です", html)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+    self.assertNotIn("位獲得", html)
+    self.assertNotIn("楽天市場URL", html)
+
+  def test_first_post_shows_pre_post_checklist(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn("投稿前チェックリスト", html)
+    for item in (
+        "誇大表現や断定的な成果表現がないか確認した",
+        "商品名・価格・ランキング・実績などの未確認情報が含まれていないか確認した",
+        "画像内の文字が読みやすいか",
+        "altテキストが画像の内容を正しく説明しているか確認した",
+        "手動で投稿できる準備ができている",
+    ):
+      self.assertIn(item, html)
+    self.assertEqual(html.count('type="checkbox"'), 5)
+
+  def test_first_post_shows_threads_draft(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn("Threads投稿案（同テーマ）", html)
+    self.assertIn('id="fp-threads"', html)
+    self.assertIn("AIって結局なにに使えばいいの？", html)
+
+  def test_first_post_states_manual_posting_and_next_automation_step(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn("柴犬社長がPinterestで手動投稿してください", html)
+    self.assertIn("実際のURLや", html)
+    self.assertIn("反応（保存数・クリック数など）を確認したうえで", html)
+    self.assertIn("次にどこまで自動化するかを", html)
+    self.assertIn("自動投稿・自動連携は行いません", html)
+
+  def test_first_post_copy_buttons_fail_safely_without_breaking_page(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertEqual(html.count('class="fp-copy-btn"'), 4)  # title/description/alt/threads
+    self.assertIn("navigator.clipboard&&navigator.clipboard.writeText", html)
+    self.assertIn(".catch(()=>showResult(false))", html)
+    self.assertIn("}catch(e){showResult(false);}", html)
+    self.assertIn('"コピーできませんでした"', html)
+
+  def test_first_post_has_no_external_resources_or_network_calls(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    # xmlns="http://www.w3.org/2000/svg" はSVGの標準名前空間宣言であり、
+    # 外部リソースの読み込みではないため、これだけを許容する。
+    self.assertEqual(html.count("http://"), 1)
+    self.assertIn('xmlns="http://www.w3.org/2000/svg"', html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("<script src=", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
+
+  def test_first_post_has_responsive_layout(self):
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("@media(max-width:760px){.fp-pin-layout", html)
+
+  def test_first_post_content_is_data_driven_for_future_edits(self):
+    import office_views
+    self.assertIn("pin", office_views.FIRST_POST_PACKAGE)
+    self.assertIn("checklist", office_views.FIRST_POST_PACKAGE)
+    self.assertEqual(len(office_views.FIRST_POST_PACKAGE["pin"]["svg_items"]), 3)
+    rendered = office_views._render_first_post_scene(office_views.FIRST_POST_PACKAGE)
+    self.assertIn(office_views.FIRST_POST_PACKAGE["theme"], rendered)
+
+  def test_existing_pages_unaffected_by_first_post_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
   def test_existing_pages_unaffected_by_content_studio_tab_addition(self):
     for path, title in (
         ("/office", "ライブオフィス"),
