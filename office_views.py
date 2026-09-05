@@ -101,6 +101,29 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cs-media-card p{margin:0;font-size:12px;line-height:1.6;color:var(--ink)}
 .cs-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.cs-topic-head{flex-direction:column}}
+.cs-refine-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--edge)}
+.cs-refine-title{margin:0 0 6px;font-size:16px}
+.cs-refine-intro{font-size:12px;color:var(--sub);line-height:1.6;margin:0 0 6px}
+.cs-refine-disclaimer{background:#1c2c1f;border:1px solid #2f5136;color:#bfe8c6;padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:8px 0}
+.cs-refine-disclaimer b{color:#eafff0}
+.cs-refine-auto-note{background:#2c1f1c;border:1px solid #513629;color:#f0c9a5;padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:8px 0 18px}
+.cs-refine-auto-note b{color:#ffe9d6}
+.cs-refine-summary{font-size:12px;color:var(--sub);margin:0 0 16px}
+.cs-refine-summary b{color:var(--green)}
+.cs-iteration-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px 18px;margin-bottom:16px}
+.cs-iteration-card.is-candidate{border:2px solid var(--green)}
+.cs-iteration-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.cs-iteration-head h4{margin:0;font-size:15px}
+.cs-verdict-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px}
+.cs-verdict-badge.verdict-candidate{background:#063d2c;color:var(--green)}
+.cs-verdict-badge.verdict-review{background:#3d3106;color:#fbbf24}
+.cs-score{font-size:11px;color:var(--sub)}
+.cs-verdict-reason{font-size:12px;color:var(--ink);margin:0 0 10px;line-height:1.5}
+.cs-criteria-list{list-style:none;padding:0;margin:0 0 12px;display:grid;gap:6px}
+.cs-criteria-list li{display:flex;gap:8px;font-size:11px;line-height:1.5;background:#0f1a2c;border:1px solid var(--edge);border-radius:8px;padding:6px 10px}
+.cs-criteria-mark{flex-shrink:0;font-weight:700}
+.cs-criteria-mark.mark-pass{color:var(--green)}
+.cs-criteria-mark.mark-fail{color:#fbbf24}
 </style>
 """
 
@@ -306,7 +329,234 @@ CONTENT_STUDIO_TOPICS = [
 ]
 
 
-def _render_content_studio_scene(theme, topics, status_labels):
+# MISSION 031: 最初のテーマ「AI初心者が最初に試す便利な使い方」向けの、
+# 最大5案(初稿→改善1→改善2→改善3→改善4)の改善・採点ワークフロー。
+#
+# ここでの「採点」は投稿が伸びることを保証する予測ではなく、公開前の
+# 編集チェック(誰向けか・具体性・誇大表現の有無など)である。自動投稿は
+# 実装しておらず、最初の手動投稿の確認と媒体別の公式連携が完了するまで
+# 有効化しない方針を明記している。将来、対象テーマや案の中身を差し替える
+# 場合は、このデータ構造(CONTENT_STUDIO_REFINEMENT)を編集するだけでよい。
+CONTENT_STUDIO_REFINEMENT = {
+    "topic_title": "AI初心者が最初に試す便利な使い方",
+    "intro": "公開前に、初稿から最大4回まで改善しながら比較するための編集ワークフローです。",
+    "scoring_disclaimer": (
+        "この採点は、投稿が伸びることを保証する予測ではありません。あくまで公開前の"
+        "編集チェック（誰向けか・具体性・誇大表現の有無などの確認）です。"
+    ),
+    "auto_post_note": (
+        "自動投稿は、最初の手動投稿の内容を確認し、Instagram・Threads・Pinterest・"
+        "noteそれぞれの公式連携（API等）が完了したあとに有効化します。現時点では"
+        "自動投稿は行いません。"
+    ),
+    "criteria": [
+        ("audience", "誰向けかが明確か"),
+        ("opening_value", "冒頭で悩みや得られる価値が分かるか"),
+        ("concreteness", "実際に試せる具体性があるか"),
+        ("pinterest_title", "Pinterestで保存・検索されやすいタイトルになっているか"),
+        ("no_hype", "誇大表現・断定・未確認の商品情報がないか"),
+    ],
+    "iterations": [
+        {
+            "label": "初稿",
+            "drafts": {
+                "Instagram": "AIって便利らしいけど何をすればいいかわからない人向けのリール構成案"
+                              "（具体的な操作手順は未定）。",
+                "Threads": "「AIって結局なにに使えるの？」とゆるく聞いてみる投稿案。",
+                "Pinterest": "タイトル案「AIの使い方」／説明文案「AIについて紹介します。」",
+                "note": "見出し案「AIを使ってみよう」",
+            },
+            "scores": {
+                "audience": False, "opening_value": True, "concreteness": False,
+                "pinterest_title": False, "no_hype": True,
+            },
+            "score_reasons": {
+                "audience": "「AI初心者」とだけで具体的な状況が示されておらず、誰向けか曖昧です。",
+                "opening_value": "「何をすればいいかわからない人向け」という悩みへの言及があります。",
+                "concreteness": "「触ってみよう」だけで、実際に試せる操作手順が示されていません。",
+                "pinterest_title": "「AIの使い方」は検索されにくい一般的なタイトルです。",
+                "no_hype": "誇大表現や断定的な言い回しは見られません。",
+            },
+            "verdict": "review",
+            "verdict_reason": "誰向けかと具体的な手順が弱いため、次の改善案へ進みます。",
+        },
+        {
+            "label": "改善1",
+            "drafts": {
+                "Instagram": "「毎日の事務作業、まだ全部手作業ですか？」から入り、AI初心者向けの"
+                              "最初の一歩を紹介するリール構成案。",
+                "Threads": "毎日の事務作業でAIを使ったことがない人へ、「まず何から始める？」と"
+                           "問いかける短文投稿案。",
+                "Pinterest": "タイトル案「AI初心者向けの使い方」／説明文案「AI初心者向けに使い方を"
+                             "紹介します。」",
+                "note": "見出し案「事務作業でAIを使ったことがない人へ」",
+            },
+            "scores": {
+                "audience": True, "opening_value": True, "concreteness": False,
+                "pinterest_title": False, "no_hype": True,
+            },
+            "score_reasons": {
+                "audience": "「毎日の事務作業でAIを使ったことがない人」と対象を具体化しました。",
+                "opening_value": "冒頭の問いかけで悩みへの言及を維持しています。",
+                "concreteness": "「最初の一歩」への言及はあるものの、具体的な操作手順がまだありません。",
+                "pinterest_title": "「AI初心者向けの使い方」もまだ一般的で、検索されやすいとは言えません。",
+                "no_hype": "誇大表現や断定的な言い回しはありません。",
+            },
+            "verdict": "review",
+            "verdict_reason": "具体的な手順とPinterestタイトルの検索されやすさがまだ弱いため、"
+                               "次の改善案へ進みます。",
+        },
+        {
+            "label": "改善2",
+            "drafts": {
+                "Instagram": "①「まだ全部手作業ですか？」で入る ②メール下書きをAIに1文で依頼する"
+                              "画面操作を見せる ③「今日から1つだけ試してみて」で締めるリール構成案。",
+                "Threads": "毎日の事務作業でAIを使ったことがない人へ、「メールの下書きを1文で"
+                           "頼むだけでも変わるよ」と具体例を添える短文投稿案。",
+                "Pinterest": "タイトル案「AI初心者向けの使い方」／説明文案「メールの下書きを1文で"
+                             "頼む方法など、具体的な手順を紹介します。」",
+                "note": "見出し案「事務作業でAIを使ったことがない人が、最初にメール下書きを"
+                        "1文で頼んでみる話」",
+            },
+            "scores": {
+                "audience": True, "opening_value": True, "concreteness": True,
+                "pinterest_title": False, "no_hype": True,
+            },
+            "score_reasons": {
+                "audience": "対象は引き続き明確です。",
+                "opening_value": "冒頭の問いかけを維持しています。",
+                "concreteness": "「メール下書きを1文で依頼する」という具体的な操作手順を追加しました。",
+                "pinterest_title": "タイトルは「AI初心者向けの使い方」のままで、まだ検索されやすいとは"
+                                    "言えません。",
+                "no_hype": "誇大表現や断定的な言い回しはありません。",
+            },
+            "verdict": "review",
+            "verdict_reason": "Pinterestタイトルがまだ一般的で検索されにくいため、次の改善案へ進みます。",
+        },
+        {
+            "label": "改善3",
+            "drafts": {
+                "Instagram": "①「まだ全部手作業ですか？」で入る ②メール下書きをAIに1文で依頼する"
+                              "画面操作を見せる ③「これで誰でも絶対うまくいく！」で締めるリール構成案。",
+                "Threads": "毎日の事務作業でAIを使ったことがない人へ、「メールの下書きを1文で"
+                           "頼むだけでも変わるよ」と具体例を添える短文投稿案。",
+                "Pinterest": "タイトル案「AI初心者向け・メール下書きを1文で頼む方法」／説明文案"
+                             "「メールの下書きを1文で頼む方法など、具体的な手順を紹介します。」",
+                "note": "見出し案「事務作業でAIを使ったことがない人が、最初にメール下書きを"
+                        "1文で頼んでみる話」",
+            },
+            "scores": {
+                "audience": True, "opening_value": True, "concreteness": True,
+                "pinterest_title": True, "no_hype": False,
+            },
+            "score_reasons": {
+                "audience": "対象は引き続き明確です。",
+                "opening_value": "冒頭の問いかけを維持しています。",
+                "concreteness": "具体的な操作手順を維持しています。",
+                "pinterest_title": "「メール下書きを1文で頼む方法」と具体化し、検索されやすいタイトルに"
+                                    "なりました。",
+                "no_hype": "「これで誰でも絶対うまくいく！」という断定的な表現が残っています。",
+            },
+            "verdict": "review",
+            "verdict_reason": "断定的な表現が残っているため、次の改善案へ進みます。",
+        },
+        {
+            "label": "改善4",
+            "drafts": {
+                "Instagram": "①「まだ全部手作業ですか？」で入る ②メール下書きをAIに1文で依頼する"
+                              "画面操作を見せる ③「今日から1つだけ試してみて」で締めるリール構成案。",
+                "Threads": "毎日の事務作業でAIを使ったことがない人へ、「メールの下書きを1文で"
+                           "頼むだけでも変わるよ」と具体例を添える短文投稿案。",
+                "Pinterest": "タイトル案「AI初心者向け・メール下書きを1文で頼む方法」／説明文案"
+                             "「メールの下書きを1文で頼む方法など、具体的な手順を紹介します。効果を"
+                             "保証するものではありません。」",
+                "note": "見出し案「事務作業でAIを使ったことがない人が、最初にメール下書きを"
+                        "1文で頼んでみる話」",
+            },
+            "scores": {
+                "audience": True, "opening_value": True, "concreteness": True,
+                "pinterest_title": True, "no_hype": True,
+            },
+            "score_reasons": {
+                "audience": "対象は引き続き明確です。",
+                "opening_value": "冒頭の問いかけを維持しています。",
+                "concreteness": "具体的な操作手順を維持しています。",
+                "pinterest_title": "検索されやすいタイトルを維持しています。",
+                "no_hype": "断定的な表現を取り除き、効果を保証しない言い回しに修正しました。",
+            },
+            "verdict": "candidate",
+            "verdict_reason": "5つの基準をすべて満たしたため、手動投稿候補とします。",
+        },
+    ],
+}
+
+
+def _render_refinement_section(refinement, criteria_labels_by_key):
+  """MISSION 031の改善・採点ワークフローのHTMLを組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
+  アクセスは一切行わない。
+  """
+  candidate_label = next(
+      (it["label"] for it in refinement["iterations"] if it["verdict"] == "candidate"),
+      None,
+  )
+  summary = (
+      f'現在の手動投稿候補：<b>{candidate_label}</b>'
+      if candidate_label else "現在、5つの基準をすべて満たした案はまだありません。"
+  )
+
+  iteration_cards = []
+  for iteration in refinement["iterations"]:
+    scores = iteration["scores"]
+    reasons = iteration["score_reasons"]
+    score_count = sum(1 for v in scores.values() if v)
+    total = len(refinement["criteria"])
+    is_candidate = iteration["verdict"] == "candidate"
+    verdict_label = "手動投稿候補" if is_candidate else "要改善"
+    verdict_class = "verdict-candidate" if is_candidate else "verdict-review"
+
+    criteria_items = "".join(
+        '<li><span class="cs-criteria-mark '
+        + ("mark-pass" if scores[key] else "mark-fail") + '">'
+        + ("✓" if scores[key] else "△") + '</span>'
+        f'<span><b>{label}</b>：{reasons[key]}</span></li>'
+        for key, label in criteria_labels_by_key
+    )
+    media_cards = "".join(
+        f'<div class="cs-media-card"><h4>{medium}</h4><p>{draft}</p></div>'
+        for medium, draft in iteration["drafts"].items()
+    )
+    card_class = "cs-iteration-card is-candidate" if is_candidate else "cs-iteration-card"
+    iteration_cards.append(
+        f'<div class="{card_class}">'
+        '<div class="cs-iteration-head">'
+        f'<h4>{iteration["label"]}</h4>'
+        f'<span><span class="cs-verdict-badge {verdict_class}">{verdict_label}</span> '
+        f'<span class="cs-score">{score_count}/{total} 基準クリア</span></span>'
+        '</div>'
+        f'<p class="cs-verdict-reason">{iteration["verdict_reason"]}</p>'
+        f'<ul class="cs-criteria-list">{criteria_items}</ul>'
+        f'<div class="cs-media-grid">{media_cards}</div>'
+        '</div>'
+    )
+
+  return (
+      '<section class="cs-refine-section" aria-label="投稿改善ワークフロー">'
+      f'<h3 class="cs-refine-title">投稿改善ワークフロー：{refinement["topic_title"]}'
+      '（最大5案）</h3>'
+      f'<p class="cs-refine-intro">{refinement["intro"]}</p>'
+      f'<div class="cs-refine-disclaimer"><b>採点についての注意。</b>'
+      f'{refinement["scoring_disclaimer"]}</div>'
+      f'<div class="cs-refine-auto-note"><b>自動投稿について。</b>'
+      f'{refinement["auto_post_note"]}</div>'
+      f'<p class="cs-refine-summary">{summary}</p>'
+      + "".join(iteration_cards) +
+      '</section>'
+  )
+
+
+def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
   """投稿企画工場のカード群を、CONTENT_STUDIO_TOPICSのデータから組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
@@ -350,7 +600,11 @@ def _render_content_studio_scene(theme, topics, status_labels):
       '</div>'
       f'<p class="cs-theme">対象テーマ：<b>{theme}</b></p>'
       f'<div class="cs-legend">{legend_items}</div>'
-      + "".join(topic_cards) +
+      + "".join(topic_cards)
+      + (
+          _render_refinement_section(refinement, refinement["criteria"])
+          if refinement else ""
+      ) +
       '<p class="cs-footnote">この画面はlocalhost限定で表示される社内検討用の'
       '資料です。SNS投稿・note投稿・広告出稿・営業送信は行われません。</p>'
       '</section>'
@@ -670,7 +924,8 @@ def register_office_views(app):
   @app.route("/content-studio")
   def content_studio():
     scene = _render_content_studio_scene(
-        CONTENT_STUDIO_THEME, CONTENT_STUDIO_TOPICS, CONTENT_STUDIO_STATUS_LABELS
+        CONTENT_STUDIO_THEME, CONTENT_STUDIO_TOPICS, CONTENT_STUDIO_STATUS_LABELS,
+        refinement=CONTENT_STUDIO_REFINEMENT,
     )
     return _page(
         "content", "投稿企画工場",

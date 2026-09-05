@@ -587,9 +587,16 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(title, html)
 
   def test_content_studio_shows_media_specific_drafts_for_every_topic(self):
+    # テーマカード(5件)と、MISSION 031のワークフロー内の改善案(5件)を
+    # それぞれ区別して数える。前者は<section class="cs-refine-section"
+    # より前、後者はそれ以降に現れる。
     html = self.client.get("/content-studio").get_data(as_text=True)
+    topic_section, refine_section = html.split(
+        '<section class="cs-refine-section"', 1
+    )
     for medium in ("Instagram", "Threads", "Pinterest", "note"):
-      self.assertEqual(html.count(f'<h4>{medium}</h4>'), 5)
+      self.assertEqual(topic_section.count(f'<h4>{medium}</h4>'), 5)
+      self.assertEqual(refine_section.count(f'<h4>{medium}</h4>'), 5)
 
   def test_content_studio_shows_three_comparison_tiers(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
@@ -652,6 +659,107 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.CONTENT_STUDIO_STATUS_LABELS,
     )
     self.assertIn(office_views.CONTENT_STUDIO_THEME, rendered)
+
+  # --- MISSION 031: 投稿改善ワークフロー(最大5案の自動改善・採点) ---------------
+
+  def test_content_studio_shows_five_iterations(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn(
+        "投稿改善ワークフロー：AI初心者が最初に試す便利な使い方（最大5案）", html
+    )
+    for label in ("初稿", "改善1", "改善2", "改善3", "改善4"):
+      self.assertIn(f"<h4>{label}</h4>", html)
+
+  def test_content_studio_each_iteration_has_media_drafts(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    refine_section = html.split('<section class="cs-refine-section"', 1)[1]
+    for medium in ("Instagram", "Threads", "Pinterest", "note"):
+      self.assertEqual(refine_section.count(f'<h4>{medium}</h4>'), 5)
+
+  def test_content_studio_shows_scoring_criteria_and_reasons(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for label in (
+        "誰向けかが明確か",
+        "冒頭で悩みや得られる価値が分かるか",
+        "実際に試せる具体性があるか",
+        "Pinterestで保存・検索されやすいタイトルになっているか",
+        "誇大表現・断定・未確認の商品情報がないか",
+    ):
+      self.assertGreaterEqual(html.count(label), 5)  # 5案すべてに表示
+    # 採点理由が具体的な文言として表示されている(空欄ではない)。
+    self.assertIn("誰向けか曖昧です", html)
+    self.assertIn("誇大表現や断定的な言い回しはありません", html)
+
+  def test_content_studio_scoring_is_not_a_growth_guarantee(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("採点についての注意", html)
+    self.assertIn("投稿が伸びることを保証する予測ではありません", html)
+    self.assertIn("公開前の編集チェック", html)
+
+  def test_content_studio_highlights_best_candidate(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("現在の手動投稿候補", html)
+    self.assertIn("<b>改善4</b>", html)
+    self.assertIn('cs-iteration-card is-candidate', html)
+    self.assertEqual(html.count("手動投稿候補"), 3)  # 見出し1 + 要約1 + バッジ1
+    self.assertEqual(html.count('class="cs-verdict-badge verdict-candidate"'), 1)
+
+  def test_content_studio_shows_needs_improvement_with_reason_to_continue(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertEqual(html.count('class="cs-verdict-badge verdict-review"'), 4)
+    self.assertIn("次の改善案へ進みます", html)
+    self.assertIn("誰向けかと具体的な手順が弱いため", html)
+
+  def test_content_studio_explains_auto_post_activation_condition(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("自動投稿について", html)
+    self.assertIn("最初の手動投稿の内容を確認し", html)
+    self.assertIn(
+        "Instagram・Threads・Pinterest・noteそれぞれの公式連携（API等）が完了した"
+        "あとに有効化します",
+        html,
+    )
+    self.assertIn("現時点では自動投稿は行いません", html)
+
+  def test_content_studio_refinement_does_not_break_existing_topic_grid(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    # 既存の投稿候補・要確認・見送りの凡例・5テーマ表示が維持されている。
+    self.assertEqual(html.count('class="cs-status-badge'), 8)
+    for title in (
+        "AI初心者が最初に試す便利な使い方",
+        "仕事の文章作成・要約をラクにするAI活用",
+        "デスク周りを整える便利ガジェット",
+        "スマホ・PC作業を快適にする周辺機器",
+        "買う前に確認したいAI対応ガジェットの選び方",
+    ):
+      self.assertIn(title, html)
+
+  def test_content_studio_refinement_has_no_fabricated_results_or_external_calls(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("<script", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+    self.assertNotIn("位獲得", html)
+
+  def test_content_studio_refinement_content_is_data_driven(self):
+    import office_views
+    self.assertEqual(len(office_views.CONTENT_STUDIO_REFINEMENT["iterations"]), 5)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_REFINEMENT["criteria"]), 5)
+    candidates = [
+        it for it in office_views.CONTENT_STUDIO_REFINEMENT["iterations"]
+        if it["verdict"] == "candidate"
+    ]
+    self.assertEqual(len(candidates), 1)
+    rendered = office_views._render_refinement_section(
+        office_views.CONTENT_STUDIO_REFINEMENT,
+        office_views.CONTENT_STUDIO_REFINEMENT["criteria"],
+    )
+    self.assertIn(office_views.CONTENT_STUDIO_REFINEMENT["topic_title"], rendered)
 
   def test_existing_pages_unaffected_by_content_studio_tab_addition(self):
     for path, title in (
