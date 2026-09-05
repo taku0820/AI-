@@ -299,6 +299,63 @@ class DashboardDesignTestCase(unittest.TestCase):
         html,
     )
 
+  # --- MISSION 027: 柴犬社長の業務サポート会話(4ボタン) ------------------------
+
+  def test_ceo_office_has_four_quick_action_controls(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="qa-today"', html)
+    self.assertIn('id="qa-priority"', html)
+    self.assertIn('id="qa-done"', html)
+    self.assertIn('id="qa-office"', html)
+    self.assertIn("今日の進捗", html)
+    self.assertIn("いま優先する仕事", html)
+    self.assertIn("完了した仕事", html)
+    self.assertIn("オフィスへ案内", html)
+
+  def test_office_guide_button_is_a_safe_same_origin_link(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="qa-office" href="/office"', html)
+    # JSでリダイレクト先を書き換えていない(location.href等の動的遷移では
+    # なく、通常の<a href>による同一オリジンへの遷移であること)。
+    self.assertNotIn("location.href", html)
+    self.assertNotIn("window.open", html)
+    # リンク先が実際に存在し、安全に開けることも確認する。
+    res = self.client.get("/office")
+    self.assertEqual(res.status_code, 200)
+
+  def test_quick_action_buttons_use_only_existing_logs_api(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('fetch("/api/logs")', html)
+    self.assertIn("qaWithLogs", html)
+    self.assertNotIn("/api/employees", html)
+    self.assertNotIn("/api/missions", html)
+    self.assertNotIn("/api/tasks", html)
+    self.assertNotIn("/api/audit-logs", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_quick_action_handlers_append_to_chat_log_with_fallback(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn("qaAppendBoss", html)
+    self.assertIn('document.querySelector("#log")', html)
+    self.assertIn(
+        '"🐕 柴犬社長：作業ログを取得できませんでした。"', html
+    )
+
+  def test_manual_chat_form_is_unaffected_by_quick_actions(self):
+    # 手入力チャット(#chat-form)のハンドラは、クイックアクション追加後も
+    # 引き続きAPI通信をしないローカル演出のままであることを確認する
+    # (test_ceo_chat_is_explicitly_local_and_non_persistentの詳細確認)。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    chat_script_match = re.search(
+        r'const f=document\.querySelector\("#chat-form"\).*?</script>',
+        html, re.S,
+    )
+    self.assertIsNotNone(chat_script_match)
+    self.assertNotIn("fetch(", chat_script_match.group(0))
+    self.assertNotIn("qaAppendBoss", chat_script_match.group(0))
+
   def test_ceo_chat_is_explicitly_local_and_non_persistent(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("内容は保存・送信されません", html)

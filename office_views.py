@@ -39,6 +39,10 @@ LIVE_DATA_STYLE = """
 .command-block h3{margin:0 0 6px;font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.03em}
 .command-block ul{margin:0;padding-left:18px;font-size:12px;line-height:1.7;color:var(--ink)}
 .command-block p{margin:0;font-size:12px;line-height:1.5;color:var(--ink)}
+.quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.qa-btn{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.qa-btn:hover,.qa-btn:focus-visible{border-color:var(--blue);color:var(--blue)}
+a.qa-btn{text-decoration:none;display:inline-block}
 </style>
 """
 
@@ -198,8 +202,62 @@ def register_office_views(app):
         'document.querySelector("#ceo-priority").textContent="作業ログを取得できませんでした。";'
         '});</script>'
         '<section class="chat" aria-labelledby="chat-title"><h2 id="chat-title">柴犬社長に話しかける</h2><p>進捗・相談・次の一歩を入力できます。内容は保存・送信されません。</p>'
+        # MISSION 027: 業務サポート会話の4ボタン。「オフィスへ案内」以外の
+        # 3つは、既存 GET /api/logs (読み取り専用) だけを使って柴犬社長の
+        # 会話欄へ案内を表示する。書き込み・他エンドポイントは一切使わない。
+        # 「オフィスへ案内」は/officeへの通常の同一オリジンリンクであり、
+        # JSによるリダイレクト先の書き換え等は行わない(安全な遷移)。
+        '<div class="quick-actions" role="group" aria-label="よく使う質問">'
+        '<button type="button" class="qa-btn" id="qa-today">今日の進捗</button>'
+        '<button type="button" class="qa-btn" id="qa-priority">いま優先する仕事</button>'
+        '<button type="button" class="qa-btn" id="qa-done">完了した仕事</button>'
+        '<a class="qa-btn" id="qa-office" href="/office">オフィスへ案内</a>'
+        '</div>'
         '<div id="log" class="log" aria-live="polite"><p class="boss">🐕 柴犬社長：今日の調子はどう？一緒に優先順位を決めよう。</p></div>'
         '<form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">柴犬社長へのメッセージ</label><input id="chat-input" maxlength="120" autocomplete="off" placeholder="例：今日の進捗を相談したい"><button>話しかける</button></form></section>'
         '<script>const f=document.querySelector("#chat-form");f.addEventListener("submit",e=>{e.preventDefault();const i=document.querySelector("#chat-input"),t=i.value.trim();if(!t)return;const l=document.querySelector("#log"),u=document.createElement("p"),r=document.createElement("p");u.className="you";u.textContent="あなた："+t;r.className="boss";r.textContent=/進捗|状況/.test(t)?"🐕 柴犬社長：次の一歩を小さく決めれば大丈夫。いま一番進めたいことからいこう。":/相談|困/.test(t)?"🐕 柴犬社長：急ぎ・大事・あとで考える、の3つに分けてみよう。":/ありがとう|おつかれ/.test(t)?"🐕 柴犬社長：こちらこそありがとう。ひと息ついて、また一緒に進めよう。":"🐕 柴犬社長：聞かせてくれてありがとう。今日は何を一番前に進めたい？";l.append(u,r);i.value="";l.scrollTop=l.scrollHeight;});</script>'
+        '<script>'
+        'function qaAppendBoss(text){'
+        'const l=document.querySelector("#log");'
+        'const r=document.createElement("p");'
+        'r.className="boss";'
+        'r.textContent=text;'
+        'l.append(r);'
+        'l.scrollTop=l.scrollHeight;'
+        '}'
+        'function qaWithLogs(onOk){'
+        'fetch("/api/logs").then(r=>r.ok?r.json():Promise.reject()).then(onOk)'
+        '.catch(()=>{qaAppendBoss("🐕 柴犬社長：作業ログを取得できませんでした。");});'
+        '}'
+        'document.querySelector("#qa-today").addEventListener("click",()=>{'
+        'qaWithLogs(logs=>{'
+        'const todayStr=new Date().toISOString().slice(0,10);'
+        'const todayLogs=logs.filter(l=>String(l[1]).slice(0,10)===todayStr);'
+        'const todayDone=todayLogs.filter(l=>l[4]==="完了").length;'
+        'const todayProgress=todayLogs.length-todayDone;'
+        'qaAppendBoss(todayLogs.length?'
+        '"🐕 柴犬社長：今日は"+todayLogs.length+"件の作業ログがあります（完了"+todayDone+"件・進行中"+todayProgress+"件）。":'
+        '"🐕 柴犬社長：今日はまだ作業ログの記録がありません。");'
+        '});'
+        '});'
+        'document.querySelector("#qa-priority").addEventListener("click",()=>{'
+        'qaWithLogs(logs=>{'
+        'const nextUp=logs.find(l=>l[4]!=="完了");'
+        'qaAppendBoss(nextUp?'
+        '"🐕 柴犬社長：いま優先するのは「"+nextUp[2]+"」です（現在："+nextUp[4]+"）。":'
+        '(logs.length?"🐕 柴犬社長：記録されている作業はすべて完了しています！":'
+        '"🐕 柴犬社長：表示できる作業ログはまだありません。"));'
+        '});'
+        '});'
+        'document.querySelector("#qa-done").addEventListener("click",()=>{'
+        'qaWithLogs(logs=>{'
+        'const done=logs.filter(l=>l[4]==="完了");'
+        'qaAppendBoss(done.length?'
+        '"🐕 柴犬社長：完了した仕事は"+done.length+"件です："+'
+        'done.slice(0,3).map(l=>l[2]).join("、")+(done.length>3?" ほか":"")+"。":'
+        '"🐕 柴犬社長：まだ完了した作業はありません。");'
+        '});'
+        '});'
+        '</script>'
     )
     return _page("ceo", "社長室", "柴犬社長と、今日の仕事について気軽に話せる小さな部屋です。", scene)
