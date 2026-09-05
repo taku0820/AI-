@@ -158,7 +158,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('href="/office"', self.html)
     self.assertIn("ライブオフィスを見る", self.html)
 
-  def test_live_office_rooms_are_available_without_api_calls(self):
+  def test_live_office_rooms_are_available_with_no_external_calls(self):
     for path, title in (
         ("/office", "ライブオフィス"),
         ("/office/break-room", "休憩室"),
@@ -173,7 +173,15 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertIn("/static/images/office-avatars-v1.png", html)
         self.assertNotIn("http://", html)
         self.assertNotIn("https://", html)
-        self.assertNotIn("fetch(", html)
+        self.assertNotIn("http://", html)
+        self.assertNotIn("https://", html)
+
+  def test_work_floor_reads_existing_logs_only(self):
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('id="office-live-status"', html)
+    self.assertIn('fetch("/api/logs")', html)
+    self.assertNotIn('fetch("/api/employees")', html)
+    self.assertNotIn('method="POST"', html)
 
   def test_ceo_chat_is_explicitly_local_and_non_persistent(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
