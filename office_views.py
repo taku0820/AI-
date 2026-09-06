@@ -150,6 +150,18 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cs-first-post-link:hover{background:#123258}
 .first-post-board{max-width:1000px;margin:0 auto}
 .desk-setup-board{max-width:1000px;margin:0 auto}
+.publish-queue-board{max-width:1000px;margin:0 auto}
+.pq-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px 18px;margin-bottom:22px}
+.pq-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.pq-card-head h3{margin:0;font-size:16px}
+.pq-status-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;background:#3d3106;color:#fbbf24;flex-shrink:0}
+.pq-topics-label{font-size:11px;color:var(--sub);margin:14px 0 6px}
+.pq-topics{list-style:none;padding:0;display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.pq-topics li{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:11px;color:var(--sub)}
+.pq-room-link{background:#101827;border:1px dashed var(--edge);color:var(--sub);padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.6;margin:0 0 10px}
+.pq-manual-note{background:#2c1f1c;border:1px solid #513629;color:#f0c9a5;padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:0 0 14px}
+.pq-manual-note b{color:#ffe9d6}
+@media(max-width:760px){.pq-card-head{flex-direction:column;align-items:flex-start}}
 .fp-notice{background:#1c2c1f;border:1px solid #2f5136;color:#bfe8c6;padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
 .fp-notice b{color:#eafff0;display:block;margin-bottom:2px;font-size:13px}
 .fp-note{padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:0 0 14px}
@@ -686,6 +698,8 @@ def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
       '→ 7日間コンテンツ計画を見る</a> '
       '<a class="cs-first-post-link" href="/content-studio/desk-setup-post">'
       '→ デスク環境投稿パッケージを見る（楽天ROOM向け）</a> '
+      '<a class="cs-first-post-link" href="/content-studio/publish-queue">'
+      '→ 投稿キューを見る（社長承認待ち）</a> '
       '<a class="cs-first-post-link" href="/revenue#room-prep">'
       '→ 楽天ROOM投稿準備を見る</a>'
       f'<div class="cs-legend">{legend_items}</div>'
@@ -1595,6 +1609,440 @@ def _render_desk_setup_scene(package):
   )
 
 
+# MISSION 036: Pinterest向け・手動承認つき投稿キュー(ローカル専用)。
+#
+# 3件の投稿候補を「社長承認待ち」としてまとめて表示する。各投稿の画像は
+# 文字と図形のみで構成し(商品写真・楽天市場画像・商品ロゴ・外部素材は
+# 使わない)、商品名・価格・在庫・ランキング・性能・成果予測は一切表示
+# しない。楽天ROOMリンク欄は常に空欄で、「社長が手動で貼る」旨のみを
+# 表示する(URLの取得・保存・外部連携は行わない)。公開は社長がPinterestで
+# 手動実行する運用であることを、各カードに明記する。将来投稿内容を
+# 差し替える場合は、このデータ構造(PUBLISH_QUEUE_POSTS)を編集するだけで
+# よい。
+PUBLISH_QUEUE_POSTS = [
+    {
+        "id": "email-draft-3points",
+        "status": "社長承認待ち",
+        "pin": {
+            "title": "AIでメールの下書きを始める前に決める3つ",
+            "description": (
+                "AIにメールの下書きを頼む前に、決めておくと結果が変わる3つのポイントを"
+                "まとめました。宛先・要点・トーンを先に決めるだけで、AIへの指示がぐっと"
+                "具体的になります。特定の商品の紹介はありません。"
+            ),
+            "alt_text": (
+                "AIでメールの下書きを始める前に決める3つのイラスト。1. 宛先とやり取りの"
+                "目的を決める 2. 伝えたい要点を1つに絞る 3. 文章のトーン（丁寧さ）を決める。"
+                "特定の商品は写っていません。"
+            ),
+            "svg_headline": ["AIでメールの下書きを", "始める前に決める3つ"],
+            "svg_subtitle": "AI初心者向け",
+            "svg_items": [
+                {"number": "1", "lines": ["宛先とやり取りの", "目的を決める"], "icon": "mail"},
+                {"number": "2", "lines": ["伝えたい要点を", "1つに絞る"], "icon": "summary"},
+                {"number": "3", "lines": ["文章のトーン", "（丁寧さ）を決める"], "icon": "idea"},
+            ],
+            "svg_footer": "決めてから頼むと、AIの下書きがぐっと具体的になります。",
+        },
+        "pinterest_topic_candidates": ["AI活用術", "仕事効率化", "ビジネスメール"],
+        "checklist": [
+            "タイトル・説明文に誇大表現や断定的な成果表現がないか確認した",
+            "商品名・価格・在庫・ランキング・性能・成果予測が含まれていないか確認した",
+            "画像内の文字が読みやすいか（誤字・はみ出しがないか）確認した",
+            "altテキストが画像の内容を正しく説明しているか確認した",
+            "楽天ROOMリンク欄が空欄のままであることを確認した（社長が手動で貼り付ける）",
+            "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
+        ],
+        "png_relative_path": "images/publish-queue-email-draft-2x3.png",
+        "png_download_filename": "pinterest-publish-queue-email-draft.png",
+    },
+    {
+        "id": "desk-wiring-3points",
+        "status": "社長承認待ち",
+        "pin": {
+            "title": "デスクが狭いときに配線を見直す3つのポイント",
+            "description": (
+                "机の上や周りがごちゃつく原因の多くはケーブルです。使用頻度でまとめる・"
+                "通すルートを決める・コンセント位置を確認する、この3つを見直すだけで見た目も"
+                "スペースも変わります。紹介アイテムは楽天ROOMに掲載しています。価格・在庫・"
+                "性能・ランキング・成果については、この画面では断定しません。"
+            ),
+            "alt_text": (
+                "デスクが狭いときに配線を見直す3つのポイントのイラスト。1. 使用頻度で"
+                "配線をまとめる 2. 机の下を通すルートを決める 3. コンセント位置を確認する。"
+                "商品写真・楽天市場の画像は使用していません。"
+            ),
+            "svg_headline": ["デスクが狭いときに", "配線を見直す", "3つのポイント"],
+            "svg_subtitle": "デスク環境の整え方",
+            "svg_items": [
+                {"number": "1", "lines": ["使用頻度で", "配線をまとめる"], "icon": "bundle"},
+                {"number": "2", "lines": ["机の下を通す", "ルートを決める"], "icon": "route"},
+                {"number": "3", "lines": ["コンセント位置を", "確認する"], "icon": "outlet"},
+            ],
+            "svg_footer": "紹介アイテムは楽天ROOMに掲載しています。",
+        },
+        "pinterest_topic_candidates": ["デスク環境", "配線収納", "在宅ワーク"],
+        "checklist": [
+            "タイトル・説明文に誇大表現や断定的な成果表現がないか確認した",
+            "価格・在庫・性能・ランキング・成果を断定していないか確認した",
+            "画像内の文字が読みやすいか（誤字・はみ出しがないか）確認した",
+            "altテキストが画像の内容を正しく説明しているか確認した",
+            "楽天ROOMリンク欄が空欄のままであることを確認した（社長が手動で貼り付ける）",
+            "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
+        ],
+        "png_relative_path": "images/publish-queue-desk-wiring-2x3.png",
+        "png_download_filename": "pinterest-publish-queue-desk-wiring.png",
+    },
+    {
+        "id": "peripheral-choice-3points",
+        "status": "社長承認待ち",
+        "pin": {
+            "title": "スマホ・PC作業をラクにする周辺機器の選び方",
+            "description": (
+                "周辺機器選びで失敗しないために、購入前に決めておきたい3つの視点を"
+                "まとめました。用途・使う場所・手放せない基準を先に決めるだけで、選びやすく"
+                "なります。紹介アイテムは楽天ROOMに掲載しています。価格・在庫・性能・"
+                "ランキング・成果については、この画面では断定しません。"
+            ),
+            "alt_text": (
+                "スマホ・PC作業をラクにする周辺機器の選び方のイラスト。1. 使う目的を"
+                "1つ決める 2. 使う場所を想定する 3. 手放せない基準を1つ決める。"
+                "商品写真・楽天市場の画像は使用していません。"
+            ),
+            "svg_headline": ["スマホ・PC作業を", "ラクにする周辺機器", "の選び方"],
+            "svg_subtitle": "購入前に決めたい3つの視点",
+            "svg_items": [
+                {"number": "1", "lines": ["使う目的を", "1つ決める"], "icon": "purpose"},
+                {"number": "2", "lines": ["使う場所を", "想定する"], "icon": "location"},
+                {"number": "3", "lines": ["手放せない基準を", "1つ決める"], "icon": "scale"},
+            ],
+            "svg_footer": "紹介アイテムは楽天ROOMに掲載しています。",
+        },
+        "pinterest_topic_candidates": ["周辺機器", "ガジェット選び", "在宅ワーク"],
+        "checklist": [
+            "タイトル・説明文に誇大表現や断定的な成果表現がないか確認した",
+            "価格・在庫・性能・ランキング・成果を断定していないか確認した",
+            "画像内の文字が読みやすいか（誤字・はみ出しがないか）確認した",
+            "altテキストが画像の内容を正しく説明しているか確認した",
+            "楽天ROOMリンク欄が空欄のままであることを確認した（社長が手動で貼り付ける）",
+            "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
+        ],
+        "png_relative_path": "images/publish-queue-peripherals-2x3.png",
+        "png_download_filename": "pinterest-publish-queue-peripherals.png",
+    },
+]
+
+PUBLISH_QUEUE_ROOM_LINK_NOTE = (
+    "楽天ROOMリンク：（空欄）社長がPinterestへ投稿する際に手動で貼り付けてください。"
+    "URLの取得・保存・外部連携は、この画面では一切行いません。"
+)
+PUBLISH_QUEUE_MANUAL_POST_NOTE = (
+    "公開は社長がPinterestで手動実行します。Pinterest・楽天ROOM・Threads・"
+    "Instagram・noteへの自動投稿・予約投稿・外部通信は一切行いません。"
+)
+
+# SVGアイコン(装飾のみ・画面内完結・外部素材なし・商品写真やロゴは使わない)。
+# 「AIでメールの下書き」投稿分は初回手動投稿パッケージと同じ3種類の
+# アイコン(mail/summary/idea)を再利用し、それ以外の6種類はこのミッション用に
+# 新規追加する。
+_PUBLISH_QUEUE_ICONS = dict(_FIRST_POST_ICONS)
+_PUBLISH_QUEUE_ICONS.update({
+    "bundle": (
+        '<line x1="-20" y1="-16" x2="-20" y2="16" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<line x1="0" y1="-20" x2="0" y2="20" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<line x1="20" y1="-16" x2="20" y2="16" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<rect x="-26" y="-6" width="52" height="12" rx="6" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+    ),
+    "route": (
+        '<path d="M-26 -20 L-26 6 L0 6 L0 20 L26 20" fill="none" stroke="#38bdf8" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "outlet": (
+        '<rect x="-22" y="-24" width="44" height="48" rx="8" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<circle cx="-8" cy="0" r="4" fill="#38bdf8"/>'
+        '<circle cx="8" cy="0" r="4" fill="#38bdf8"/>'
+    ),
+    "purpose": (
+        '<circle cx="0" cy="0" r="22" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<path d="M-10 0 L-2 10 L14 -10" fill="none" stroke="#38bdf8" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "location": (
+        '<circle cx="0" cy="-8" r="14" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<path d="M-10 2 L0 24 L10 2 Z" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linejoin="round"/>'
+    ),
+    "scale": (
+        '<line x1="-22" y1="0" x2="22" y2="0" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>'
+        '<circle cx="-22" cy="0" r="8" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+        '<circle cx="22" cy="0" r="8" fill="none" stroke="#38bdf8" stroke-width="3"/>'
+    ),
+})
+
+
+def _render_publish_queue_pin_svg(pin):
+  """Pinterest用の縦長2:3(1000x1500)ローカルSVG画像を組み立てる(投稿キュー共通)。
+
+  外部画像・外部フォント・外部素材、楽天市場の商品画像・商品写真・商品ロゴは
+  一切使わず、すべて画面内SVGの図形とテキストだけで構成する。商品名・価格・
+  在庫・性能・ランキング・成果予測は一切含めない。
+  """
+  headline_start_y = 130
+  headline_line_h = 66
+  headline_lines = "".join(
+      f'<tspan x="500" dy="{0 if i == 0 else headline_line_h}">{line}</tspan>'
+      for i, line in enumerate(pin["svg_headline"])
+  )
+  subtitle_y = headline_start_y + headline_line_h * (len(pin["svg_headline"]) - 1) + 90
+
+  item_blocks = []
+  card_height = 280
+  gap = 36
+  start_y = 460
+  for index, item in enumerate(pin["svg_items"]):
+    card_y = start_y + index * (card_height + gap)
+    icon_shape = _PUBLISH_QUEUE_ICONS[item["icon"]]
+    label_lines = "".join(
+        f'<tspan x="220" dy="{0 if i == 0 else 46}">{line}</tspan>'
+        for i, line in enumerate(item["lines"])
+    )
+    item_blocks.append(
+        f'<g transform="translate(0,{card_y})">'
+        '<rect x="60" y="0" width="880" height="' + str(card_height) + '" rx="28" '
+        'fill="#101a30" stroke="#293958" stroke-width="2"/>'
+        '<circle cx="150" cy="' + str(card_height // 2) + '" r="46" fill="#0b2540" '
+        'stroke="#38bdf8" stroke-width="3"/>'
+        '<text x="150" y="' + str(card_height // 2 + 16) + '" text-anchor="middle" '
+        f'font-size="44" font-weight="700" fill="#38bdf8">{item["number"]}</text>'
+        f'<g transform="translate(80,{card_height // 2})">{icon_shape}</g>'
+        f'<text x="220" y="{card_height // 2 - 20}" font-size="40" font-weight="700" '
+        f'fill="#f1f5f9">{label_lines}</text>'
+        '</g>'
+    )
+  return (
+      '<svg viewBox="0 0 1000 1500" xmlns="http://www.w3.org/2000/svg" '
+      'role="img" aria-labelledby="pq-svg-title pq-svg-desc">'
+      f'<title id="pq-svg-title">{pin["title"]}</title>'
+      f'<desc id="pq-svg-desc">{pin["alt_text"]}</desc>'
+      '<defs><linearGradient id="pqBg" x1="0" y1="0" x2="0" y2="1">'
+      '<stop offset="0%" stop-color="#0b1220"/><stop offset="100%" stop-color="#1b2c4a"/>'
+      '</linearGradient></defs>'
+      '<rect width="1000" height="1500" fill="url(#pqBg)"/>'
+      f'<text x="500" y="{headline_start_y}" text-anchor="middle" font-size="56" font-weight="800" '
+      f'fill="#f1f5f9">{headline_lines}</text>'
+      f'<text x="500" y="{subtitle_y}" text-anchor="middle" font-size="30" font-weight="600" '
+      f'fill="#38bdf8">{pin["svg_subtitle"]}</text>'
+      + "".join(item_blocks) +
+      '<text x="500" y="1440" text-anchor="middle" font-size="26" fill="#a3b2c6">'
+      f'{pin["svg_footer"]}</text>'
+      '</svg>'
+  )
+
+
+def _draw_publish_queue_icon(draw, cx, cy, kind, color):
+  """PNG版アイコン(装飾のみ)を描画する。SVG版と同じ図形。
+
+  「mail」「summary」「idea」は初回手動投稿パッケージのPNG描画関数を
+  そのまま再利用する。
+  """
+  if kind in ("mail", "summary", "idea"):
+    _draw_first_post_icon(draw, cx, cy, kind, color)
+    return
+  if kind == "bundle":
+    draw.line([(cx - 20, cy - 16), (cx - 20, cy + 16)], fill=color, width=3)
+    draw.line([(cx, cy - 20), (cx, cy + 20)], fill=color, width=3)
+    draw.line([(cx + 20, cy - 16), (cx + 20, cy + 16)], fill=color, width=3)
+    draw.rounded_rectangle([cx - 26, cy - 6, cx + 26, cy + 6], radius=6, outline=color, width=3)
+  elif kind == "route":
+    draw.line(
+        [(cx - 26, cy - 20), (cx - 26, cy + 6), (cx, cy + 6), (cx, cy + 20), (cx + 26, cy + 20)],
+        fill=color, width=3, joint="curve",
+    )
+  elif kind == "outlet":
+    draw.rounded_rectangle([cx - 22, cy - 24, cx + 22, cy + 24], radius=8, outline=color, width=3)
+    draw.ellipse([cx - 12, cy - 4, cx - 4, cy + 4], fill=color)
+    draw.ellipse([cx + 4, cy - 4, cx + 12, cy + 4], fill=color)
+  elif kind == "purpose":
+    draw.ellipse([cx - 22, cy - 22, cx + 22, cy + 22], outline=color, width=3)
+    draw.line([(cx - 10, cy), (cx - 2, cy + 10), (cx + 14, cy - 10)], fill=color, width=3, joint="curve")
+  elif kind == "location":
+    draw.ellipse([cx - 14, cy - 22, cx + 14, cy + 6], outline=color, width=3)
+    draw.polygon([(cx - 10, cy + 10), (cx, cy + 32), (cx + 10, cy + 10)], outline=color, width=3)
+  elif kind == "scale":
+    draw.line([(cx - 22, cy), (cx + 22, cy)], fill=color, width=3)
+    draw.ellipse([cx - 30, cy - 8, cx - 14, cy + 8], outline=color, width=3)
+    draw.ellipse([cx + 14, cy - 8, cx + 30, cy + 8], outline=color, width=3)
+
+
+def generate_publish_queue_pin_png(pin, out_path):
+  """投稿キュー用PNG(1000x1500)を生成し、ファイルへ保存する(開発時専用)。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。テーマや
+  文言(PUBLISH_QUEUE_POSTS)を差し替えた場合、この関数を手動で再実行して
+  PNGを作り直すこと。実行にはPillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; \\
+          [o.generate_publish_queue_pin_png(p['pin'], o.os.path.join(\\
+              o.os.path.dirname(o.os.path.abspath(o.__file__)), 'static', p['png_relative_path']\\
+          )) for p in o.PUBLISH_QUEUE_POSTS]"
+  """
+  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+
+  width, height = 1000, 1500
+  bg_top, bg_bottom = (11, 18, 32), (27, 44, 74)
+  white, blue, sub = (241, 245, 249), (56, 189, 248), (163, 178, 198)
+  card_bg, card_edge, badge_bg = (16, 26, 48), (41, 57, 88), (11, 37, 64)
+
+  img = Image.new("RGB", (width, height), bg_top)
+  draw = ImageDraw.Draw(img)
+  for y in range(height):
+    t = y / (height - 1)
+    draw.line(
+        [(0, y), (width, y)],
+        fill=tuple(int(bg_top[i] + (bg_bottom[i] - bg_top[i]) * t) for i in range(3)),
+    )
+
+  font_path = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+  headline_font = ImageFont.truetype(font_path, 56)
+  subtitle_font = ImageFont.truetype(font_path, 30)
+  number_font = ImageFont.truetype(font_path, 42)
+  label_font = ImageFont.truetype(font_path, 38)
+  footer_font = ImageFont.truetype(font_path, 26)
+
+  cx = width // 2
+  headline_start_y = 130
+  headline_line_h = 66
+  y = headline_start_y
+  for line in pin["svg_headline"]:
+    draw.text((cx, y), line, font=headline_font, fill=white, anchor="ma")
+    y += headline_line_h
+  subtitle_y = headline_start_y + headline_line_h * (len(pin["svg_headline"]) - 1) + 90
+  draw.text((cx, subtitle_y), pin["svg_subtitle"], font=subtitle_font, fill=blue, anchor="ma")
+
+  card_h, gap, start_y = 280, 36, 460
+  for index, item in enumerate(pin["svg_items"]):
+    card_y = start_y + index * (card_h + gap)
+    draw.rounded_rectangle(
+        [60, card_y, 940, card_y + card_h], radius=28,
+        fill=card_bg, outline=card_edge, width=2,
+    )
+    badge_cy = card_y + card_h // 2
+    draw.ellipse(
+        [150 - 46, badge_cy - 46, 150 + 46, badge_cy + 46],
+        fill=badge_bg, outline=blue, width=3,
+    )
+    draw.text((150, badge_cy), item["number"], font=number_font, fill=blue, anchor="mm")
+    _draw_publish_queue_icon(draw, 260, badge_cy, item["icon"], blue)
+    ly = badge_cy - 26
+    for line in item["lines"]:
+      draw.text((320, ly), line, font=label_font, fill=white, anchor="lm")
+      ly += 46
+
+  draw.text((cx, 1440), pin["svg_footer"], font=footer_font, fill=sub, anchor="mm")
+
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
+def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
+  """Pinterest向け・手動承認つき投稿キューのHTMLを組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・楽天API・外部
+  通信への アクセスは一切行わない。楽天ROOMリンク欄は常に空欄で表示し、
+  URLの取得・保存・外部連携は行わない。コピー用ボタンはクライアント側JS
+  のみで完結し、クリップボード操作が失敗しても例外を伝播させず、安全な
+  フォールバック表示にする。
+  """
+  post_cards = []
+  for post in posts:
+    pin = post["pin"]
+    svg_markup = _render_publish_queue_pin_svg(pin)
+    post_id = post["id"]
+    topic_chips = "".join(
+        f'<li>{topic}</li>' for topic in post["pinterest_topic_candidates"]
+    )
+    checklist_items = "".join(
+        f'<li><input type="checkbox" id="pq-check-{post_id}-{i}">'
+        f'<label for="pq-check-{post_id}-{i}">{item}</label></li>'
+        for i, item in enumerate(post["checklist"])
+    )
+    post_cards.append(
+        '<div class="pq-card">'
+        '<div class="pq-card-head">'
+        f'<h3>{pin["title"]}</h3>'
+        f'<span class="pq-status-badge">{post["status"]}</span>'
+        '</div>'
+        '<div class="fp-pin-layout">'
+        f'<div><div class="fp-svg-wrap">{svg_markup}</div>'
+        '<p class="fp-svg-ratio">縦長 2:3（画面内SVG・外部画像なし、商品写真・楽天市場画像・'
+        '商品ロゴは使用していません）</p>'
+        # MISSION 036: 通常のダウンロードリンク(<a href download>)のみで
+        # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
+        # 生成済みのローカルPNGファイル(static/配下)を指すだけであり、
+        # クリックしてもPinterest・楽天ROOMへの投稿・送信・連携は一切発生しない。
+        f'<a class="fp-png-download" href="/static/{post["png_relative_path"]}" '
+        f'download="{post["png_download_filename"]}">Pinterest用PNGを保存</a>'
+        '<p class="fp-png-hint">保存したPNGをPinterestで手動アップロードしてください。'
+        'このボタンからの投稿・送信・連携は行われません。</p></div>'
+        '<div class="fp-fields">'
+        '<div class="fp-field"><div class="fp-field-head"><h4>タイトル</h4>'
+        f'<button type="button" class="fp-copy-btn" data-copy-target="pq-title-{post_id}">'
+        'コピー</button></div>'
+        f'<p id="pq-title-{post_id}">{pin["title"]}</p></div>'
+        '<div class="fp-field"><div class="fp-field-head"><h4>説明文</h4>'
+        f'<button type="button" class="fp-copy-btn" data-copy-target="pq-description-{post_id}">'
+        'コピー</button></div>'
+        f'<p id="pq-description-{post_id}">{pin["description"]}</p></div>'
+        '<div class="fp-field"><div class="fp-field-head"><h4>altテキスト</h4>'
+        f'<button type="button" class="fp-copy-btn" data-copy-target="pq-alt-{post_id}">'
+        'コピー</button></div>'
+        f'<p id="pq-alt-{post_id}">{pin["alt_text"]}</p></div>'
+        '</div>'
+        '</div>'
+        '<p class="pq-topics-label">Pinterestのトピック候補</p>'
+        f'<ul class="pq-topics">{topic_chips}</ul>'
+        f'<div class="pq-room-link">{room_link_note}</div>'
+        f'<div class="pq-manual-note"><b>公開について。</b>{manual_post_note}</div>'
+        '<h4 class="fp-section-title">投稿前チェックリスト</h4>'
+        f'<ul class="fp-checklist">{checklist_items}</ul>'
+        '</div>'
+    )
+  return (
+      '<section class="publish-queue-board" aria-label="投稿キュー">'
+      '<div class="fp-notice"><b>社内向けの投稿キューです。</b>'
+      'SNSへの投稿・送信・連携は一切行われません。柴犬社長が内容を確認し、'
+      '手動でPinterestへ投稿するための準備画面です。</div>'
+      + "".join(post_cards) +
+      # MISSION 036: コピー操作はクライアント側JSのみで完結し、外部通信は
+      # 行わない。navigator.clipboardが使えない/失敗する環境でも、例外を
+      # 投げずに安全な文言へフォールバックする(既存の投稿パッケージ画面と同じ方式)。
+      '<script>document.querySelectorAll(".fp-copy-btn").forEach(btn=>{'
+      'btn.addEventListener("click",()=>{'
+      'const el=document.getElementById(btn.dataset.copyTarget);'
+      'if(!el)return;'
+      'const original=btn.textContent;'
+      'const showResult=ok=>{btn.textContent=ok?"コピーしました":"コピーできませんでした";'
+      'setTimeout(()=>{btn.textContent=original;},1800);};'
+      'try{'
+      'if(navigator.clipboard&&navigator.clipboard.writeText){'
+      'navigator.clipboard.writeText(el.textContent).then(()=>showResult(true))'
+      '.catch(()=>showResult(false));'
+      '}else{showResult(false);}'
+      '}catch(e){showResult(false);}'
+      '});'
+      '});</script>'
+      '<a class="cs-first-post-link" href="/content-studio/desk-setup-post">'
+      '→ デスク環境投稿パッケージを見る（楽天ROOM向け）</a> '
+      '<a class="cs-first-post-link" href="/content-studio/weekly-plan">'
+      '→ 7日間コンテンツ計画を見る</a>'
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の資料です。'
+      'Pinterest・楽天ROOM・Threads・Instagram・noteへの投稿・送信・連携は行われません。</p>'
+      '</section>'
+  )
+
+
 def register_office_views(app):
   """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
@@ -1947,5 +2395,18 @@ def register_office_views(app):
         "content", "デスク環境投稿パッケージ",
         "楽天ROOMでの紹介につなげる、デスク環境を整えるためのオリジナル"
         "Pinterest投稿素材を確認する画面です。",
+        scene,
+    )
+
+  @app.route("/content-studio/publish-queue")
+  def content_studio_publish_queue():
+    scene = _render_publish_queue_scene(
+        PUBLISH_QUEUE_POSTS, PUBLISH_QUEUE_ROOM_LINK_NOTE, PUBLISH_QUEUE_MANUAL_POST_NOTE
+    )
+    return _page(
+        "content", "投稿キュー（社長承認待ち）",
+        "次の3本分のPinterest投稿を、画像・タイトル・説明文・altテキスト・"
+        "確認項目までまとめて準備する画面です。公開は社長がPinterestで"
+        "手動実行します。",
         scene,
     )

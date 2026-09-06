@@ -1433,8 +1433,11 @@ class DashboardDesignTestCase(unittest.TestCase):
       if line.startswith("from PIL") or line.startswith("import PIL"):
         self.fail(f"PIL is imported at module level, not lazily: {line!r}")
     self.assertIn("  from PIL import Image, ImageDraw, ImageFont", module_source)
+    # MISSION 036で投稿キュー用のPNG生成関数(generate_publish_queue_pin_png)が
+    # 追加され、同じ遅延importパターンの箇所が3件(初回投稿・デスク環境・
+    # 投稿キュー)になった。
     self.assertEqual(
-        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 2
+        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 3
     )
 
   def test_existing_pages_unaffected_by_desk_setup_post_addition(self):
@@ -1446,6 +1449,192 @@ class DashboardDesignTestCase(unittest.TestCase):
         ("/content-studio", "投稿企画工場"),
         ("/content-studio/first-post", "初回手動投稿パッケージ"),
         ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
+  # --- MISSION 036: Pinterest向け・手動承認つき投稿キュー ----------------------
+
+  def test_content_studio_links_to_publish_queue(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/content-studio/publish-queue"', html)
+    self.assertIn("投稿キューを見る（社長承認待ち）", html)
+
+  def test_publish_queue_page_loads(self):
+    res = self.client.get("/content-studio/publish-queue")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("投稿キュー（社長承認待ち）", html)
+    self.assertIn("<title>投稿キュー（社長承認待ち） | AI Hive</title>", html)
+
+  def test_publish_queue_shows_three_posts_as_awaiting_approval(self):
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 3)
+    for post in office_views.PUBLISH_QUEUE_POSTS:
+      self.assertIn(post["pin"]["title"], html)
+      self.assertEqual(post["status"], "社長承認待ち")
+    self.assertEqual(html.count('class="pq-status-badge"'), 3)
+    for title in (
+        "AIでメールの下書きを始める前に決める3つ",
+        "デスクが狭いときに配線を見直す3つのポイント",
+        "スマホ・PC作業をラクにする周辺機器の選び方",
+    ):
+      self.assertIn(title, html)
+
+  def test_publish_queue_each_post_has_svg_title_description_alt_topics_and_checklist(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(html.count('<svg viewBox="0 0 1000 1500"'), 3)
+    self.assertEqual(html.count("Pinterestのトピック候補"), 3)
+    self.assertEqual(html.count("投稿前チェックリスト"), 3)
+    for post_id in ("email-draft-3points", "desk-wiring-3points", "peripheral-choice-3points"):
+      self.assertIn(f'id="pq-title-{post_id}"', html)
+      self.assertIn(f'id="pq-description-{post_id}"', html)
+      self.assertIn(f'id="pq-alt-{post_id}"', html)
+    for topic in (
+        "AI活用術", "仕事効率化", "ビジネスメール",
+        "デスク環境", "配線収納", "在宅ワーク",
+        "周辺機器", "ガジェット選び",
+    ):
+      self.assertIn(topic, html)
+
+  def test_publish_queue_images_use_only_text_and_shapes_no_product_photos(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertNotIn("<img", html)
+    self.assertEqual(
+        html.count(
+            "縦長 2:3（画面内SVG・外部画像なし、商品写真・楽天市場画像・商品ロゴは使用していません）"
+        ),
+        3,
+    )
+    # xmlns="http://www.w3.org/2000/svg" はSVG(3件)の標準名前空間宣言であり、
+    # 外部リソースの読み込みではない。それ以外にhttp(s)参照がないことを確認する。
+    self.assertEqual(html.count("http://"), 3)
+    self.assertNotIn("https://", html)
+
+  def test_publish_queue_has_no_product_names_prices_stock_ranking_or_forecasts(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+    self.assertNotIn("位獲得", html)
+    self.assertNotIn("在庫あり", html)
+    self.assertNotIn("在庫切れ", html)
+
+  def test_publish_queue_room_link_field_is_blank_and_manual(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 3)
+    self.assertEqual(
+        html.count(
+            "社長がPinterestへ投稿する際に手動で貼り付けてください。"
+            "URLの取得・保存・外部連携は、この画面では一切行いません。"
+        ),
+        3,
+    )
+
+  def test_publish_queue_states_manual_publish_by_president_on_every_card(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(html.count("公開について"), 3)
+    # ページ冒頭のリード文でも同じ文言を明記しているため、カード3件+リード文1件
+    # の合計4件が期待値。
+    self.assertEqual(
+        html.count("公開は社長がPinterestで手動実行します"), 4
+    )
+    self.assertIn(
+        "Pinterest・楽天ROOM・Threads・Instagram・noteへの自動投稿・予約投稿・外部通信は"
+        "一切行いません", html
+    )
+
+  def test_publish_queue_links_to_desk_setup_post_and_weekly_plan(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertIn('href="/content-studio/desk-setup-post"', html)
+    self.assertIn('href="/content-studio/weekly-plan"', html)
+
+  def test_publish_queue_copy_buttons_fail_safely_without_breaking_page(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertIn("fp-copy-btn", html)
+    self.assertIn("showResult(false)", html)
+    self.assertIn("catch(e)", html)
+    # コピー用ボタンは3件×3フィールド=9個。
+    self.assertEqual(html.count('class="fp-copy-btn"'), 9)
+
+  def test_publish_queue_has_no_external_resources_or_network_calls(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_publish_queue_has_responsive_layout(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("@media(max-width:760px){.pq-card-head", html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
+
+  def test_publish_queue_content_is_data_driven_for_future_edits(self):
+    import office_views
+    for post in office_views.PUBLISH_QUEUE_POSTS:
+      self.assertEqual(len(post["pin"]["svg_items"]), 3)
+      self.assertIn("checklist", post)
+      self.assertIn("pinterest_topic_candidates", post)
+    rendered = office_views._render_publish_queue_scene(
+        office_views.PUBLISH_QUEUE_POSTS,
+        office_views.PUBLISH_QUEUE_ROOM_LINK_NOTE,
+        office_views.PUBLISH_QUEUE_MANUAL_POST_NOTE,
+    )
+    self.assertIn("publish-queue-board", rendered)
+
+  def test_publish_queue_png_files_exist_with_correct_2_3_dimensions(self):
+    import office_views
+    for post in office_views.PUBLISH_QUEUE_POSTS:
+      with self.subTest(post_id=post["id"]):
+        png_path = os.path.join(
+            os.path.dirname(office_views.__file__), "static", post["png_relative_path"],
+        )
+        self.assertTrue(os.path.isfile(png_path))
+        with open(png_path, "rb") as f:
+          header = f.read(33)
+        # PNGシグネチャ + IHDRチャンクから幅・高さを読み取り、正確に
+        # 1000x1500(2:3)であることを確認する(外部ライブラリを使わない
+        # 最小限の検証)。
+        self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+        width = int.from_bytes(header[16:20], "big")
+        height = int.from_bytes(header[20:24], "big")
+        self.assertEqual((width, height), (1000, 1500))
+
+  def test_publish_queue_pngs_are_served_as_plain_static_files(self):
+    import office_views
+    for post in office_views.PUBLISH_QUEUE_POSTS:
+      with self.subTest(post_id=post["id"]):
+        res = self.client.get(f'/static/{post["png_relative_path"]}')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.content_type, "image/png")
+
+  def test_publish_queue_has_png_download_buttons_as_plain_links(self):
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(html.count("Pinterest用PNGを保存"), 3)
+    for post in office_views.PUBLISH_QUEUE_POSTS:
+      self.assertIn(
+          f'href="/static/{post["png_relative_path"]}" '
+          f'download="{post["png_download_filename"]}"',
+          html,
+      )
+    self.assertNotIn("createObjectURL", html)
+    self.assertNotIn("toDataURL", html)
+
+  def test_existing_pages_unaffected_by_publish_queue_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+        ("/content-studio/desk-setup-post", "デスク環境投稿パッケージ"),
     ):
       with self.subTest(path=path):
         res = self.client.get(path)
