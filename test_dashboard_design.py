@@ -472,32 +472,32 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_revenue_board_shows_first_priority_business(self):
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("第一優先事業", html)
-    self.assertIn("美容サロン向けWeb制作", html)
+    self.assertIn("AI・ガジェット発信からの楽天ROOM収益化", html)
 
   def test_revenue_board_shows_all_required_content_cards(self):
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
-    self.assertIn("美容サロンの集客・予約導線を整えるWeb制作支援", html)
+    self.assertIn("投稿企画工場のテーマを軸に発信し", html)
     self.assertIn("想定するお客さま像", html)
-    self.assertIn("地域の美容サロン、小規模店、Web集客を改善したい事業者", html)
-    self.assertIn("サービス案", html)
-    self.assertIn("LP制作", html)
-    self.assertIn("既存サイト改善", html)
-    self.assertIn("予約導線・SNS導線の整理", html)
-    self.assertIn("受注までの段階", html)
-    for stage in ("準備", "提案", "商談", "受注"):
+    self.assertIn("AI初心者、仕事の効率化に関心がある人", html)
+    self.assertIn("収益化の柱（案）", html)
+    self.assertIn("投稿企画工場のテーマに沿った発信", html)
+    self.assertIn("初回Pinterest投稿からの流入育成", html)
+    self.assertIn("楽天ROOMでの手動カテゴリ紹介", html)
+    self.assertIn("ROOM登録までの段階", html)
+    for stage in ("テーマ選定", "投稿確認", "ROOM準備", "手動登録"):
       self.assertIn(stage, html)
     self.assertIn("今週の優先行動", html)
-    self.assertIn("ポートフォリオ整理", html)
-    self.assertIn("提案テンプレート作成", html)
-    self.assertIn("見込みサロンの条件整理", html)
+    self.assertIn("投稿企画工場のテーマ整理", html)
+    self.assertIn("初回Pinterest投稿の実績確認", html)
+    self.assertIn("ROOM投稿準備の下ごしらえ", html)
 
   def test_revenue_board_price_is_an_explicit_draft_not_final(self):
     html = self.client.get("/revenue").get_data(as_text=True)
-    self.assertIn("価格帯", html)
+    self.assertIn("収益の入り口候補（すべて未定・検討中）", html)
     self.assertIn("未確定", html)
-    self.assertIn("確定した金額・契約内容ではありません", html)
-    self.assertIn("未定", html)
+    self.assertIn("確定した収益・契約内容ではありません", html)
+    self.assertIn("検討中", html)
     # 具体的な金額(円記号)を捏造して確定価格のように見せていないこと。
     self.assertNotIn("円", html)
     self.assertNotIn("¥", html)
@@ -1135,6 +1135,142 @@ class DashboardDesignTestCase(unittest.TestCase):
         ("/revenue", "収益化ボード"),
         ("/content-studio", "投稿企画工場"),
         ("/content-studio/first-post", "初回手動投稿パッケージ"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
+  # --- MISSION 034: 楽天ROOM収益化準備 -----------------------------------------
+
+  def test_revenue_board_has_room_prep_section(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('id="room-prep"', html)
+    self.assertIn("ROOM投稿準備", html)
+
+  def test_room_prep_shows_category_candidates_not_real_products(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    for genre in (
+        "AIアシスタント対応スマートスピーカー",
+        "音声入力対応キーボード",
+        "音声文字起こしデバイス",
+        "ノートPC用外付けマイク",
+        "モニターアーム",
+        "デスクライト",
+        "ケーブル収納グッズ",
+        "USB-Cハブ",
+        "ワイヤレス充電スタンド",
+        "ノートPCスタンド",
+    ):
+      self.assertIn(genre, section)
+    self.assertIn("実在の商品名・価格・ランキング・在庫・成果予測は表示しません", section)
+    # 実在の商品名・価格・ランキング・在庫数量・成果予測を捏造していないこと。
+    self.assertNotIn("円", section)
+    self.assertNotIn("¥", section)
+    self.assertNotIn("位獲得", section)
+    self.assertNotIn("http://", section)
+    self.assertNotIn("https://", section)
+
+  def test_room_prep_shows_required_fields_for_each_category(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    import office_views
+    self.assertEqual(
+        section.count('class="room-prep-card"'), len(office_views.ROOM_PREP_CATEGORIES)
+    )
+    for category in office_views.ROOM_PREP_CATEGORIES:
+      self.assertIn(category["audience_problem"], section)
+      self.assertIn(category["pinterest_theme_idea"], section)
+    self.assertIn("Pinterest投稿のテーマ案", section)
+    self.assertIn("ROOMで手動確認する項目", section)
+    self.assertIn("商品紹介文を作る前の確認項目", section)
+    for status_label in ("企画中", "社長確認待ち"):
+      self.assertIn(status_label, section)
+
+  def test_room_prep_excludes_the_passed_over_topic(self):
+    import office_views
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    passed_over = office_views.CONTENT_STUDIO_TOPICS[4]
+    self.assertEqual(passed_over["status"], "pass")
+    for genre in passed_over["product_genre_ideas"]:
+      self.assertNotIn(genre, section)
+
+  def test_room_prep_states_manual_registration_and_approval_before_publish(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    self.assertIn("ROOMへの登録は手動です", section)
+    self.assertIn("Pinterestへの公開も、社長の承認後に行います", section)
+
+  def test_room_prep_states_no_automation_scraping_or_product_data_fetch(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    self.assertIn(
+        "楽天ROOM・SNSへの自動投稿、予約投稿、API連携、スクレイピング、"
+        "商品情報取得は一切行いません", section
+    )
+
+  def test_room_prep_states_no_rakuten_product_images_local_assets_only(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    self.assertIn(
+        "楽天市場の商品画像は保存・加工・表示しません。使用する画像は"
+        "既存のローカル素材のみです", section
+    )
+    self.assertNotIn("<img", section)
+
+  def test_room_prep_shows_pr_disclosure_reminder(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    self.assertIn("PR表記について", section)
+    self.assertIn(
+        "商品提供・クーポン・広告主とのやり取りがある場合は、投稿前にPR表記が"
+        "必要かどうかを確認してください", section
+    )
+
+  def test_room_prep_has_no_external_resources_scripts_or_writes(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    section = html.split('id="room-prep"', 1)[1]
+    self.assertNotIn("<script", section)
+    self.assertNotIn("fetch(", section)
+    self.assertNotIn("/api/", section)
+    self.assertNotIn('method="POST"', section)
+    self.assertNotIn("Authorization", section)
+    self.assertNotIn("AI_HIVE_", section)
+
+  def test_room_prep_content_is_data_driven_for_future_edits(self):
+    import office_views
+    self.assertEqual(len(office_views.ROOM_PREP_CATEGORIES), 4)
+    for category in office_views.ROOM_PREP_CATEGORIES:
+      self.assertIn(category["status"], office_views.ROOM_PREP_STATUS_LABELS)
+    rendered = office_views._render_room_prep_section(
+        office_views.ROOM_PREP_CATEGORIES, office_views.ROOM_PREP_STATUS_LABELS
+    )
+    self.assertIn("room-prep-section", rendered)
+
+  def test_content_studio_links_to_room_prep(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/revenue#room-prep"', html)
+    self.assertIn("楽天ROOM投稿準備", html)
+
+  def test_weekly_plan_links_to_room_prep(self):
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertIn('href="/revenue#room-prep"', html)
+    self.assertIn("楽天ROOM投稿準備", html)
+
+  def test_revenue_board_has_responsive_layout_for_room_prep(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("@media(max-width:760px){.room-prep-head", html)
+
+  def test_existing_pages_unaffected_by_room_prep_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
     ):
       with self.subTest(path=path):
         res = self.client.get(path)

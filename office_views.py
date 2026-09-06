@@ -81,6 +81,26 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .revenue-priorities li{margin-bottom:4px}
 .revenue-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.revenue-grid{grid-template-columns:1fr}}
+.room-prep-section{margin-top:24px}
+.room-prep-section h2{font-size:16px;margin:0 0 10px}
+.room-prep-notice{background:#101827;border:1px solid var(--blue);color:var(--ink);padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:12px}
+.room-prep-notice b{color:var(--blue);display:block;margin-bottom:4px;font-size:13px}
+.room-prep-notice ul{margin:6px 0 0;padding-left:18px}
+.room-prep-pr-note{background:#3d3106;border:1px solid #fbbf24;color:#fde68a;padding:10px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.room-prep-pr-note b{color:#fde68a}
+.room-prep-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.room-prep-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.room-prep-head h3{margin:0;font-size:14px}
+.room-prep-status{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;flex-shrink:0}
+.room-prep-status.status-planning{background:#2a2f3d;color:#94a3b8}
+.room-prep-status.status-awaiting_president{background:#3d3106;color:#fbbf24}
+.room-prep-status.status-manual_registration{background:#063d2c;color:var(--green)}
+.room-prep-meta{font-size:12px;color:var(--sub);margin:0 0 8px;line-height:1.6}
+.room-prep-genres{list-style:none;padding:0;display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.room-prep-genres li{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:11px}
+.room-prep-checks h4{margin:8px 0 4px;font-size:11px;color:var(--sub)}
+.room-prep-checks ul{margin:0;padding-left:18px;font-size:12px;line-height:1.7}
+@media(max-width:760px){.room-prep-head{flex-direction:column;align-items:flex-start}}
 .content-studio{max-width:1000px;margin:0 auto}
 .cs-theme{font-size:12px;color:var(--sub);margin:0 0 16px}
 .cs-theme b{color:var(--ink)}
@@ -221,25 +241,28 @@ def _page(room, title, lead, scene):
 # 書き換えるだけでよく、以下のHTML生成コード自体には手を入れなくてよい
 # ように分離している。
 REVENUE_FOCUS = {
-    "business_name": "美容サロン向けWeb制作",
-    "purpose": "美容サロンの集客・予約導線を整えるWeb制作支援",
-    "target_customer": "地域の美容サロン、小規模店、Web集客を改善したい事業者",
+    "business_name": "AI・ガジェット発信からの楽天ROOM収益化",
+    "purpose": "AI初心者・仕事効率化・デスク周り・スマホPC周辺機器に関心がある人へ向けて、"
+               "投稿企画工場のテーマを軸に発信し、楽天ROOMでの手動紹介につなげる土台を作る",
+    "target_customer": "AI初心者、仕事の効率化に関心がある人、デスク周りを整えたい人、"
+                        "スマホ・PC周辺機器を探している人",
     "service_ideas": [
-        "LP制作",
-        "既存サイト改善",
-        "予約導線・SNS導線の整理",
+        "投稿企画工場のテーマに沿った発信",
+        "初回Pinterest投稿からの流入育成",
+        "楽天ROOMでの手動カテゴリ紹介",
     ],
-    "price_note": "価格帯はすべて未確定の「たたき台」です。確定した金額・契約内容ではありません。",
+    "price_note": "楽天ROOMでの紹介はすべて手動登録の想定であり、金額・成果はすべて未確定の"
+                  "「たたき台」です。確定した収益・契約内容ではありません。",
     "price_tiers": [
-        ("エントリー帯", "未定"),
-        ("スタンダード帯", "未定"),
-        ("プレミアム帯", "未定"),
+        ("Pinterest経由の流入", "検討中"),
+        ("楽天ROOMでの手動紹介", "検討中"),
+        ("Instagram・Threads・noteでの信頼構築", "検討中"),
     ],
-    "pipeline_stages": ["準備", "提案", "商談", "受注"],
+    "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
-        "ポートフォリオ整理",
-        "提案テンプレート作成",
-        "見込みサロンの条件整理",
+        "投稿企画工場のテーマ整理",
+        "初回Pinterest投稿の実績確認",
+        "ROOM投稿準備の下ごしらえ",
     ],
 }
 
@@ -275,16 +298,17 @@ def _render_revenue_scene(focus):
       f'<p>{focus["purpose"]}</p></div>'
       '<div class="revenue-card"><h3>想定するお客さま像</h3>'
       f'<p>{focus["target_customer"]}</p></div>'
-      '<div class="revenue-card"><h3>サービス案</h3>'
+      '<div class="revenue-card"><h3>収益化の柱（案）</h3>'
       f'<ul>{service_items}</ul></div>'
-      '<div class="revenue-card"><h3>価格帯（たたき台）</h3>'
+      '<div class="revenue-card"><h3>収益の入り口候補（すべて未定・検討中）</h3>'
       f'<p class="revenue-price-note">{focus["price_note"]}</p>'
       f'<ul class="revenue-price-tiers">{price_items}</ul></div>'
-      '<div class="revenue-card"><h3>受注までの段階</h3>'
+      '<div class="revenue-card"><h3>ROOM登録までの段階</h3>'
       f'<ol class="revenue-pipeline">{pipeline_items}</ol></div>'
       '<div class="revenue-card"><h3>今週の優先行動</h3>'
       f'<ol class="revenue-priorities">{priority_items}</ol></div>'
       '</div>'
+      + _render_room_prep_section(ROOM_PREP_CATEGORIES, ROOM_PREP_STATUS_LABELS) +
       '<p class="revenue-footnote">この画面はlocalhost限定で表示される'
       '社内検討用の資料です。送信・公開・自動実行は行われません。</p>'
       '</section>'
@@ -658,7 +682,9 @@ def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
       '<a class="cs-first-post-link" href="/content-studio/first-post">'
       '→ 初回手動投稿パッケージを見る（Pinterest向け）</a> '
       '<a class="cs-first-post-link" href="/content-studio/weekly-plan">'
-      '→ 7日間コンテンツ計画を見る</a>'
+      '→ 7日間コンテンツ計画を見る</a> '
+      '<a class="cs-first-post-link" href="/revenue#room-prep">'
+      '→ 楽天ROOM投稿準備を見る</a>'
       f'<div class="cs-legend">{legend_items}</div>'
       + "".join(topic_cards)
       + (
@@ -1110,11 +1136,154 @@ def _render_weekly_plan_scene(plan, status_labels, publish_checks):
       '投稿パッケージ）だけを使って構成しています。</div>'
       '<div class="wp-callout"><b>公開後24時間で確認すること（1日目・初回投稿）</b>'
       f'<ul>{publish_checks_html}</ul></div>'
+      '<a class="cs-first-post-link" href="/revenue#room-prep">'
+      '→ 楽天ROOM投稿準備を見る</a>'
       + "".join(day_cards) +
       '<p class="wp-footnote">初回投稿の実績（表示回数・保存数・クリック数など）を柴犬社長が'
       '確認したうえで、2日目以降のどの内容をどこまで自動化するかを判断します。'
       'この画面はlocalhost限定で表示される社内検討用の資料であり、'
       'SNS投稿・予約投稿・広告出稿・営業送信は行われません。</p>'
+      '</section>'
+  )
+
+
+# MISSION 034: 楽天ROOM投稿準備(ローカル専用・確認用の下ごしらえ)。
+#
+# 実在の商品名・価格・ランキング・在庫・成果予測は一切表示しない。
+# CONTENT_STUDIO_TOPICSに既に登録済みの商品ジャンル候補
+# (product_genre_ideas)だけを再利用した「カテゴリ候補」を並べる
+# ことで、新しい商品リサーチを行わずに準備状況を見渡せるようにする。
+# 「見送り」ステータスのテーマ(CONTENT_STUDIO_TOPICS[4])は対象に含めない。
+# 楽天ROOMへの登録・Pinterestへの公開は、いずれも社長の確認・承認を
+# 経てから手動で行う運用である旨を画面内に明記し、自動投稿・予約投稿・
+# API連携・スクレイピング・商品情報取得は一切実装しない。将来カテゴリを
+# 差し替える場合は、このデータ構造(ROOM_PREP_CATEGORIES)を編集する
+# だけでよい。
+ROOM_PREP_STATUS_LABELS = {
+    "planning": "企画中",
+    "awaiting_president": "社長確認待ち",
+    "manual_registration": "手動でROOM登録",
+}
+
+ROOM_PREP_CATEGORIES = [
+    {
+        "audience_problem": "AIを使ったことがなく、何から始めればいいか分からない人向け",
+        "pinterest_theme_idea": "AI初心者向け・最初にやること3選（初回手動投稿パッケージと同じテーマ）",
+        "genre_ideas": ["AIアシスタント対応スマートスピーカー", "音声入力対応キーボード"],
+        "room_manual_checks": [
+            "ROOM内で該当カテゴリのアイテムが見つかるか手動で確認する",
+            "掲載できる画像がROOM上に用意されているか確認する（画像の保存・加工はしない）",
+        ],
+        "pre_write_checks": [
+            "実際に試用していない前提で、断定的な効果を書いていないか",
+            "誇大表現・未確認の実績を書いていないか",
+            "商品提供・クーポン・広告主とのやり取りがある場合、PR表記が必要か確認したか",
+        ],
+        "status": "awaiting_president",
+    },
+    {
+        "audience_problem": "日々の文章作成・要約に時間がかかっている人向け",
+        "pinterest_theme_idea": "文章作成が苦手な人のためのAI活用メモ",
+        "genre_ideas": ["音声文字起こしデバイス", "ノートPC用外付けマイク"],
+        "room_manual_checks": [
+            "ROOM内で該当カテゴリのアイテムが見つかるか手動で確認する",
+            "掲載できる画像がROOM上に用意されているか確認する（画像の保存・加工はしない）",
+        ],
+        "pre_write_checks": [
+            "実際に試用していない前提で、断定的な効果を書いていないか",
+            "誇大表現・未確認の実績を書いていないか",
+            "商品提供・クーポン・広告主とのやり取りがある場合、PR表記が必要か確認したか",
+        ],
+        "status": "planning",
+    },
+    {
+        "audience_problem": "デスク周りが散らかりがちで集中しづらい人向け",
+        "pinterest_theme_idea": "作業がはかどるデスク周りグッズまとめ",
+        "genre_ideas": ["モニターアーム", "デスクライト", "ケーブル収納グッズ"],
+        "room_manual_checks": [
+            "紹介する商品ジャンルの選定基準が整理されているか確認する（要確認事項）",
+            "掲載できる画像がROOM上に用意されているか確認する（画像の保存・加工はしない）",
+        ],
+        "pre_write_checks": [
+            "実際に試用していない前提で、断定的な効果を書いていないか",
+            "誇大表現・未確認の実績を書いていないか",
+            "商品提供・クーポン・広告主とのやり取りがある場合、PR表記が必要か確認したか",
+        ],
+        "status": "planning",
+    },
+    {
+        "audience_problem": "外出先でもスマホ・PC作業を快適にしたい人向け",
+        "pinterest_theme_idea": "スマホ・PC作業がはかどる周辺機器ジャンルまとめ",
+        "genre_ideas": ["USB-Cハブ", "ワイヤレス充電スタンド", "ノートPCスタンド"],
+        "room_manual_checks": [
+            "対象ガジェットの切り口が絞り込まれているか確認する（要確認事項）",
+            "掲載できる画像がROOM上に用意されているか確認する（画像の保存・加工はしない）",
+        ],
+        "pre_write_checks": [
+            "実際に試用していない前提で、断定的な効果を書いていないか",
+            "誇大表現・未確認の実績を書いていないか",
+            "商品提供・クーポン・広告主とのやり取りがある場合、PR表記が必要か確認したか",
+        ],
+        "status": "planning",
+    },
+]
+
+
+def _render_room_prep_section(categories, status_labels):
+  """楽天ROOM投稿準備のカード群を、ROOM_PREP_CATEGORIESのデータから組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・楽天API・
+  外部通信へのアクセスは一切行わない。楽天市場の商品画像は保存・加工・
+  表示せず、使用する画像は既存のローカル素材のみである。
+  """
+  category_cards = []
+  for category in categories:
+    status_key = category["status"]
+    status_label = status_labels[status_key]
+    genre_items = "".join(f"<li>{genre}</li>" for genre in category["genre_ideas"])
+    room_check_items = "".join(
+        f"<li>{item}</li>" for item in category["room_manual_checks"]
+    )
+    pre_write_items = "".join(
+        f"<li>{item}</li>" for item in category["pre_write_checks"]
+    )
+    category_cards.append(
+        '<div class="room-prep-card">'
+        '<div class="room-prep-head">'
+        f'<h3>{category["audience_problem"]}</h3>'
+        f'<span class="room-prep-status status-{status_key}">{status_label}</span>'
+        '</div>'
+        f'<p class="room-prep-meta">Pinterest投稿のテーマ案：'
+        f'<b>{category["pinterest_theme_idea"]}</b></p>'
+        '<p class="room-prep-meta">カテゴリ候補（実在の商品名・価格・ランキング・'
+        '在庫・成果予測は表示しません）</p>'
+        f'<ul class="room-prep-genres">{genre_items}</ul>'
+        '<div class="room-prep-checks">'
+        '<h4>ROOMで手動確認する項目</h4>'
+        f'<ul>{room_check_items}</ul>'
+        '<h4>商品紹介文を作る前の確認項目</h4>'
+        f'<ul>{pre_write_items}</ul>'
+        '</div>'
+        '</div>'
+    )
+  return (
+      '<section class="room-prep-section" id="room-prep" aria-label="楽天ROOM投稿準備">'
+      '<h2>ROOM投稿準備</h2>'
+      '<div class="room-prep-notice">'
+      '<b>ROOMへの登録は手動です。Pinterestへの公開も、社長の承認後に行います。</b>'
+      '<ul>'
+      '<li>楽天ROOM・SNSへの自動投稿、予約投稿、API連携、スクレイピング、'
+      '商品情報取得は一切行いません。</li>'
+      '<li>楽天市場の商品画像は保存・加工・表示しません。使用する画像は'
+      '既存のローカル素材のみです。</li>'
+      '</ul>'
+      '</div>'
+      '<div class="room-prep-pr-note">'
+      '<b>PR表記について：</b>'
+      '商品提供・クーポン・広告主とのやり取りがある場合は、投稿前にPR表記が'
+      '必要かどうかを確認してください。'
+      '</div>'
+      + "".join(category_cards) +
       '</section>'
   )
 
