@@ -1277,6 +1277,181 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(title, res.get_data(as_text=True))
 
+  # --- MISSION 035: デスク環境Pinterest投稿パッケージ(楽天ROOM向け) -------------
+
+  def test_content_studio_links_to_desk_setup_post(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/content-studio/desk-setup-post"', html)
+    self.assertIn("デスク環境投稿パッケージ", html)
+
+  def test_desk_setup_post_page_loads(self):
+    res = self.client.get("/content-studio/desk-setup-post")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("デスク環境投稿パッケージ", html)
+    self.assertIn("<title>デスク環境投稿パッケージ | AI Hive</title>", html)
+
+  def test_desk_setup_post_shows_theme(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn("対象テーマ", html)
+    self.assertIn("デスクが狭い人へ", html)
+    self.assertIn("画面まわりを整える", html)
+
+  def test_desk_setup_post_svg_has_vertical_2_3_ratio_and_no_product_images(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn('<svg viewBox="0 0 1000 1500"', html)  # 1000:1500 = 2:3
+    self.assertIn("縦長 2:3", html)
+    self.assertNotIn("<img", html)
+    self.assertIn(
+        "商品写真・楽天市場画像・商品ロゴは使用していません", html
+    )
+    # xmlns="http://www.w3.org/2000/svg" はSVGの標準名前空間宣言であり、
+    # 外部リソースの読み込みではない。それ以外にhttp(s)参照がないことを
+    # 確認する。
+    self.assertIn('xmlns="http://www.w3.org/2000/svg"', html)
+    self.assertEqual(html.count("http://"), 1)
+    self.assertNotIn("https://", html)
+
+  def test_desk_setup_post_svg_shows_three_reviews_in_readable_japanese(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn("モニター位置", html)
+    self.assertIn("机上スペース", html)
+    self.assertIn("配線", html)
+
+  def test_desk_setup_post_shows_pinterest_title_description_and_alt_text(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn('id="dsp-title"', html)
+    self.assertIn("デスクが狭い人へ。画面まわりを整える3つの見直し", html)
+    self.assertIn('id="dsp-description"', html)
+    self.assertIn('id="dsp-alt"', html)
+
+  def test_desk_setup_post_description_mentions_room_without_fabricated_claims(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    description = html.split('id="dsp-description"', 1)[1].split("</p>", 1)[0]
+    self.assertIn("紹介アイテムは楽天ROOMに掲載しています", description)
+    self.assertIn("価格・在庫・性能・ランキング・成果については、この画面では断定しません", description)
+    self.assertNotIn("円", description)
+    self.assertNotIn("¥", description)
+    self.assertNotIn("位獲得", description)
+
+  def test_desk_setup_post_states_room_url_is_pasted_manually_no_fetch_or_storage(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn("ROOM商品URLについて", html)
+    self.assertIn(
+        "柴犬社長がPinterestへ投稿する際に手動で貼り付けてください", html
+    )
+    self.assertIn("URLの取得・保存・外部連携は、この画面では一切行いません", html)
+
+  def test_desk_setup_post_shows_pre_post_checklist(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn("投稿前チェックリスト", html)
+    self.assertEqual(html.count('type="checkbox"'), 6)
+    self.assertIn("価格・在庫・性能・ランキング・成果を断定していないか確認した", html)
+    self.assertIn("楽天ROOMの商品URLを、Pinterest投稿画面へ手動で貼り付ける準備ができている", html)
+
+  def test_desk_setup_post_states_manual_posting_and_no_automation(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn("手動投稿について", html)
+    self.assertIn("柴犬社長がPinterestで手動投稿してください", html)
+    self.assertIn(
+        "Pinterest・楽天ROOMへの自動投稿・予約投稿・API連携・外部通信は一切行いません", html
+    )
+    self.assertIn(
+        "Pinterest・楽天ROOMへの投稿・送信・連携は行われません", html
+    )
+
+  def test_desk_setup_post_copy_buttons_fail_safely_without_breaking_page(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn("fp-copy-btn", html)
+    self.assertIn("showResult(false)", html)
+    self.assertIn("catch(e)", html)
+
+  def test_desk_setup_post_has_no_external_resources_or_network_calls(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_desk_setup_post_has_responsive_layout(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
+
+  def test_desk_setup_post_content_is_data_driven_for_future_edits(self):
+    import office_views
+    self.assertIn("pin", office_views.DESK_SETUP_POST_PACKAGE)
+    self.assertEqual(len(office_views.DESK_SETUP_POST_PACKAGE["pin"]["svg_items"]), 3)
+    rendered = office_views._render_desk_setup_scene(office_views.DESK_SETUP_POST_PACKAGE)
+    self.assertIn(office_views.DESK_SETUP_POST_PACKAGE["theme"], rendered)
+
+  def test_desk_setup_post_png_file_exists_with_correct_2_3_dimensions(self):
+    import office_views
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.DESK_SETUP_PNG_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    # PNGシグネチャ + IHDRチャンクから幅・高さを読み取り、正確に
+    # 1000x1500(2:3)であることを確認する(外部ライブラリを使わない
+    # 最小限の検証)。
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1000, 1500))
+
+  def test_desk_setup_post_png_is_served_as_a_plain_static_file(self):
+    res = self.client.get("/static/images/desk-setup-pin-2x3.png")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_desk_setup_post_has_png_download_button_as_plain_link(self):
+    html = self.client.get("/content-studio/desk-setup-post").get_data(as_text=True)
+    self.assertIn('class="fp-png-download"', html)
+    self.assertIn("Pinterest用PNGを保存", html)
+    self.assertIn(
+        'href="/static/images/desk-setup-pin-2x3.png" download="pinterest-desk-setup-post.png"',
+        html,
+    )
+    self.assertNotIn("createObjectURL", html)
+    self.assertNotIn("toDataURL", html)
+
+  def test_desk_setup_post_png_route_does_not_require_pillow_at_app_import_time(self):
+    # office_views.py自体のimportにPillowが必須になっていないこと
+    # (PNG生成コードは遅延importであり、通常のアプリ起動には影響しない)
+    # をソースコード上で確認する。モジュール直下(インデントなし)の
+    # PIL importが存在しない(=すべて関数内の遅延importである)ことを
+    # 確認する。
+    import office_views
+    import inspect
+    module_source = inspect.getsource(office_views)
+    for line in module_source.splitlines():
+      if line.startswith("from PIL") or line.startswith("import PIL"):
+        self.fail(f"PIL is imported at module level, not lazily: {line!r}")
+    self.assertIn("  from PIL import Image, ImageDraw, ImageFont", module_source)
+    self.assertEqual(
+        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 2
+    )
+
+  def test_existing_pages_unaffected_by_desk_setup_post_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
 
 if __name__ == "__main__":
   unittest.main()
