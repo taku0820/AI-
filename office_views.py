@@ -162,6 +162,18 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .pq-manual-note{background:#2c1f1c;border:1px solid #513629;color:#f0c9a5;padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:0 0 14px}
 .pq-manual-note b{color:#ffe9d6}
 @media(max-width:760px){.pq-card-head{flex-direction:column;align-items:flex-start}}
+.note-article-board{max-width:760px;margin:0 auto}
+.note-eyecatch-wrap{text-align:center;margin-bottom:8px}
+.note-eyecatch-svg-wrap{max-width:640px;margin:0 auto}
+.note-article-visible h2.note-article-title{margin:0 0 10px;font-size:19px}
+.note-article-visible h4.note-section-heading{margin:16px 0 6px;font-size:14px;color:var(--blue)}
+.note-article-visible p{margin:0 0 10px;font-size:13px;line-height:1.8}
+.note-article-visible p.note-article-intro{color:var(--ink)}
+.note-article-visible p.note-article-conclusion{background:#101827;border:1px solid var(--edge);border-radius:10px;padding:10px 12px}
+.note-article-visible p.note-article-conclusion b{color:var(--blue)}
+.note-article-copy-source{display:none}
+.note-tags{list-style:none;padding:0;display:flex;gap:6px;flex-wrap:wrap;margin:0 0 4px}
+.note-tags li{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--sub)}
 .fp-notice{background:#1c2c1f;border:1px solid #2f5136;color:#bfe8c6;padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
 .fp-notice b{color:#eafff0;display:block;margin-bottom:2px;font-size:13px}
 .fp-note{padding:10px 12px;border-radius:10px;font-size:11px;line-height:1.6;margin:0 0 14px}
@@ -700,6 +712,8 @@ def _render_content_studio_scene(theme, topics, status_labels, refinement=None):
       '→ デスク環境投稿パッケージを見る（楽天ROOM向け）</a> '
       '<a class="cs-first-post-link" href="/content-studio/publish-queue">'
       '→ 投稿キューを見る（社長承認待ち）</a> '
+      '<a class="cs-first-post-link" href="/content-studio/note-first-article">'
+      '→ note初回記事を見る</a> '
       '<a class="cs-first-post-link" href="/revenue#room-prep">'
       '→ 楽天ROOM投稿準備を見る</a>'
       f'<div class="cs-legend">{legend_items}</div>'
@@ -2043,6 +2057,303 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
   )
 
 
+# MISSION 037: note初回記事の手動投稿パッケージ(ローカル専用)。
+#
+# 断定的な成果・収入・作業時間・性能比較は一切含めない。初回記事には
+# 商品紹介・楽天ROOMリンクを含めず、将来リンクを追加する場合は社長が
+# 手動確認し、必要に応じて広告・PR表記を確認する運用であることを明記
+# する。見出し画像は文字と図形のみで構成し(商品写真・楽天市場画像・
+# 外部素材は使わない)、note・SNSへの投稿・自動投稿・予約投稿・ログイン
+# 操作・API連携・外部通信は一切行わない。将来テーマ・文面・画像の中身を
+# 差し替える場合は、このデータ構造(NOTE_FIRST_ARTICLE)を編集するだけで
+# よい。
+NOTE_FIRST_ARTICLE = {
+    "theme": "AI初心者が仕事で最初に試す3つの使い方",
+    "title": "AI初心者が仕事で最初に試す3つの使い方",
+    "intro": (
+        "「AIを仕事で使ってみたいけど、何から始めればいいかわからない」という人に向けて、"
+        "今日からすぐに試せる3つの使い方をまとめました。むずかしい設定は必要ありません。"
+        "特定の商品の紹介はありません。"
+    ),
+    "sections": [
+        {
+            "heading": "1. メールの下書きを1文で頼む",
+            "body": (
+                "長いメールを一から書くのは意外と時間がかかります。まずは「◯◯さんへのお礼メールの"
+                "下書きを作って」のように、伝えたい内容を1文でAIに頼んでみましょう。出てきた下書きを"
+                "自分の言葉に直すだけで、ゼロから書くよりラクに仕上げられます。"
+            ),
+        },
+        {
+            "heading": "2. 長い文章を要約してもらう",
+            "body": (
+                "資料や議事録など、長い文章に目を通す時間が取れないときは、AIに要点をまとめてもらう"
+                "方法があります。「この文章を3行で要約して」と頼むだけで、全体像をつかみやすくなります。"
+                "要約はあくまで参考として使い、大事な判断は自分の目で原文を確認しましょう。"
+            ),
+        },
+        {
+            "heading": "3. アイデア出しの壁打ち相手にする",
+            "body": (
+                "企画やアイデアに行き詰まったとき、AIに「他にどんな切り口があるか」を聞いてみるのも"
+                "おすすめです。すべてを採用する必要はなく、思考を広げるための壁打ち相手として使うと"
+                "気軽に試せます。"
+            ),
+        },
+    ],
+    "conclusion": (
+        "メールの下書き・要約・アイデア出しの壁打ち。この3つは、AIを初めて使う人でも今日から"
+        "試せる小さな一歩です。完璧な結果を求めず、まずは1つだけ試してみてください。"
+    ),
+    "tag_candidates": ["AI活用", "AI初心者", "仕事効率化", "生成AI", "業務効率化"],
+    "future_link_note": (
+        "この初回記事には、商品紹介や楽天ROOMリンクを含めていません。将来リンクを追加する場合は、"
+        "柴犬社長が内容を手動で確認し、必要に応じて広告・PR表記が必要かどうかを確認したうえで"
+        "追加します。"
+    ),
+    "manual_post_note": (
+        "この記事は、柴犬社長がnoteへ手動でコピー＆ペーストして公開してください。note・SNSへの"
+        "自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切行いません。"
+    ),
+    "checklist": [
+        "断定的な成果・収入・作業時間・性能比較の表現が含まれていないか確認した",
+        "商品名・価格・ランキングなどの未確認情報が含まれていないか確認した",
+        "見出し画像の文字が読みやすいか（誤字・はみ出しがないか）確認した",
+        "タグ候補が記事内容と合っているか確認した",
+        "noteアカウントにログインした状態で、手動で貼り付けて公開できる準備ができている",
+    ],
+    "eyecatch": {
+        "headline_lines": ["AI初心者が仕事で", "最初に試す3つの使い方"],
+        "subtitle": "今日からできる、小さな一歩",
+        "items": [
+            {"label": "メールの下書き", "icon": "mail"},
+            {"label": "文章の要約", "icon": "summary"},
+            {"label": "アイデアの壁打ち", "icon": "idea"},
+        ],
+        "footer": "むずかしい設定は必要ありません。",
+    },
+}
+
+NOTE_EYECATCH_RELATIVE_PATH = "images/note-first-article-eyecatch.png"
+_NOTE_EYECATCH_PNG_FONT_PATH = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+NOTE_EYECATCH_WIDTH = 1280
+NOTE_EYECATCH_HEIGHT = 670
+
+
+def _render_note_eyecatch_svg(eyecatch):
+  """note記事用の横長見出し画像(1280x670)をローカルSVGで組み立てる。
+
+  外部画像・外部フォント・外部素材、商品写真・楽天市場画像は一切使わず、
+  すべて画面内SVGの図形とテキストだけで構成する(初回手動投稿パッケージと
+  同じmail/summary/ideaアイコンを再利用)。断定的な成果・数値は含めない。
+  """
+  width, height = NOTE_EYECATCH_WIDTH, NOTE_EYECATCH_HEIGHT
+  headline_start_y = 110
+  headline_line_h = 58
+  headline_lines = eyecatch["headline_lines"]
+  headline_tspans = "".join(
+      f'<tspan x="{width // 2}" dy="{0 if i == 0 else headline_line_h}">{line}</tspan>'
+      for i, line in enumerate(headline_lines)
+  )
+  subtitle_y = headline_start_y + headline_line_h * (len(headline_lines) - 1) + 60
+
+  items = eyecatch["items"]
+  col_w = width / len(items)
+  item_cy = 430
+  item_blocks = []
+  for index, item in enumerate(items):
+    cx = int(col_w * (index + 0.5))
+    icon_shape = _FIRST_POST_ICONS[item["icon"]]
+    item_blocks.append(
+        f'<g transform="translate({cx},{item_cy})">'
+        '<circle r="42" fill="#0b2540" stroke="#38bdf8" stroke-width="3"/>'
+        f'{icon_shape}'
+        f'<text x="0" y="86" text-anchor="middle" font-size="24" font-weight="700" '
+        f'fill="#f1f5f9">{item["label"]}</text>'
+        '</g>'
+    )
+  return (
+      f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" '
+      'role="img" aria-labelledby="note-eyecatch-svg-title">'
+      f'<title id="note-eyecatch-svg-title">{eyecatch["headline_lines"][0]}'
+      f'{eyecatch["headline_lines"][1] if len(eyecatch["headline_lines"]) > 1 else ""}</title>'
+      '<defs><linearGradient id="noteEyecatchBg" x1="0" y1="0" x2="0" y2="1">'
+      '<stop offset="0%" stop-color="#0b1220"/><stop offset="100%" stop-color="#1b2c4a"/>'
+      '</linearGradient></defs>'
+      f'<rect width="{width}" height="{height}" fill="url(#noteEyecatchBg)"/>'
+      f'<text x="{width // 2}" y="{headline_start_y}" text-anchor="middle" font-size="48" '
+      f'font-weight="800" fill="#f1f5f9">{headline_tspans}</text>'
+      f'<text x="{width // 2}" y="{subtitle_y}" text-anchor="middle" font-size="24" '
+      f'font-weight="600" fill="#38bdf8">{eyecatch["subtitle"]}</text>'
+      + "".join(item_blocks) +
+      f'<text x="{width // 2}" y="{height - 40}" text-anchor="middle" font-size="20" '
+      f'fill="#a3b2c6">{eyecatch["footer"]}</text>'
+      '</svg>'
+  )
+
+
+def generate_note_eyecatch_png(eyecatch, out_path=None):
+  """note記事用の横長見出しPNG(1280x670)を生成し、ファイルへ保存する(開発時専用)。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。テーマや
+  文言(NOTE_FIRST_ARTICLE)を差し替えた場合、この関数を手動で再実行して
+  PNGを作り直すこと。実行にはPillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; \\
+          o.generate_note_eyecatch_png(o.NOTE_FIRST_ARTICLE['eyecatch'])"
+  """
+  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+
+  width, height = NOTE_EYECATCH_WIDTH, NOTE_EYECATCH_HEIGHT
+  bg_top, bg_bottom = (11, 18, 32), (27, 44, 74)
+  white, blue, sub = (241, 245, 249), (56, 189, 248), (163, 178, 198)
+  badge_bg = (11, 37, 64)
+
+  img = Image.new("RGB", (width, height), bg_top)
+  draw = ImageDraw.Draw(img)
+  for y in range(height):
+    t = y / (height - 1)
+    draw.line(
+        [(0, y), (width, y)],
+        fill=tuple(int(bg_top[i] + (bg_bottom[i] - bg_top[i]) * t) for i in range(3)),
+    )
+
+  headline_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 48)
+  subtitle_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 24)
+  label_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 24)
+  footer_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 20)
+
+  cx = width // 2
+  headline_start_y = 110
+  headline_line_h = 58
+  headline_lines = eyecatch["headline_lines"]
+  y = headline_start_y
+  for line in headline_lines:
+    draw.text((cx, y), line, font=headline_font, fill=white, anchor="ma")
+    y += headline_line_h
+  subtitle_y = headline_start_y + headline_line_h * (len(headline_lines) - 1) + 60
+  draw.text((cx, subtitle_y), eyecatch["subtitle"], font=subtitle_font, fill=blue, anchor="ma")
+
+  items = eyecatch["items"]
+  col_w = width / len(items)
+  item_cy = 430
+  for index, item in enumerate(items):
+    item_cx = int(col_w * (index + 0.5))
+    draw.ellipse(
+        [item_cx - 42, item_cy - 42, item_cx + 42, item_cy + 42],
+        fill=badge_bg, outline=blue, width=3,
+    )
+    _draw_first_post_icon(draw, item_cx, item_cy, item["icon"], blue)
+    draw.text((item_cx, item_cy + 60), item["label"], font=label_font, fill=white, anchor="ma")
+
+  draw.text((cx, height - 40), eyecatch["footer"], font=footer_font, fill=sub, anchor="mm")
+
+  out_path = out_path or os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static", NOTE_EYECATCH_RELATIVE_PATH
+  )
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
+def _render_note_article_scene(article):
+  """note初回記事の手動投稿パッケージのHTMLを組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・note・外部
+  通信への アクセスは一切行わない。記事本文のコピー用ボタンは、表示用
+  マークアップとは別に用意した非表示のプレーンテキスト(改行付き)を
+  コピー対象にすることで、見出し・段落の区切りを保ったまま貼り付け
+  られるようにする。クリップボード操作が失敗しても例外を伝播させず、
+  安全なフォールバック表示にする。
+  """
+  eyecatch = article["eyecatch"]
+  svg_markup = _render_note_eyecatch_svg(eyecatch)
+
+  visible_sections = "".join(
+      f'<h4 class="note-section-heading">{section["heading"]}</h4>'
+      f'<p>{section["body"]}</p>'
+      for section in article["sections"]
+  )
+  visible_body = (
+      f'<h2 class="note-article-title">{article["title"]}</h2>'
+      f'<p class="note-article-intro">{article["intro"]}</p>'
+      f'{visible_sections}'
+      f'<p class="note-article-conclusion"><b>まとめ：</b>{article["conclusion"]}</p>'
+  )
+  plain_text_parts = [article["title"], article["intro"]]
+  plain_text_parts += [
+      f'{section["heading"]}\n{section["body"]}' for section in article["sections"]
+  ]
+  plain_text_parts.append(f'まとめ\n{article["conclusion"]}')
+  plain_text = "\n\n".join(plain_text_parts)
+
+  tag_chips = "".join(f'<li>{tag}</li>' for tag in article["tag_candidates"])
+  checklist_items = "".join(
+      f'<li><input type="checkbox" id="note-check-{i}"><label for="note-check-{i}">{item}</label></li>'
+      for i, item in enumerate(article["checklist"])
+  )
+  return (
+      '<section class="note-article-board" aria-label="note初回記事の手動投稿パッケージ">'
+      '<div class="fp-notice"><b>社内向けの投稿パッケージです。</b>'
+      'noteへの投稿・送信・連携は一切行われません。柴犬社長が内容を確認し、'
+      '手動でnoteへ貼り付けて公開するための準備画面です。</div>'
+      f'<p class="fp-theme">対象テーマ：<b>{article["theme"]}</b></p>'
+      f'<div class="fp-note fp-note-warn"><b>商品紹介について。</b>{article["future_link_note"]}</div>'
+      f'<div class="fp-note fp-note-warn"><b>手動投稿について。</b>{article["manual_post_note"]}</div>'
+      '<h3 class="fp-section-title">見出し画像</h3>'
+      '<div class="note-eyecatch-wrap">'
+      f'<div class="fp-svg-wrap note-eyecatch-svg-wrap">{svg_markup}</div>'
+      '<p class="fp-svg-ratio">横長 1280×670（画面内SVG・外部画像なし、商品写真・楽天市場画像は'
+      '使用していません）</p>'
+      # MISSION 037: 通常のダウンロードリンク(<a href download>)のみで
+      # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
+      # 生成済みのローカルPNGファイル(static/配下)を指すだけであり、
+      # クリックしてもnoteへの投稿・送信・連携は一切発生しない。
+      f'<a class="fp-png-download" href="/static/{NOTE_EYECATCH_RELATIVE_PATH}" '
+      'download="note-first-article-eyecatch.png">見出し画像PNGを保存</a>'
+      '<p class="fp-png-hint">保存したPNGをnoteの見出し画像として手動アップロードしてください。'
+      'このボタンからの投稿・送信・連携は行われません。</p>'
+      '</div>'
+      '<h3 class="fp-section-title">記事</h3>'
+      '<div class="fp-field">'
+      '<div class="fp-field-head"><h4>記事本文</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="note-article-body-copy">'
+      'コピー</button></div>'
+      f'<div class="note-article-visible">{visible_body}</div>'
+      f'<pre id="note-article-body-copy" class="note-article-copy-source">{plain_text}</pre>'
+      '</div>'
+      '<h3 class="fp-section-title">note向けタグ候補</h3>'
+      f'<ul class="note-tags">{tag_chips}</ul>'
+      '<h3 class="fp-section-title">投稿前チェックリスト</h3>'
+      f'<ul class="fp-checklist">{checklist_items}</ul>'
+      # MISSION 037: コピー操作はクライアント側JSのみで完結し、外部通信は
+      # 行わない。navigator.clipboardが使えない/失敗する環境でも、例外を
+      # 投げずに安全な文言へフォールバックする(既存の投稿パッケージ画面と同じ方式)。
+      '<script>document.querySelectorAll(".fp-copy-btn").forEach(btn=>{'
+      'btn.addEventListener("click",()=>{'
+      'const el=document.getElementById(btn.dataset.copyTarget);'
+      'if(!el)return;'
+      'const original=btn.textContent;'
+      'const showResult=ok=>{btn.textContent=ok?"コピーしました":"コピーできませんでした";'
+      'setTimeout(()=>{btn.textContent=original;},1800);};'
+      'try{'
+      'if(navigator.clipboard&&navigator.clipboard.writeText){'
+      'navigator.clipboard.writeText(el.textContent).then(()=>showResult(true))'
+      '.catch(()=>showResult(false));'
+      '}else{showResult(false);}'
+      '}catch(e){showResult(false);}'
+      '});'
+      '});</script>'
+      '<a class="cs-first-post-link" href="/content-studio/publish-queue">'
+      '→ 投稿キューを見る（社長承認待ち）</a>'
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の資料です。'
+      'note・SNS・楽天ROOMへの投稿・送信・連携は行われません。</p>'
+      '</section>'
+  )
+
+
 def register_office_views(app):
   """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
@@ -2408,5 +2719,15 @@ def register_office_views(app):
         "次の3本分のPinterest投稿を、画像・タイトル・説明文・altテキスト・"
         "確認項目までまとめて準備する画面です。公開は社長がPinterestで"
         "手動実行します。",
+        scene,
+    )
+
+  @app.route("/content-studio/note-first-article")
+  def content_studio_note_first_article():
+    scene = _render_note_article_scene(NOTE_FIRST_ARTICLE)
+    return _page(
+        "content", "note初回記事",
+        "柴犬社長がnoteへ手動で貼り付けて公開するための、初回記事の"
+        "見出し・本文・見出し画像・タグ候補を確認する画面です。",
         scene,
     )

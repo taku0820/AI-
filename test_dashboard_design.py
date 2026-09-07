@@ -1433,11 +1433,12 @@ class DashboardDesignTestCase(unittest.TestCase):
       if line.startswith("from PIL") or line.startswith("import PIL"):
         self.fail(f"PIL is imported at module level, not lazily: {line!r}")
     self.assertIn("  from PIL import Image, ImageDraw, ImageFont", module_source)
-    # MISSION 036で投稿キュー用のPNG生成関数(generate_publish_queue_pin_png)が
-    # 追加され、同じ遅延importパターンの箇所が3件(初回投稿・デスク環境・
-    # 投稿キュー)になった。
+    # MISSION 036で投稿キュー用(generate_publish_queue_pin_png)、MISSION 037で
+    # note見出し画像用(generate_note_eyecatch_png)のPNG生成関数が追加され、
+    # 同じ遅延importパターンの箇所が4件(初回投稿・デスク環境・投稿キュー・
+    # note見出し画像)になった。
     self.assertEqual(
-        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 3
+        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 4
     )
 
   def test_existing_pages_unaffected_by_desk_setup_post_addition(self):
@@ -1635,6 +1636,183 @@ class DashboardDesignTestCase(unittest.TestCase):
         ("/content-studio/first-post", "初回手動投稿パッケージ"),
         ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
         ("/content-studio/desk-setup-post", "デスク環境投稿パッケージ"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
+  # --- MISSION 037: note初回記事の手動投稿パッケージ ----------------------------
+
+  def test_content_studio_links_to_note_first_article(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/content-studio/note-first-article"', html)
+    self.assertIn("note初回記事を見る", html)
+
+  def test_note_first_article_page_loads(self):
+    res = self.client.get("/content-studio/note-first-article")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("note初回記事", html)
+    self.assertIn("<title>note初回記事 | AI Hive</title>", html)
+
+  def test_note_first_article_shows_theme_and_title(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("対象テーマ", html)
+    self.assertIn("AI初心者が仕事で最初に試す3つの使い方", html)
+    self.assertIn('class="note-article-title"', html)
+
+  def test_note_first_article_covers_the_three_required_topics(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("メールの下書きを1文で頼む", html)
+    self.assertIn("長い文章を要約してもらう", html)
+    self.assertIn("アイデア出しの壁打ち相手にする", html)
+
+  def test_note_first_article_shows_intro_body_and_conclusion(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn('class="note-article-intro"', html)
+    self.assertEqual(html.count('class="note-section-heading"'), 3)
+    self.assertIn('class="note-article-conclusion"', html)
+    self.assertIn("まとめ：", html)
+
+  def test_note_first_article_has_no_definitive_results_income_time_or_performance_claims(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    visible = html.split('class="note-article-visible"', 1)[1].split(
+        'class="note-article-copy-source"', 1
+    )[0]
+    self.assertNotIn("円", visible)
+    self.assertNotIn("¥", visible)
+    self.assertNotIn("時間短縮", visible)
+    self.assertNotIn("必ず", visible)
+    self.assertNotIn("絶対", visible)
+
+  def test_note_first_article_shows_tag_candidates(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("note向けタグ候補", html)
+    for tag in ("AI活用", "AI初心者", "仕事効率化", "生成AI", "業務効率化"):
+      self.assertIn(f"<li>{tag}</li>", html)
+
+  def test_note_first_article_excludes_product_intro_and_room_link_states_future_pr_check(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("商品紹介について", html)
+    self.assertIn(
+        "この初回記事には、商品紹介や楽天ROOMリンクを含めていません", html
+    )
+    self.assertIn(
+        "柴犬社長が内容を手動で確認し、必要に応じて広告・PR表記が必要かどうかを"
+        "確認したうえで追加します", html
+    )
+    self.assertNotIn("楽天ROOMリンク：", html)
+
+  def test_note_first_article_svg_headline_image_is_landscape_and_no_product_images(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn('<svg viewBox="0 0 1280 670"', html)
+    self.assertIn("横長 1280×670", html)
+    self.assertNotIn("<img", html)
+    self.assertIn(
+        "商品写真・楽天市場画像は使用していません", html
+    )
+    # xmlns="http://www.w3.org/2000/svg" はSVGの標準名前空間宣言であり、
+    # 外部リソースの読み込みではない。それ以外にhttp(s)参照がないことを
+    # 確認する。
+    self.assertIn('xmlns="http://www.w3.org/2000/svg"', html)
+    self.assertEqual(html.count("http://"), 1)
+    self.assertNotIn("https://", html)
+
+  def test_note_first_article_copy_button_targets_hidden_plain_text_and_fails_safely(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn('data-copy-target="note-article-body-copy"', html)
+    self.assertIn('id="note-article-body-copy"', html)
+    self.assertIn('class="note-article-copy-source"', html)
+    copy_source = html.split('id="note-article-body-copy"', 1)[1].split("</pre>", 1)[0]
+    self.assertIn("AI初心者が仕事で最初に試す3つの使い方", copy_source)
+    self.assertIn("メールの下書きを1文で頼む", copy_source)
+    self.assertIn("まとめ", copy_source)
+    self.assertIn("fp-copy-btn", html)
+    self.assertIn("showResult(false)", html)
+    self.assertIn("catch(e)", html)
+
+  def test_note_first_article_states_manual_publish_only(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("手動投稿について", html)
+    self.assertIn(
+        "柴犬社長がnoteへ手動でコピー＆ペーストして公開してください", html
+    )
+    self.assertIn(
+        "note・SNSへの自動投稿・予約投稿・ログイン操作・API連携・外部通信は"
+        "一切行いません", html
+    )
+
+  def test_note_first_article_shows_pre_post_checklist(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("投稿前チェックリスト", html)
+    self.assertEqual(html.count('type="checkbox"'), 5)
+
+  def test_note_first_article_has_no_external_resources_or_network_calls(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+
+  def test_note_first_article_has_responsive_layout(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
+
+  def test_note_first_article_content_is_data_driven_for_future_edits(self):
+    import office_views
+    self.assertEqual(len(office_views.NOTE_FIRST_ARTICLE["sections"]), 3)
+    self.assertEqual(len(office_views.NOTE_FIRST_ARTICLE["eyecatch"]["items"]), 3)
+    rendered = office_views._render_note_article_scene(office_views.NOTE_FIRST_ARTICLE)
+    self.assertIn(office_views.NOTE_FIRST_ARTICLE["title"], rendered)
+
+  def test_note_eyecatch_png_file_exists_with_correct_landscape_dimensions(self):
+    import office_views
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.NOTE_EYECATCH_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    # PNGシグネチャ + IHDRチャンクから幅・高さを読み取り、正確に
+    # 1280x670(横長)であることを確認する(外部ライブラリを使わない
+    # 最小限の検証)。
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1280, 670))
+
+  def test_note_eyecatch_png_is_served_as_a_plain_static_file(self):
+    res = self.client.get("/static/images/note-first-article-eyecatch.png")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_note_first_article_has_png_download_button_as_plain_link(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("見出し画像PNGを保存", html)
+    self.assertIn(
+        'href="/static/images/note-first-article-eyecatch.png" '
+        'download="note-first-article-eyecatch.png"',
+        html,
+    )
+    self.assertNotIn("createObjectURL", html)
+    self.assertNotIn("toDataURL", html)
+
+  def test_existing_pages_unaffected_by_note_first_article_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+        ("/content-studio/desk-setup-post", "デスク環境投稿パッケージ"),
+        ("/content-studio/publish-queue", "投稿キュー（社長承認待ち）"),
     ):
       with self.subTest(path=path):
         res = self.client.get(path)
