@@ -165,10 +165,10 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .note-article-board{max-width:760px;margin:0 auto}
 .note-hero{position:relative;border-radius:16px;overflow:hidden;margin-bottom:8px;background:#0b0d12}
 .note-hero-img{display:block;width:100%;height:auto}
-.note-hero-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,10,20,.74) 0%,rgba(6,10,20,.38) 45%,rgba(6,10,20,0) 72%)}
-.note-hero-overlay{position:absolute;left:0;top:0;height:100%;width:58%;display:flex;align-items:center;padding:0 5%;box-sizing:border-box}
-.note-hero-title{margin:0;font-size:clamp(18px,2.6vw,30px);font-weight:800;color:#fff;line-height:1.5;text-shadow:0 2px 14px rgba(0,0,0,.65)}
-@media(max-width:600px){.note-hero-overlay{width:100%;padding:0 6%}.note-hero-title{font-size:clamp(16px,5.4vw,22px)}}
+.note-hero-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,10,20,.76) 0%,rgba(6,10,20,.42) 55%,rgba(6,10,20,0) 82%)}
+.note-hero-overlay{position:absolute;left:0;top:0;height:100%;width:72%;display:flex;align-items:center;padding:0 4%;box-sizing:border-box}
+.note-hero-title{margin:0;font-size:clamp(14px,2.05vw,24px);font-weight:800;color:#fff;line-height:1.42;text-shadow:0 2px 14px rgba(0,0,0,.7);word-break:keep-all;overflow-wrap:normal}
+@media(max-width:600px){.note-hero-overlay{width:100%;padding:0 5%}.note-hero-title{font-size:clamp(11.5px,4vw,15.5px)}}
 .note-article-visible h2.note-article-title{margin:0 0 10px;font-size:19px}
 .note-article-visible h3.note-section-heading{margin:20px 0 8px;font-size:15px;color:var(--blue)}
 .note-article-visible h4.note-subheading{margin:12px 0 4px;font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.03em}
@@ -2293,6 +2293,17 @@ NOTE_FIRST_ARTICLE = {
         "暖色のデスクライトが手元を照らしている。右上には控えめな青い光の粒子が浮かぶ抽象的な"
         "演出があるが、実在のロゴ・製品名・画面表示・文字は含まれていない。"
     ),
+    # MISSION 037.1微修正: 見出し画像に重ねるタイトルの改行位置を固定する。
+    # ブラウザの自動折り返しに任せると、幅によって「メール」が「メー」
+    # 「ル」のように単語の途中で分割されてしまうことがあるため、4行の
+    # 区切り位置をあらかじめ指定する。この4行を連結すると"title"と完全に
+    # 一致する(内容は変更せず、見せ方だけを固定している)。
+    "hero_title_lines": [
+        "AI初心者が仕事で最初に試",
+        "す3つの使い方",
+        "──メール・要約・壁打ちを失敗し",
+        "ない形で始める",
+    ],
 }
 
 NOTE_HERO_IMAGE_RELATIVE_PATH = "images/note-first-article-hero.png"
@@ -2547,6 +2558,17 @@ def _render_note_article_scene(article):
       f'<li><input type="checkbox" id="note-check-{i}"><label for="note-check-{i}">{item}</label></li>'
       for i, item in enumerate(article["checklist"])
   )
+
+  # MISSION 037.1微修正: 見出し画像に重ねるタイトルは、ブラウザの自動
+  # 折り返しに任せず、hero_title_linesで指定した4行に固定する(「メール」
+  # が行の途中で分割されるのを防ぐため)。連結結果がtitleと一致しない場合は
+  # 表示内容が食い違ってしまうため、その場で検出する。
+  hero_title_lines = article["hero_title_lines"]
+  assert "".join(hero_title_lines) == article["title"], (
+      "hero_title_lines must reconstruct title exactly"
+  )
+  hero_title_html = "<br>".join(hero_title_lines)
+
   return (
       '<section class="note-article-board" aria-label="note初回記事の手動投稿パッケージ">'
       '<div class="fp-notice"><b>社内向けの投稿パッケージです。</b>'
@@ -2560,7 +2582,7 @@ def _render_note_article_scene(article):
       f'<img class="note-hero-img" src="/static/{NOTE_HERO_IMAGE_RELATIVE_PATH}" '
       f'alt="{article["hero_image_alt"]}">'
       '<div class="note-hero-scrim"></div>'
-      f'<div class="note-hero-overlay"><h1 class="note-hero-title">{article["title"]}</h1></div>'
+      f'<div class="note-hero-overlay"><h1 class="note-hero-title">{hero_title_html}</h1></div>'
       '</div>'
       f'<p class="fp-svg-ratio">横長 {NOTE_HERO_IMAGE_WIDTH}×{NOTE_HERO_IMAGE_HEIGHT}'
       '（ローカル生成画像・外部素材なし。見出し文字はHTML側で重ねています）</p>'
