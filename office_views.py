@@ -163,14 +163,19 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .pq-manual-note b{color:#ffe9d6}
 @media(max-width:760px){.pq-card-head{flex-direction:column;align-items:flex-start}}
 .note-article-board{max-width:760px;margin:0 auto}
-.note-eyecatch-wrap{text-align:center;margin-bottom:8px}
-.note-eyecatch-svg-wrap{max-width:640px;margin:0 auto}
+.note-hero{position:relative;border-radius:16px;overflow:hidden;margin-bottom:8px;background:#0b0d12}
+.note-hero-img{display:block;width:100%;height:auto}
+.note-hero-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,10,20,.74) 0%,rgba(6,10,20,.38) 45%,rgba(6,10,20,0) 72%)}
+.note-hero-overlay{position:absolute;left:0;top:0;height:100%;width:58%;display:flex;align-items:center;padding:0 5%;box-sizing:border-box}
+.note-hero-title{margin:0;font-size:clamp(18px,2.6vw,30px);font-weight:800;color:#fff;line-height:1.5;text-shadow:0 2px 14px rgba(0,0,0,.65)}
+@media(max-width:600px){.note-hero-overlay{width:100%;padding:0 6%}.note-hero-title{font-size:clamp(16px,5.4vw,22px)}}
 .note-article-visible h2.note-article-title{margin:0 0 10px;font-size:19px}
-.note-article-visible h4.note-section-heading{margin:16px 0 6px;font-size:14px;color:var(--blue)}
+.note-article-visible h3.note-section-heading{margin:20px 0 8px;font-size:15px;color:var(--blue)}
+.note-article-visible h4.note-subheading{margin:12px 0 4px;font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.03em}
 .note-article-visible p{margin:0 0 10px;font-size:13px;line-height:1.8}
-.note-article-visible p.note-article-intro{color:var(--ink)}
-.note-article-visible p.note-article-conclusion{background:#101827;border:1px solid var(--edge);border-radius:10px;padding:10px 12px}
-.note-article-visible p.note-article-conclusion b{color:var(--blue)}
+.note-article-visible .note-article-conclusion{background:#101827;border:1px solid var(--edge);border-radius:10px;padding:10px 12px}
+.note-article-visible .note-article-conclusion p{margin:0 0 8px}
+.note-article-visible .note-article-conclusion p:last-child{margin-bottom:0}
 .note-article-copy-source{display:none}
 .note-tags{list-style:none;padding:0;display:flex;gap:6px;flex-wrap:wrap;margin:0 0 4px}
 .note-tags li{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--sub)}
@@ -2057,201 +2062,437 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
   )
 
 
-# MISSION 037: note初回記事の手動投稿パッケージ(ローカル専用)。
+# MISSION 037.1: note初回記事の手動投稿パッケージ(長文・高品質版、ローカル専用)。
 #
-# 断定的な成果・収入・作業時間・性能比較は一切含めない。初回記事には
-# 商品紹介・楽天ROOMリンクを含めず、将来リンクを追加する場合は社長が
-# 手動確認し、必要に応じて広告・PR表記を確認する運用であることを明記
-# する。見出し画像は文字と図形のみで構成し(商品写真・楽天市場画像・
-# 外部素材は使わない)、note・SNSへの投稿・自動投稿・予約投稿・ログイン
-# 操作・API連携・外部通信は一切行わない。将来テーマ・文面・画像の中身を
-# 差し替える場合は、このデータ構造(NOTE_FIRST_ARTICLE)を編集するだけで
-# よい。
+# MISSION 037の短い記事パッケージは公開用として使わず、本文4,500〜5,500字
+# 程度の実用的な長文記事に作り直したもの。断定的な成果・収入・作業時間・
+# 性能比較は一切含めず、実体験でないことを実体験のように書かない。初回
+# 記事には商品紹介・楽天ROOMリンク・アフィリエイトリンクを含めず、将来
+# リンクを追加する場合は社長が手動確認し、必要に応じて広告・PR表記を
+# 確認する運用であることを明記する。見出し画像は日本語文字・ロゴ・実在
+# サービスの画面を一切含まない横長のオリジナルビジュアル(木目のデスク・
+# ノートPC・ノート・暖色のデスクライト・控えめな青いAIの抽象表現)で、
+# 見出し文字はHTML側で重ねる(画像そのものには文字を焼き込まない)。
+# note・SNSへの投稿・自動投稿・予約投稿・ログイン操作・API連携・外部
+# 通信は一切行わない。将来テーマ・文面・画像の中身を差し替える場合は、
+# このデータ構造(NOTE_FIRST_ARTICLE)を編集するだけでよい。
 NOTE_FIRST_ARTICLE = {
-    "theme": "AI初心者が仕事で最初に試す3つの使い方",
-    "title": "AI初心者が仕事で最初に試す3つの使い方",
+    "theme": "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+    "title": "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
     "intro": (
-        "「AIを仕事で使ってみたいけど、何から始めればいいかわからない」という人に向けて、"
-        "今日からすぐに試せる3つの使い方をまとめました。むずかしい設定は必要ありません。"
-        "特定の商品の紹介はありません。"
+        "「AIを仕事で使ってみたい」と思っても、何から手をつければいいのか分からず、結局そのまま"
+        "にしている人は多いのではないでしょうか。とくに、日々の業務に追われながら子育てや家庭の"
+        "ことも同時にこなしている会社員にとって、新しいツールを一から勉強する時間を作るのは"
+        "簡単ではありません。\n\n"
+        "この記事では、AIをまったく触ったことがない人でも、今日から無理なく試せる3つの使い方を"
+        "紹介します。特別なソフトの導入も、専門知識も必要ありません。スマートフォンやパソコンで"
+        "使えるAIチャットに、話しかけるように文章を打ち込むだけで始められます。休憩時間や通勤の"
+        "隙間時間のような、ほんの数分でも試すことができます。\n\n"
+        "紹介する3つの使い方は、メールの下書き・長い文章の要約・アイデア出しの壁打ちです。どれも"
+        "「AIに丸ごと任せる」のではなく、「AIに下準備を手伝ってもらい、最終的な判断は自分で行う」"
+        "という考え方が土台になっています。この記事を読み終えたときには、AIを仕事の中でどう"
+        "位置づければいいか、具体的なイメージを持てるはずです。"
     ),
+    "prep": {
+        "heading": "はじめる前に",
+        "body": (
+            "はじめる前に、特別な準備は必要ありません。スマートフォンやパソコンで使える無料の"
+            "AIチャットサービスであれば、今すぐ試せる状態です。アカウント登録が必要な場合も"
+            "ありますが、氏名とメールアドレス程度の簡単な手続きで済むことがほとんどです。どの"
+            "サービスを選ぶかで迷う場合は、まずは手元の端末にすでに入っているものや、周囲の人が"
+            "使っているものから触ってみるのがおすすめです。大切なのは「どのAIを使うか」よりも、"
+            "「どう話しかけるか」であり、この記事で紹介する3つの使い方は、ほとんどのAIチャット"
+            "サービスに共通して応用できます。"
+        ),
+    },
     "sections": [
         {
             "heading": "1. メールの下書きを1文で頼む",
-            "body": (
-                "長いメールを一から書くのは意外と時間がかかります。まずは「◯◯さんへのお礼メールの"
-                "下書きを作って」のように、伝えたい内容を1文でAIに頼んでみましょう。出てきた下書きを"
-                "自分の言葉に直すだけで、ゼロから書くよりラクに仕上げられます。"
+            "usage": (
+                "メールを書くという作業は、内容そのものを考える時間よりも、言葉づかいや構成を"
+                "整える時間のほうが長くかかることがあります。とくに、お礼の連絡、謝罪を含む連絡、"
+                "初めての相手への依頼など、言い回しに気を使う場面では、書き始めるまでに時間が"
+                "かかりがちです。こうした場面こそ、AIに下書き作成を手伝ってもらう使いどころです。"
+                "ゼロから文章を組み立てるのではなく、「伝えたいことの骨組み」をAIに渡し、たたき台を"
+                "出してもらう、という使い方をします。定型的な連絡だけでなく、少し気を使う場面ほど、"
+                "下書きの助けがあると気持ちの負担が軽くなります。"
+            ),
+            "input_example": (
+                "入力の仕方はむずかしく考える必要はありません。たとえば、次のように話しかけるように"
+                "打ち込むだけで十分です。\n\n"
+                "「取引先の◯◯様へ、来週の打ち合わせを1時間ほど遅らせてほしいとお願いするメールの"
+                "下書きを作ってください。丁寧だけど堅苦しすぎない文章でお願いします。」\n\n"
+                "このように、誰に・何を・どんなトーンで伝えたいかを1〜2文にまとめて渡すと、AIは"
+                "その情報をもとに文章の形に整えてくれます。宛先の名前や具体的な日時など、細かい"
+                "情報も一緒に伝えておくと、修正の手間が少なくなります。"
+            ),
+            "output_check": (
+                "AIが作った下書きは、そのまま送信せず、必ず次の3点を確認しましょう。まず、事実"
+                "関係が正しいかどうかです。日時や金額、固有名詞などは、AIが文脈から推測して補って"
+                "しまうことがあるため、自分が伝えたい情報と一致しているか一つずつ照らし合わせます。"
+                "次に、言葉づかいが相手や場面に合っているかどうかです。AIの文章は丁寧すぎたり、"
+                "逆にカジュアルすぎたりすることがあるため、実際の関係性に合わせて調整します。最後に、"
+                "自分の言葉として違和感がないかどうかです。下書きをそのまま使うのではなく、語尾や"
+                "言い回しを少し直すだけで、自分らしい文章に近づきます。"
             ),
         },
         {
             "heading": "2. 長い文章を要約してもらう",
-            "body": (
-                "資料や議事録など、長い文章に目を通す時間が取れないときは、AIに要点をまとめてもらう"
-                "方法があります。「この文章を3行で要約して」と頼むだけで、全体像をつかみやすくなります。"
-                "要約はあくまで参考として使い、大事な判断は自分の目で原文を確認しましょう。"
+            "usage": (
+                "会議の議事録、長めの報告書、複数人でやり取りしたメールの履歴など、内容を把握する"
+                "ために目を通さなければならない文章は、日々の業務の中で意外と多くあります。時間を"
+                "かけて全部を読み込む余裕がないとき、AIに要点を先にまとめてもらい、全体像をつかんで"
+                "から必要な部分だけ読み込む、という使い方が有効です。読む作業をゼロにするのでは"
+                "なく、読む順番と優先度を整理するための使いどころだと考えると、扱いやすくなります。"
+                "移動中や子どもの寝かしつけの合間など、まとまった時間が取りにくいタイミングでも"
+                "取り入れやすい使い方です。"
+            ),
+            "input_example": (
+                "要約を頼むときは、文章そのものと一緒に、どのような形でまとめてほしいかを伝えると、"
+                "より使いやすい結果になります。\n\n"
+                "「以下の議事録を、決定事項・保留事項・次回までの宿題の3つに分けて、それぞれ"
+                "箇条書きで3行以内にまとめてください。」\n\n"
+                "このように、まとめ方の枠組みをこちらから指定することで、AIが自由に要約するよりも、"
+                "実際の業務で使いやすい形に整理されます。情報量が多い場合は、一度に全部を渡そうと"
+                "せず、章や日付ごとに分けて渡すと、精度が安定しやすくなります。"
+            ),
+            "output_check": (
+                "要約の結果を確認するときにもっとも大切なのは、「要約はあくまで参考情報である」と"
+                "いう前提を崩さないことです。AIの要約は、文章全体の中で重要そうに見える部分を抜き"
+                "出す仕組みのため、実際には重要な但し書きや例外事項が抜け落ちてしまうことがあります。"
+                "特に、金額や納期、責任の所在に関わる記述は、要約された文章だけで判断せず、必ず"
+                "原文に戻って確認しましょう。要約はあくまで「読む優先順位をつけるための地図」として"
+                "使い、最終的な判断材料は原文から得る、という順番を守ることが大切です。"
             ),
         },
         {
             "heading": "3. アイデア出しの壁打ち相手にする",
-            "body": (
-                "企画やアイデアに行き詰まったとき、AIに「他にどんな切り口があるか」を聞いてみるのも"
-                "おすすめです。すべてを採用する必要はなく、思考を広げるための壁打ち相手として使うと"
-                "気軽に試せます。"
+            "usage": (
+                "企画や改善案を考えるとき、一人で考え続けていると同じ発想の中をぐるぐる回って"
+                "しまうことがあります。そんなときは、AIを「否定せずに付き合ってくれる壁打ち相手」"
+                "として使う方法があります。人に相談するほどではない、まだ形になっていない段階の"
+                "アイデアでも、AIには気軽に投げかけることができます。出てきた案をすべて採用する"
+                "必要はなく、自分では思いつかなかった切り口に気づくためのきっかけとして使うのが"
+                "ポイントです。周囲に相談できる相手がいない時間帯でも、一人で抱え込まずに考えを"
+                "整理する手段になります。"
+            ),
+            "input_example": (
+                "壁打ちをするときは、状況と制約条件を伝えると、より実用的な案が返ってきやすく"
+                "なります。\n\n"
+                "「子育て世代の会社員向けに、平日夜でも参加しやすい30分程度のオンライン相談会を"
+                "企画したいです。テーマの案を5つ挙げてください。」\n\n"
+                "このように、対象者・条件・欲しい案の数を具体的に伝えることで、漠然とした問いかけ"
+                "よりも活用しやすい返答が得られます。出てきた案に対して「もう少し身近な言葉で」"
+                "「他の切り口も」と重ねて聞き返すことで、案を育てていくこともできます。"
+            ),
+            "output_check": (
+                "壁打ちで得られた案は、あくまで「たたき台」であることを忘れないようにしましょう。"
+                "AIが提案する案の中には、実際の社内事情や過去の経緯、対象者の細かい状況を踏まえて"
+                "いないものも含まれます。出てきた案をそのまま採用するのではなく、自分たちの状況に"
+                "合っているか、実現できる範囲かを一つずつ検討したうえで、最終的な企画に落とし込む"
+                "ことが必要です。壁打ちの目的は答えをもらうことではなく、考えを広げるきっかけを"
+                "作ることだと捉えると、使い方の軸がぶれにくくなります。"
             ),
         },
     ],
-    "conclusion": (
-        "メールの下書き・要約・アイデア出しの壁打ち。この3つは、AIを初めて使う人でも今日から"
-        "試せる小さな一歩です。完璧な結果を求めず、まずは1つだけ試してみてください。"
-    ),
+    "closing_sections": [
+        {
+            "heading": "失敗しやすい点",
+            "body": (
+                "AIを使い始めたばかりのころによくある失敗として、次のようなものが挙げられます。\n\n"
+                "一つ目は、出てきた文章や要約をそのまま確認せずに使ってしまうことです。AIの出力は"
+                "自然な文章に見えるため、つい信用しすぎてしまいがちですが、事実関係の誤りや情報の"
+                "抜け漏れが含まれている可能性は常にあります。\n\n"
+                "二つ目は、指示があいまいなまま頼んでしまうことです。「いい感じにまとめて」のような"
+                "漠然とした依頼では、期待した結果が返ってきにくくなります。誰に・何のために・どんな"
+                "形でという条件を、できるだけ具体的に伝えることが、使いこなす近道です。\n\n"
+                "三つ目は、一度の指示で満足のいく結果が出なかったときに、そこで使うのをやめて"
+                "しまうことです。AIとのやり取りは、一往復で完成させるものではなく、出てきた結果を"
+                "見ながら「ここをもう少し」と伝え直す、対話に近い使い方をすると、結果が安定し"
+                "やすくなります。\n\n"
+                "四つ目は、AIに聞けば何でも解決すると思い込み、自分で考える機会そのものを手放して"
+                "しまうことです。AIはあくまで下準備を手伝う道具であり、考える主体は自分自身で"
+                "あるという感覚を保っておくことが、長く付き合っていくうえで大切です。"
+            ),
+        },
+        {
+            "heading": "機密情報の注意",
+            "body": (
+                "AIに文章を渡すときは、機密情報や個人情報の取り扱いに注意が必要です。取引先の氏名や"
+                "連絡先、契約金額、社外に出していない社内資料の内容などを、そのままAIに入力すること"
+                "は避けましょう。多くのAIサービスは入力内容を学習やサービス改善に利用する場合があり、"
+                "意図せず情報が外部に残ってしまうリスクがあります。\n\n"
+                "どうしても具体的な文脈が必要な場合は、固有名詞をA社・B様のように置き換える、金額や"
+                "日付を仮の数字にするなど、特定できない形に加工してから入力する習慣をつけましょう。"
+                "たとえば「取引先の田中様へ、契約金額150万円について」と入力する代わりに、「取引先の"
+                "A様へ、契約金額について」のように抽象化するだけでも、リスクを大きく減らせます。"
+                "会社によっては、AIツールの利用そのものに社内ルールが定められていることもあるため、"
+                "業務で使う前に自分の会社の方針を確認しておくことも大切です。"
+            ),
+        },
+        {
+            "heading": "AIに任せない判断",
+            "body": (
+                "AIは便利な下準備の道具ですが、任せてはいけない判断もあります。たとえば、謝罪や"
+                "重要な意思決定を含む連絡の最終的な言葉選びと送信の判断、契約条件や金額に関わる"
+                "最終確認、社内外の人間関係に影響する微妙なニュアンスの調整などは、AIの提案を参考に"
+                "しつつも、最終的には自分の目と経験で判断する必要があります。\n\n"
+                "たとえば、取引先へのお詫びの連絡であれば、AIが作った下書きの構成や言葉づかいを"
+                "参考にすることはできても、「実際にどこまで謝罪の言葉を重ねるか」「どのタイミングで"
+                "送るか」といった判断は、これまでの関係性を知っている自分にしかできません。AIが出す"
+                "文章は、一見もっともらしく見えても、その場の空気や相手との関係性、過去のやり取りの"
+                "積み重ねまでは理解していません。「下書きや叩き台を作ってもらう」ところまでをAIに"
+                "任せ、「最終的にどう伝えるか」を決めるのは常に自分自身である、という役割分担を"
+                "意識することが、AIとうまく付き合っていくための基本になります。"
+            ),
+        },
+        {
+            "heading": "まとめ",
+            "body": (
+                "この記事では、AI初心者が仕事で最初に試しやすい3つの使い方として、メールの下書き・"
+                "長い文章の要約・アイデア出しの壁打ちを紹介しました。どの使い方にも共通しているのは、"
+                "AIに全部を任せるのではなく、下準備の部分だけを手伝ってもらい、最終的な確認と判断は"
+                "自分で行うという姿勢です。この考え方さえ押さえておけば、大きな失敗をすることなく、"
+                "AIを日々の仕事に少しずつ取り入れていくことができます。忙しい毎日の中でも、AIをうまく"
+                "使い分けることで、考える時間そのものを自分の手元に取り戻していくことができるはず"
+                "です。"
+            ),
+        },
+        {
+            "heading": "次の一歩",
+            "body": (
+                "まずは、今日中に送る予定のメールを1通、AIに下書きを頼んでみることから始めてみて"
+                "ください。完璧な文章を求める必要はありません。「思っていたより早く書けた」「言葉"
+                "づかいのヒントになった」と感じられれば、それで十分な一歩です。慣れてきたら、要約や"
+                "壁打ちにも少しずつ範囲を広げてみましょう。無理に毎日使おうとせず、自分のペースで"
+                "少しずつ試していくことが、AIと長く付き合っていくコツです。"
+            ),
+        },
+    ],
     "tag_candidates": ["AI活用", "AI初心者", "仕事効率化", "生成AI", "業務効率化"],
     "future_link_note": (
-        "この初回記事には、商品紹介や楽天ROOMリンクを含めていません。将来リンクを追加する場合は、"
-        "柴犬社長が内容を手動で確認し、必要に応じて広告・PR表記が必要かどうかを確認したうえで"
-        "追加します。"
+        "この記事には、商品紹介や楽天ROOMリンク・アフィリエイトリンクを含めていません。将来リンクを"
+        "追加する場合は、柴犬社長が内容を手動で確認し、必要に応じて広告・PR表記が必要かどうかを"
+        "確認したうえで追加します。"
     ),
     "manual_post_note": (
         "この記事は、柴犬社長がnoteへ手動でコピー＆ペーストして公開してください。note・SNSへの"
         "自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切行いません。"
     ),
     "checklist": [
-        "断定的な成果・収入・作業時間・性能比較の表現が含まれていないか確認した",
-        "商品名・価格・ランキングなどの未確認情報が含まれていないか確認した",
-        "見出し画像の文字が読みやすいか（誤字・はみ出しがないか）確認した",
+        "本文が4,500〜5,500字の目安に収まっているか確認した",
+        "断定的な時短効果・収益・性能・ランキングの表現が含まれていないか確認した",
+        "実体験でないことを実体験のように書いていないか確認した",
+        "機密情報・個人情報の実例をそのまま書いていないか確認した",
+        "見出し画像に日本語文字・ロゴ・実在サービスの画面が写っていないか確認した",
         "タグ候補が記事内容と合っているか確認した",
         "noteアカウントにログインした状態で、手動で貼り付けて公開できる準備ができている",
     ],
-    "eyecatch": {
-        "headline_lines": ["AI初心者が仕事で", "最初に試す3つの使い方"],
-        "subtitle": "今日からできる、小さな一歩",
-        "items": [
-            {"label": "メールの下書き", "icon": "mail"},
-            {"label": "文章の要約", "icon": "summary"},
-            {"label": "アイデアの壁打ち", "icon": "idea"},
-        ],
-        "footer": "むずかしい設定は必要ありません。",
-    },
+    "hero_image_alt": (
+        "落ち着いた夜のホームオフィスのイメージ。木目のデスクにノートパソコンとノートが置かれ、"
+        "暖色のデスクライトが手元を照らしている。右上には控えめな青い光の粒子が浮かぶ抽象的な"
+        "演出があるが、実在のロゴ・製品名・画面表示・文字は含まれていない。"
+    ),
 }
 
-NOTE_EYECATCH_RELATIVE_PATH = "images/note-first-article-eyecatch.png"
-_NOTE_EYECATCH_PNG_FONT_PATH = "/System/Library/Fonts/Hiragino Sans GB.ttc"
-NOTE_EYECATCH_WIDTH = 1280
-NOTE_EYECATCH_HEIGHT = 670
+NOTE_HERO_IMAGE_RELATIVE_PATH = "images/note-first-article-hero.png"
+# MISSION 037.1修正: Pillow製の図形イラストから、高精細なオリジナル
+# ビジュアル(1672x941)へ差し替えた。この画像はそのまま使用しており、
+# SVG/Pillowでの再描画は行っていない(generate_note_hero_image_pngは
+# 開発時の代替手段として残しているが、現在配信している画像の生成には
+# 使われていない)。
+NOTE_HERO_IMAGE_WIDTH = 1672
+NOTE_HERO_IMAGE_HEIGHT = 941
 
 
-def _render_note_eyecatch_svg(eyecatch):
-  """note記事用の横長見出し画像(1280x670)をローカルSVGで組み立てる。
+def _note_article_body_plain_text(article):
+  """記事本文(タイトルを除く、導入〜次の一歩まで)のプレーンテキストを組み立てる。
 
-  外部画像・外部フォント・外部素材、商品写真・楽天市場画像は一切使わず、
-  すべて画面内SVGの図形とテキストだけで構成する(初回手動投稿パッケージと
-  同じmail/summary/ideaアイコンを再利用)。断定的な成果・数値は含めない。
+  見出し画像・タグ候補・チェックリストは含めない。段落の区切りは実際の
+  改行(\\n\\n)で表現し、コピー用の非表示要素と文字数検証の両方で同じ
+  テキストを共有することで、表示・コピー・テストの間で内容がずれない
+  ようにしている。
   """
-  width, height = NOTE_EYECATCH_WIDTH, NOTE_EYECATCH_HEIGHT
-  headline_start_y = 110
-  headline_line_h = 58
-  headline_lines = eyecatch["headline_lines"]
-  headline_tspans = "".join(
-      f'<tspan x="{width // 2}" dy="{0 if i == 0 else headline_line_h}">{line}</tspan>'
-      for i, line in enumerate(headline_lines)
-  )
-  subtitle_y = headline_start_y + headline_line_h * (len(headline_lines) - 1) + 60
-
-  items = eyecatch["items"]
-  col_w = width / len(items)
-  item_cy = 430
-  item_blocks = []
-  for index, item in enumerate(items):
-    cx = int(col_w * (index + 0.5))
-    icon_shape = _FIRST_POST_ICONS[item["icon"]]
-    item_blocks.append(
-        f'<g transform="translate({cx},{item_cy})">'
-        '<circle r="42" fill="#0b2540" stroke="#38bdf8" stroke-width="3"/>'
-        f'{icon_shape}'
-        f'<text x="0" y="86" text-anchor="middle" font-size="24" font-weight="700" '
-        f'fill="#f1f5f9">{item["label"]}</text>'
-        '</g>'
-    )
-  return (
-      f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" '
-      'role="img" aria-labelledby="note-eyecatch-svg-title">'
-      f'<title id="note-eyecatch-svg-title">{eyecatch["headline_lines"][0]}'
-      f'{eyecatch["headline_lines"][1] if len(eyecatch["headline_lines"]) > 1 else ""}</title>'
-      '<defs><linearGradient id="noteEyecatchBg" x1="0" y1="0" x2="0" y2="1">'
-      '<stop offset="0%" stop-color="#0b1220"/><stop offset="100%" stop-color="#1b2c4a"/>'
-      '</linearGradient></defs>'
-      f'<rect width="{width}" height="{height}" fill="url(#noteEyecatchBg)"/>'
-      f'<text x="{width // 2}" y="{headline_start_y}" text-anchor="middle" font-size="48" '
-      f'font-weight="800" fill="#f1f5f9">{headline_tspans}</text>'
-      f'<text x="{width // 2}" y="{subtitle_y}" text-anchor="middle" font-size="24" '
-      f'font-weight="600" fill="#38bdf8">{eyecatch["subtitle"]}</text>'
-      + "".join(item_blocks) +
-      f'<text x="{width // 2}" y="{height - 40}" text-anchor="middle" font-size="20" '
-      f'fill="#a3b2c6">{eyecatch["footer"]}</text>'
-      '</svg>'
-  )
+  parts = [article["intro"], f'{article["prep"]["heading"]}\n{article["prep"]["body"]}']
+  for section in article["sections"]:
+    parts.append(section["heading"])
+    parts.append(f'使いどころ\n{section["usage"]}')
+    parts.append(f'入力例\n{section["input_example"]}')
+    parts.append(f'出力確認\n{section["output_check"]}')
+  for closing in article["closing_sections"]:
+    parts.append(f'{closing["heading"]}\n{closing["body"]}')
+  return "\n\n".join(parts)
 
 
-def generate_note_eyecatch_png(eyecatch, out_path=None):
-  """note記事用の横長見出しPNG(1280x670)を生成し、ファイルへ保存する(開発時専用)。
+def _note_article_full_copy_text(article):
+  """タイトルを含む、note投稿用のコピー全文を組み立てる。"""
+  return f'{article["title"]}\n\n{_note_article_body_plain_text(article)}'
 
-  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。テーマや
-  文言(NOTE_FIRST_ARTICLE)を差し替えた場合、この関数を手動で再実行して
-  PNGを作り直すこと。実行にはPillowが必要(pip install Pillow)。
+
+def _paragraphs_html(text):
+  """改行(\\n\\n)区切りのプレーンテキストを<p>タグの並びに変換する。"""
+  return "".join(f'<p>{paragraph}</p>' for paragraph in text.split("\n\n"))
+
+
+def generate_note_hero_image_png(out_path=None):
+  """note記事用の横長ヒーロービジュアル(NOTE_HERO_IMAGE_WIDTH x
+
+  NOTE_HERO_IMAGE_HEIGHT)を生成し、ファイルへ保存する(開発時専用)。
+  MISSION 037.1修正で、実際に配信している画像は高精細なオリジナル
+  ビジュアル(1672x941)に差し替えられており、この関数はもう配信中の
+  画像の生成には使われていない。将来Pillow製イラストに戻す場合の
+  代替手段として残している。落ち着いた夜のホームオフィス・木目のデスク・
+  ノートPC・
+  ノート・暖色のデスクライト・控えめな青いAIの抽象表現を、グラデーション
+  と図形の重ね合わせだけで表現する。ロゴ・製品名・読める文字・透かし・
+  実在サービスの画面は一切描画しない。見出し文字は画像に焼き込まず、HTML
+  側で重ねる(_render_note_article_sceneのnote-hero-overlay)。左側は
+  タイトルを重ねる余白として、意図的に要素を減らしている。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。ビジュアルの
+  構図を差し替えたい場合、この関数を手動で再実行してPNGを作り直すこと。
+  実行にはPillowが必要(pip install Pillow)。
 
   実行例:
       source venv/bin/activate && pip install Pillow
-      python -c "import office_views as o; \\
-          o.generate_note_eyecatch_png(o.NOTE_FIRST_ARTICLE['eyecatch'])"
+      python -c "import office_views as o; o.generate_note_hero_image_png()"
   """
-  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+  import random
+  from PIL import Image, ImageDraw, ImageFilter  # 遅延import(開発時専用)
 
-  width, height = NOTE_EYECATCH_WIDTH, NOTE_EYECATCH_HEIGHT
-  bg_top, bg_bottom = (11, 18, 32), (27, 44, 74)
-  white, blue, sub = (241, 245, 249), (56, 189, 248), (163, 178, 198)
-  badge_bg = (11, 37, 64)
+  width, height = NOTE_HERO_IMAGE_WIDTH, NOTE_HERO_IMAGE_HEIGHT
+  rng = random.Random(2037)
 
-  img = Image.new("RGB", (width, height), bg_top)
-  draw = ImageDraw.Draw(img)
+  # 背景: 夜のホームオフィスを思わせる、上が濃紺・下がわずかに暖かい
+  # 縦グラデーション。
+  top_color, bottom_color = (7, 9, 17), (24, 17, 15)
+  base = Image.new("RGB", (width, height), top_color)
+  draw = ImageDraw.Draw(base)
   for y in range(height):
     t = y / (height - 1)
     draw.line(
         [(0, y), (width, y)],
-        fill=tuple(int(bg_top[i] + (bg_bottom[i] - bg_top[i]) * t) for i in range(3)),
+        fill=tuple(int(top_color[i] + (bottom_color[i] - top_color[i]) * t) for i in range(3)),
     )
+  img = base.convert("RGBA")
 
-  headline_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 48)
-  subtitle_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 24)
-  label_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 24)
-  footer_font = ImageFont.truetype(_NOTE_EYECATCH_PNG_FONT_PATH, 20)
+  # 暖色のデスクライトの光だまり(右寄り)をぼかして重ねる。
+  warm_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+  warm_draw = ImageDraw.Draw(warm_layer)
+  lamp_cx, lamp_cy = int(width * 0.74), int(height * 0.40)
+  warm_draw.ellipse(
+      [lamp_cx - 260, lamp_cy - 200, lamp_cx + 260, lamp_cy + 200], fill=(255, 176, 90, 130)
+  )
+  warm_layer = warm_layer.filter(ImageFilter.GaussianBlur(75))
+  img = Image.alpha_composite(img, warm_layer)
 
-  cx = width // 2
-  headline_start_y = 110
-  headline_line_h = 58
-  headline_lines = eyecatch["headline_lines"]
-  y = headline_start_y
-  for line in headline_lines:
-    draw.text((cx, y), line, font=headline_font, fill=white, anchor="ma")
-    y += headline_line_h
-  subtitle_y = headline_start_y + headline_line_h * (len(headline_lines) - 1) + 60
-  draw.text((cx, subtitle_y), eyecatch["subtitle"], font=subtitle_font, fill=blue, anchor="ma")
+  # 控えめな青いAIの気配(画面まわりの淡い光)をぼかして重ねる。
+  blue_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+  blue_draw = ImageDraw.Draw(blue_layer)
+  ai_cx, ai_cy = int(width * 0.80), int(height * 0.30)
+  blue_draw.ellipse([ai_cx - 190, ai_cy - 150, ai_cx + 190, ai_cy + 150], fill=(56, 189, 248, 80))
+  blue_layer = blue_layer.filter(ImageFilter.GaussianBlur(65))
+  img = Image.alpha_composite(img, blue_layer)
 
-  items = eyecatch["items"]
-  col_w = width / len(items)
-  item_cy = 430
-  for index, item in enumerate(items):
-    item_cx = int(col_w * (index + 0.5))
-    draw.ellipse(
-        [item_cx - 42, item_cy - 42, item_cx + 42, item_cy + 42],
-        fill=badge_bg, outline=blue, width=3,
+  draw = ImageDraw.Draw(img)
+
+  # 木目のデスク(下部32%程度の暖色グラデーション帯)。
+  desk_top_y = int(height * 0.68)
+  desk_top_color, desk_bottom_color = (76, 50, 31), (36, 23, 14)
+  for y in range(desk_top_y, height):
+    t = (y - desk_top_y) / (height - desk_top_y - 1)
+    c = tuple(
+        int(desk_top_color[i] + (desk_bottom_color[i] - desk_top_color[i]) * t) for i in range(3)
     )
-    _draw_first_post_icon(draw, item_cx, item_cy, item["icon"], blue)
-    draw.text((item_cx, item_cy + 60), item["label"], font=label_font, fill=white, anchor="ma")
+    draw.line([(0, y), (width, y)], fill=c + (255,))
+  # 木目を思わせる、ごく控えめな濃淡の横線(具象的な模様にはしない)。
+  for _ in range(16):
+    gy = rng.randint(desk_top_y + 8, height - 8)
+    shade = rng.randint(-16, 12)
+    color = tuple(max(0, min(255, desk_top_color[i] + shade)) for i in range(3))
+    draw.line([(0, gy), (width, gy + rng.randint(-3, 3))], fill=color + (55,), width=1)
 
-  draw.text((cx, height - 40), eyecatch["footer"], font=footer_font, fill=sub, anchor="mm")
+  # ノートPC(デスク中央よりやや右)。画面はロゴ・文字のない単色の
+  # ほのかな発光のみ。
+  laptop_cx = int(width * 0.66)
+  base_w, base_h = 420, 22
+  base_y = desk_top_y + 46
+  draw.rounded_rectangle(
+      [laptop_cx - base_w // 2, base_y, laptop_cx + base_w // 2, base_y + base_h],
+      radius=7, fill=(20, 20, 24, 255),
+  )
+  screen_w, screen_h = 340, 220
+  screen_x0 = laptop_cx - screen_w // 2
+  screen_y1 = base_y
+  screen_y0 = screen_y1 - screen_h
+  draw.rounded_rectangle(
+      [screen_x0, screen_y0, screen_x0 + screen_w, screen_y1], radius=12, fill=(13, 13, 17, 255)
+  )
+  inner_pad = 12
+  draw.rounded_rectangle(
+      [screen_x0 + inner_pad, screen_y0 + inner_pad, screen_x0 + screen_w - inner_pad,
+       screen_y1 - inner_pad],
+      radius=6, fill=(29, 42, 58, 255),
+  )
 
+  # ノート(ノートPCの左、デスクに平置き)。罫線のみで文字は書かない。
+  nb_w, nb_h = 170, 120
+  nb_x0 = laptop_cx - base_w // 2 - 190
+  nb_y0 = desk_top_y + 78
+  draw.rounded_rectangle(
+      [nb_x0, nb_y0, nb_x0 + nb_w, nb_y0 + nb_h], radius=6, fill=(233, 226, 211, 255)
+  )
+  for i in range(5):
+    ly = nb_y0 + 28 + i * 17
+    draw.line([(nb_x0 + 18, ly), (nb_x0 + nb_w - 18, ly)], fill=(188, 179, 162, 255), width=2)
+  draw.line(
+      [(nb_x0 + 22, nb_y0 + nb_h - 16), (nb_x0 + nb_w - 34, nb_y0 + nb_h - 34)],
+      fill=(58, 58, 62, 255), width=6,
+  )
+
+  # デスクライト(単純な腕とシェードのシルエットのみ)。
+  lamp_base_x = int(width * 0.93)
+  lamp_base_y = desk_top_y + 34
+  draw.line([(lamp_base_x, lamp_base_y), (lamp_base_x - 46, lamp_base_y - 180)],
+            fill=(28, 24, 20, 255), width=9)
+  draw.line([(lamp_base_x - 46, lamp_base_y - 180), (lamp_base_x - 160, lamp_base_y - 236)],
+            fill=(28, 24, 20, 255), width=9)
+  draw.polygon(
+      [(lamp_base_x - 214, lamp_base_y - 262), (lamp_base_x - 108, lamp_base_y - 262),
+       (lamp_base_x - 136, lamp_base_y - 214), (lamp_base_x - 186, lamp_base_y - 214)],
+      fill=(38, 32, 26, 255),
+  )
+
+  # 青いAIの抽象表現(ノード+接続線)。ロゴ・アイコンではなく、単なる
+  # 光の粒子のネットワークとして描く。
+  nodes = [
+      (width * 0.80, height * 0.15), (width * 0.87, height * 0.23), (width * 0.92, height * 0.13),
+      (width * 0.83, height * 0.29), (width * 0.96, height * 0.21),
+  ]
+  nodes = [(int(x), int(y)) for x, y in nodes]
+  for i in range(len(nodes) - 1):
+    draw.line([nodes[i], nodes[i + 1]], fill=(56, 189, 248, 90), width=2)
+  draw.line([nodes[0], nodes[3]], fill=(56, 189, 248, 70), width=2)
+  for nx, ny in nodes:
+    draw.ellipse([nx - 6, ny - 6, nx + 6, ny + 6], fill=(125, 211, 252, 255))
+    draw.ellipse([nx - 11, ny - 11, nx + 11, ny + 11], outline=(56, 189, 248, 150), width=2)
+
+  # 周辺を軽く落として、中央〜右側の被写体に視線が集まるようにする
+  # (左側はタイトルを重ねる余白として、あえて明るさを残す)。
+  vignette_mask = Image.new("L", (width, height), 0)
+  vm_draw = ImageDraw.Draw(vignette_mask)
+  vm_draw.ellipse(
+      [-int(width * 0.25), -int(height * 0.25), int(width * 1.25), int(height * 1.25)], fill=255
+  )
+  vignette_mask = vignette_mask.filter(ImageFilter.GaussianBlur(200))
+  vignette_mask = vignette_mask.point(lambda p: 255 - p)
+  vignette_mask = vignette_mask.point(lambda p: int(p * 0.32))
+  black = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+  img = Image.composite(black, img, vignette_mask)
+
+  img = img.convert("RGB")
   out_path = out_path or os.path.join(
-      os.path.dirname(os.path.abspath(__file__)), "static", NOTE_EYECATCH_RELATIVE_PATH
+      os.path.dirname(os.path.abspath(__file__)), "static", NOTE_HERO_IMAGE_RELATIVE_PATH
   )
   os.makedirs(os.path.dirname(out_path), exist_ok=True)
   img.save(out_path)
@@ -2262,32 +2503,44 @@ def _render_note_article_scene(article):
   """note初回記事の手動投稿パッケージのHTMLを組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・note・外部
-  通信への アクセスは一切行わない。記事本文のコピー用ボタンは、表示用
-  マークアップとは別に用意した非表示のプレーンテキスト(改行付き)を
-  コピー対象にすることで、見出し・段落の区切りを保ったまま貼り付け
+  通信への アクセスは一切行わない。見出しビジュアルはローカル生成済み
+  PNG(static/配下)を<img>で表示し、タイトル文字はHTML側で重ねる
+  (画像そのものには文字を焼き込まない)。記事本文のコピー用ボタンは、
+  表示用マークアップとは別に用意した非表示のプレーンテキスト(改行付き)
+  をコピー対象にすることで、見出し・段落の区切りを保ったまま貼り付け
   られるようにする。クリップボード操作が失敗しても例外を伝播させず、
   安全なフォールバック表示にする。
   """
-  eyecatch = article["eyecatch"]
-  svg_markup = _render_note_eyecatch_svg(eyecatch)
-
-  visible_sections = "".join(
-      f'<h4 class="note-section-heading">{section["heading"]}</h4>'
-      f'<p>{section["body"]}</p>'
-      for section in article["sections"]
-  )
-  visible_body = (
-      f'<h2 class="note-article-title">{article["title"]}</h2>'
-      f'<p class="note-article-intro">{article["intro"]}</p>'
-      f'{visible_sections}'
-      f'<p class="note-article-conclusion"><b>まとめ：</b>{article["conclusion"]}</p>'
-  )
-  plain_text_parts = [article["title"], article["intro"]]
-  plain_text_parts += [
-      f'{section["heading"]}\n{section["body"]}' for section in article["sections"]
+  visible_parts = [
+      _paragraphs_html(article["intro"]),
+      f'<h3 class="note-section-heading">{article["prep"]["heading"]}</h3>'
+      + _paragraphs_html(article["prep"]["body"]),
   ]
-  plain_text_parts.append(f'まとめ\n{article["conclusion"]}')
-  plain_text = "\n\n".join(plain_text_parts)
+  for section in article["sections"]:
+    visible_parts.append(f'<h3 class="note-section-heading">{section["heading"]}</h3>')
+    visible_parts.append(
+        '<h4 class="note-subheading">使いどころ</h4>' + _paragraphs_html(section["usage"])
+    )
+    visible_parts.append(
+        '<h4 class="note-subheading">入力例</h4>' + _paragraphs_html(section["input_example"])
+    )
+    visible_parts.append(
+        '<h4 class="note-subheading">出力確認</h4>' + _paragraphs_html(section["output_check"])
+    )
+  for closing in article["closing_sections"]:
+    body_html = _paragraphs_html(closing["body"])
+    if closing["heading"] in ("まとめ", "次の一歩"):
+      visible_parts.append(
+          f'<h3 class="note-section-heading">{closing["heading"]}</h3>'
+          f'<div class="note-article-conclusion">{body_html}</div>'
+      )
+    else:
+      visible_parts.append(f'<h3 class="note-section-heading">{closing["heading"]}</h3>{body_html}')
+
+  visible_body = (
+      f'<h2 class="note-article-title">{article["title"]}</h2>' + "".join(visible_parts)
+  )
+  copy_text = _note_article_full_copy_text(article)
 
   tag_chips = "".join(f'<li>{tag}</li>' for tag in article["tag_candidates"])
   checklist_items = "".join(
@@ -2303,32 +2556,35 @@ def _render_note_article_scene(article):
       f'<div class="fp-note fp-note-warn"><b>商品紹介について。</b>{article["future_link_note"]}</div>'
       f'<div class="fp-note fp-note-warn"><b>手動投稿について。</b>{article["manual_post_note"]}</div>'
       '<h3 class="fp-section-title">見出し画像</h3>'
-      '<div class="note-eyecatch-wrap">'
-      f'<div class="fp-svg-wrap note-eyecatch-svg-wrap">{svg_markup}</div>'
-      '<p class="fp-svg-ratio">横長 1280×670（画面内SVG・外部画像なし、商品写真・楽天市場画像は'
-      '使用していません）</p>'
-      # MISSION 037: 通常のダウンロードリンク(<a href download>)のみで
+      '<div class="note-hero">'
+      f'<img class="note-hero-img" src="/static/{NOTE_HERO_IMAGE_RELATIVE_PATH}" '
+      f'alt="{article["hero_image_alt"]}">'
+      '<div class="note-hero-scrim"></div>'
+      f'<div class="note-hero-overlay"><h1 class="note-hero-title">{article["title"]}</h1></div>'
+      '</div>'
+      f'<p class="fp-svg-ratio">横長 {NOTE_HERO_IMAGE_WIDTH}×{NOTE_HERO_IMAGE_HEIGHT}'
+      '（ローカル生成画像・外部素材なし。見出し文字はHTML側で重ねています）</p>'
+      # MISSION 037.1: 通常のダウンロードリンク(<a href download>)のみで
       # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
       # 生成済みのローカルPNGファイル(static/配下)を指すだけであり、
       # クリックしてもnoteへの投稿・送信・連携は一切発生しない。
-      f'<a class="fp-png-download" href="/static/{NOTE_EYECATCH_RELATIVE_PATH}" '
-      'download="note-first-article-eyecatch.png">見出し画像PNGを保存</a>'
+      f'<a class="fp-png-download" href="/static/{NOTE_HERO_IMAGE_RELATIVE_PATH}" '
+      'download="note-first-article-hero.png">見出し画像PNGを保存</a>'
       '<p class="fp-png-hint">保存したPNGをnoteの見出し画像として手動アップロードしてください。'
       'このボタンからの投稿・送信・連携は行われません。</p>'
-      '</div>'
       '<h3 class="fp-section-title">記事</h3>'
       '<div class="fp-field">'
       '<div class="fp-field-head"><h4>記事本文</h4>'
       '<button type="button" class="fp-copy-btn" data-copy-target="note-article-body-copy">'
       'コピー</button></div>'
       f'<div class="note-article-visible">{visible_body}</div>'
-      f'<pre id="note-article-body-copy" class="note-article-copy-source">{plain_text}</pre>'
+      f'<pre id="note-article-body-copy" class="note-article-copy-source">{copy_text}</pre>'
       '</div>'
       '<h3 class="fp-section-title">note向けタグ候補</h3>'
       f'<ul class="note-tags">{tag_chips}</ul>'
       '<h3 class="fp-section-title">投稿前チェックリスト</h3>'
       f'<ul class="fp-checklist">{checklist_items}</ul>'
-      # MISSION 037: コピー操作はクライアント側JSのみで完結し、外部通信は
+      # MISSION 037.1: コピー操作はクライアント側JSのみで完結し、外部通信は
       # 行わない。navigator.clipboardが使えない/失敗する環境でも、例外を
       # 投げずに安全な文言へフォールバックする(既存の投稿パッケージ画面と同じ方式)。
       '<script>document.querySelectorAll(".fp-copy-btn").forEach(btn=>{'
