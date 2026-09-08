@@ -1660,19 +1660,29 @@ PUBLISH_QUEUE_POSTS = [
             # 実際の画像内容(夜のホームオフィス・ノートPC・ノート・マグカップ・
             # 観葉植物のある木目のデスク)と矛盾しないaltテキストへ更新した。
             # ロゴ・読める文字・実在サービスの画面は写っていない。
+            # MISSION 039.2: 画像本体にタイトル文字を焼き込んだため、「読める
+            # 文字は写っていません」という文言を、実態に合わせて修正した
+            # (ロゴ・実在サービスの画面は引き続き写っていない)。
             "alt_text": (
                 "AIにメールの下書きを頼む前に決める3つ、というテーマのイメージ写真。夜の"
                 "ホームオフィスで、ノートパソコン・ノート・マグカップ・観葉植物が置かれた"
-                "木目のデスクの様子。ロゴ・読める文字・実在サービスの画面は写っていません。"
+                "木目のデスクの様子。左上にタイトル文字を配置している。ロゴ・実在サービスの"
+                "画面は写っていません。"
             ),
         },
-        # MISSION 039: このカードだけ、図形イラスト(SVG生成)ではなく、あらかじめ
-        # 用意した高精細な画像(1024x1536・縦2:3)を<img>で表示する。見出し文字は
-        # 画像に焼き込まず、HTML側(note初回記事のヒーロー画像と同じ仕組み)で
-        # 重ねる。他の2件の投稿(desk-wiring-3points・peripheral-choice-3points)は
-        # 引き続きsvg_headline等のデータからSVG/PNGを生成する既存方式のまま。
-        "hero_image_relative_path": "images/publish-queue-email-draft-v2.png",
-        "hero_image_download_filename": "pinterest-publish-queue-email-draft-v2.png",
+        # MISSION 039.2: このカードだけ、図形イラスト(SVG生成)ではなく、あらかじめ
+        # 用意した高精細な画像(v3.png)を<img>で表示する。タイトル文字は
+        # generate_publish_queue_email_draft_v3_png()で画像本体に焼き込み済み
+        # であり、Pinterestへ保存されるPNGにもそのまま含まれる(MISSION 039時点
+        # ではHTML側で重ねるだけだったが、保存したPNGに文字が入らない問題が
+        # あったため、039.2で画像焼き込み方式に切り替えた)。他の2件の投稿
+        # (desk-wiring-3points・peripheral-choice-3points)は引き続き
+        # svg_headline等のデータからSVG/PNGを生成する既存方式のまま。
+        "hero_image_relative_path": "images/publish-queue-email-draft-v3.png",
+        "hero_image_download_filename": "pinterest-publish-queue-email-draft-v3.png",
+        # 画像焼き込み(generate_publish_queue_email_draft_v3_png)に使う元の
+        # データ。連結すると"pin"."title"と完全に一致する(内容は変更せず、
+        # 画像への焼き込み方法だけを変更している)。
         "hero_title_lines": ["AIにメールの下書きを", "頼む前に決める3つ"],
         # MISSION 039: 公開済みのnote記事へのPinterestリンク先。手動でPinterestの
         # 投稿画面に貼り付ける想定であり、このアプリからのアクセス・取得・保存・
@@ -1978,6 +1988,72 @@ def generate_publish_queue_pin_png(pin, out_path):
   return out_path
 
 
+# MISSION 039.2: 「AIにメールの下書きを頼む前に決める3つ」投稿用PNGに、
+# タイトル文字を確実に焼き込む。
+#
+# MISSION 039では見出し文字をHTML側(.note-hero-overlay)で重ねるだけ
+# だったため、「Pinterest用PNGを保存」でダウンロードした画像そのものには
+# 文字が入っておらず、Pinterestへそのままアップロードできる状態ではな
+# かった。この関数は、既存の高品質背景写真(publish-queue-email-draft-
+# v2.png)をベースに、タイトルを白・太字で左上の暗い余白へ直接描画した
+# 新しいPNG(publish-queue-email-draft-v3.png)を生成する。v2.pngと旧
+# publish-queue-email-draft-2x3.pngはどちらも削除・上書きしない。
+PUBLISH_QUEUE_EMAIL_DRAFT_V2_RELATIVE_PATH = "images/publish-queue-email-draft-v2.png"
+PUBLISH_QUEUE_EMAIL_DRAFT_V3_RELATIVE_PATH = "images/publish-queue-email-draft-v3.png"
+_PUBLISH_QUEUE_EMAIL_DRAFT_FONT_PATH = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+
+
+def generate_publish_queue_email_draft_v3_png(out_path=None):
+  """v2.pngにタイトル文字を焼き込んだv3.pngを生成し、ファイルへ保存する
+
+  (開発時専用)。Flaskアプリの起動・リクエスト処理からは一切呼び出さない。
+  タイトルの行分け(PUBLISH_QUEUE_POSTSの"email-draft-3points"エントリの
+  hero_title_lines)を差し替えた場合、この関数を手動で再実行してPNGを
+  作り直すこと。実行にはPillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; o.generate_publish_queue_email_draft_v3_png()"
+  """
+  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+
+  base_path = os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      PUBLISH_QUEUE_EMAIL_DRAFT_V2_RELATIVE_PATH,
+  )
+  img = Image.open(base_path).convert("RGB")
+  draw = ImageDraw.Draw(img)
+
+  post = next(
+      p for p in PUBLISH_QUEUE_POSTS if p["id"] == "email-draft-3points"
+  )
+  lines = post["hero_title_lines"]
+
+  font = ImageFont.truetype(_PUBLISH_QUEUE_EMAIL_DRAFT_FONT_PATH, 60)
+  x, y = 56, 92
+  line_h = 78
+  shadow_color = (0, 0, 0)
+  white = (255, 255, 255)
+  for line in lines:
+    # 太字フォントを別途用意していないため、同じ文字を1px刻みでずらして
+    # 複数回描画する疑似ボールド。加えて影を描き、暗い背景写真の上でも
+    # 確実なコントラストを確保する。
+    for dx, dy in ((3, 3), (-2, 2), (2, -2), (-2, -2), (2, 2)):
+      draw.text((x + dx, y + dy), line, font=font, fill=shadow_color)
+    for dx in (0, 1):
+      for dy in (0, 1):
+        draw.text((x + dx, y + dy), line, font=font, fill=white)
+    y += line_h
+
+  out_path = out_path or os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      PUBLISH_QUEUE_EMAIL_DRAFT_V3_RELATIVE_PATH,
+  )
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
 def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
   """Pinterest向け・手動承認つき投稿キューのHTMLを組み立てる。
 
@@ -2001,25 +2077,18 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
     )
 
     if "hero_image_relative_path" in post:
-      # MISSION 039: あらかじめ用意した高精細画像を<img>で表示し、見出し
-      # 文字はHTML側(note初回記事のヒーロー画像と同じ.note-hero系クラス)で
-      # 重ねる(画像そのものには文字を焼き込まない)。行の連結結果がpin
-      # titleと一致しない場合は表示内容が食い違ってしまうため、その場で
-      # 検出する。
-      hero_title_lines = post["hero_title_lines"]
-      assert "".join(hero_title_lines) == pin["title"], (
-          "hero_title_lines must reconstruct pin title exactly"
-      )
-      hero_title_html = "<br>".join(hero_title_lines)
+      # MISSION 039.2: ダウンロードしたPNGにタイトル文字が入っていない問題を
+      # 修正するため、見出し文字をHTML側で重ねる方式(MISSION 039時点)から、
+      # あらかじめ画像本体にタイトルを焼き込む方式(generate_publish_queue_
+      # email_draft_v3_png)へ切り替えた。そのため、画面上でもHTML側の見出し
+      # 重ね表示(.note-hero-overlay等)は行わない(保存画像と画面表示の二重
+      # 表示を避けるため)。<img>のalt属性には、画像内にタイトル文字が写って
+      # いることを含めて説明する。
       image_block = (
-          '<div class="note-hero">'
-          f'<img class="note-hero-img" src="/static/{post["hero_image_relative_path"]}" '
-          f'alt="{pin["alt_text"]}">'
-          '<div class="note-hero-scrim"></div>'
-          f'<div class="note-hero-overlay"><h1 class="note-hero-title">{hero_title_html}</h1></div>'
-          '</div>'
-          '<p class="fp-svg-ratio">縦長 2:3（高精細画像・外部素材なし。ロゴ・読める文字・'
-          '実在サービスの画面は写っていません。見出し文字はHTML側で重ねています）</p>'
+          f'<div class="note-hero"><img class="note-hero-img" '
+          f'src="/static/{post["hero_image_relative_path"]}" alt="{pin["alt_text"]}"></div>'
+          '<p class="fp-svg-ratio">縦長 2:3（高精細画像。タイトル文字を画像本体に焼き込み'
+          '済みです。ロゴ・実在サービスの画面は写っていません）</p>'
           # MISSION 039: 通常のダウンロードリンク(<a href download>)のみで
           # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
           # 用意したローカル画像ファイル(static/配下)を指すだけであり、

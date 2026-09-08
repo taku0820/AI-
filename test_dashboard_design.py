@@ -1504,13 +1504,15 @@ class DashboardDesignTestCase(unittest.TestCase):
       if line.startswith("from PIL") or line.startswith("import PIL"):
         self.fail(f"PIL is imported at module level, not lazily: {line!r}")
     self.assertIn("  from PIL import Image, ImageDraw, ImageFont", module_source)
-    # MISSION 036で投稿キュー用(generate_publish_queue_pin_png)のPNG生成関数が
-    # 追加され、同じ遅延importパターン(ImageFontを使う版)の箇所が3件(初回投稿・
-    # デスク環境・投稿キュー)になった。MISSION 037.1のnoteヒーロー画像は文字を
-    # 画像に焼き込まないためImageFontを使わず、ImageDraw+ImageFilterのみの
+    # MISSION 036で投稿キュー用(generate_publish_queue_pin_png)、MISSION 039.2
+    # でメール下書き投稿の画像焼き込み用(generate_publish_queue_email_draft_
+    # v3_png)のPNG生成関数が追加され、同じ遅延importパターン(ImageFontを
+    # 使う版)の箇所が4件(初回投稿・デスク環境・投稿キュー・メール下書き
+    # v3画像)になった。MISSION 037.1のnoteヒーロー画像は文字を画像に
+    # 焼き込まないためImageFontを使わず、ImageDraw+ImageFilterのみの
     # 遅延importになっている(別テストで検証)。
     self.assertEqual(
-        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 3
+        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 4
     )
     self.assertIn("  from PIL import Image, ImageDraw, ImageFilter", module_source)
     self.assertNotIn("def generate_note_eyecatch_png", module_source)
@@ -1593,36 +1595,86 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 外部リソースの読み込みではない。
     self.assertEqual(html.count("http://"), 2)
 
-  def test_publish_queue_email_draft_uses_high_fidelity_hero_image_with_html_title_overlay(self):
-    # MISSION 039: 「AIにメールの下書きを頼む前に決める3つ」だけ、あらかじめ
-    # 用意した高精細画像を<img>で表示し、見出し文字はHTML側(note初回記事の
-    # ヒーロー画像と同じ仕組み)で重ねる。画像そのものには文字を焼き込まない。
+  def test_publish_queue_email_draft_uses_high_fidelity_hero_image_v3_with_no_html_overlay(self):
+    # MISSION 039.2: 保存したPNGに文字が入っていなかった問題を修正するため、
+    # タイトルを画像本体(v3.png)へ焼き込む方式に切り替えた。画面上のHTML側
+    # 見出し重ね表示(.note-hero-overlay等)は、保存画像との二重表示を避ける
+    # ため表示しない。
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
     self.assertEqual(html.count("<img"), 1)
     self.assertIn(
-        '<img class="note-hero-img" src="/static/images/publish-queue-email-draft-v2.png"',
+        '<img class="note-hero-img" src="/static/images/publish-queue-email-draft-v3.png"',
         html,
     )
-    self.assertIn('class="note-hero-overlay"', html)
-    self.assertIn('class="note-hero-title"', html)
+    self.assertNotIn("publish-queue-email-draft-v2.png", html)
+    self.assertNotIn("publish-queue-email-draft-2x3.png", html)
+    self.assertNotIn('class="note-hero-overlay"', html)
+    self.assertNotIn('class="note-hero-title"', html)
+    self.assertNotIn('class="note-hero-scrim"', html)
     self.assertIn(
-        "縦長 2:3（高精細画像・外部素材なし。ロゴ・読める文字・実在サービスの画面は"
-        "写っていません。見出し文字はHTML側で重ねています）",
+        "縦長 2:3（高精細画像。タイトル文字を画像本体に焼き込み済みです。"
+        "ロゴ・実在サービスの画面は写っていません）",
         html,
-    )
-    # タイトルは「AIにメールの下書きを」「頼む前に決める3つ」の2行固定であり、
-    # 単語の途中で分割されないことをHTML構造(<br>)から確認する。ページ内で
-    # note-hero-titleは投稿キューにこの1件しかないため、単純な部分文字列
-    # 検索で十分に一意に特定できる。
-    self.assertEqual(html.count('class="note-hero-title"'), 1)
-    self.assertIn(
-        '<h1 class="note-hero-title">AIにメールの下書きを<br>頼む前に決める3つ</h1>', html
     )
     post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "email-draft-3points"][0]
     self.assertEqual(
         "".join(post["hero_title_lines"]), post["pin"]["title"]
     )
+
+  def test_publish_queue_email_draft_png_download_uses_v3_filename(self):
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertIn(
+        'href="/static/images/publish-queue-email-draft-v3.png" '
+        'download="pinterest-publish-queue-email-draft-v3.png"',
+        html,
+    )
+
+  def test_publish_queue_email_draft_v3_png_has_title_text_baked_in(self):
+    # ダウンロードされるPNG(v3.png)が、v2.pngとは別の新規ファイルとして
+    # 存在し、実際に文字が描画されたことでピクセル内容がv2.pngと異なる
+    # (=単なるコピーではなく、タイトルの焼き込みが行われた)ことを確認する。
+    # 外部ライブラリを使わず、ファイルの生バイト列を直接比較する。
+    import office_views
+    v2_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.PUBLISH_QUEUE_EMAIL_DRAFT_V2_RELATIVE_PATH,
+    )
+    v3_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.PUBLISH_QUEUE_EMAIL_DRAFT_V3_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(v2_path))
+    self.assertTrue(os.path.isfile(v3_path))
+    with open(v2_path, "rb") as f:
+      v2_bytes = f.read()
+    with open(v3_path, "rb") as f:
+      v3_bytes = f.read()
+    self.assertNotEqual(v2_bytes, v3_bytes)
+    # PNGシグネチャ + IHDRチャンクから幅・高さを読み取り、v2.pngと同じ
+    # 1024x1536(2:3)のまま焼き込みが行われた(解像度を変えていない)ことを
+    # 確認する(外部ライブラリを使わない最小限の検証)。
+    header = v3_bytes[:33]
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1024, 1536))
+
+  def test_publish_queue_email_draft_v3_png_is_served_as_a_plain_static_file(self):
+    res = self.client.get("/static/images/publish-queue-email-draft-v3.png")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_publish_queue_email_draft_old_assets_are_kept_untouched(self):
+    # v2.pngと旧2x3.pngは、どちらも削除・上書きしないというMISSION 039.2の
+    # 指示どおり、そのまま残っていることを確認する。
+    import office_views
+    for relative_path in (
+        "images/publish-queue-email-draft-v2.png",
+        "images/publish-queue-email-draft-2x3.png",
+    ):
+      path = os.path.join(os.path.dirname(office_views.__file__), "static", relative_path)
+      self.assertTrue(os.path.isfile(path), f"{relative_path} should still exist")
 
   def test_publish_queue_email_draft_hero_png_file_has_2_3_ratio(self):
     import office_views
