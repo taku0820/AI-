@@ -169,6 +169,13 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .note-hero-overlay{position:absolute;left:0;top:0;height:100%;width:72%;display:flex;align-items:center;padding:0 4%;box-sizing:border-box}
 .note-hero-title{margin:0;font-size:clamp(14px,2.05vw,24px);font-weight:800;color:#fff;line-height:1.42;text-shadow:0 2px 14px rgba(0,0,0,.7);word-break:keep-all;overflow-wrap:normal}
 @media(max-width:600px){.note-hero-overlay{width:100%;padding:0 5%}.note-hero-title{font-size:clamp(11.5px,4vw,15.5px)}}
+/* MISSION 039.1: 投稿キュー(.pq-card内)のヒーロー画像だけ、タイトルを
+   左下ではなく左上の暗い余白へ寄せる。note初回記事のヒーロー(.note-hero、
+   .pq-cardの外)は上記の垂直中央寄せのまま変更しない。フォントサイズ・
+   文字色・影(コントラスト)は変更せず、配置(align-items)と上端の余白
+   (padding-top)だけを上書きする。デスクトップ・モバイルのどちらでも
+   同じ比率(%)で効くため、専用のメディアクエリは不要。 */
+.pq-card .note-hero-overlay{align-items:flex-start;padding-top:9%}
 .note-article-visible h2.note-article-title{margin:0 0 10px;font-size:19px}
 .note-article-visible h3.note-section-heading{margin:20px 0 8px;font-size:15px;color:var(--blue)}
 .note-article-visible h4.note-subheading{margin:12px 0 4px;font-size:12px;color:var(--sub);font-weight:700;letter-spacing:.03em}
@@ -1643,37 +1650,43 @@ PUBLISH_QUEUE_POSTS = [
         "id": "email-draft-3points",
         "status": "社長承認待ち",
         "pin": {
-            "title": "AIでメールの下書きを始める前に決める3つ",
+            "title": "AIにメールの下書きを頼む前に決める3つ",
             "description": (
                 "AIにメールの下書きを頼む前に、決めておくと結果が変わる3つのポイントを"
                 "まとめました。宛先・要点・トーンを先に決めるだけで、AIへの指示がぐっと"
                 "具体的になります。特定の商品の紹介はありません。"
             ),
+            # MISSION 039: 画像を図形イラストから高精細な写真に差し替えたため、
+            # 実際の画像内容(夜のホームオフィス・ノートPC・ノート・マグカップ・
+            # 観葉植物のある木目のデスク)と矛盾しないaltテキストへ更新した。
+            # ロゴ・読める文字・実在サービスの画面は写っていない。
             "alt_text": (
-                "AIでメールの下書きを始める前に決める3つのイラスト。1. 宛先とやり取りの"
-                "目的を決める 2. 伝えたい要点を1つに絞る 3. 文章のトーン（丁寧さ）を決める。"
-                "特定の商品は写っていません。"
+                "AIにメールの下書きを頼む前に決める3つ、というテーマのイメージ写真。夜の"
+                "ホームオフィスで、ノートパソコン・ノート・マグカップ・観葉植物が置かれた"
+                "木目のデスクの様子。ロゴ・読める文字・実在サービスの画面は写っていません。"
             ),
-            "svg_headline": ["AIでメールの下書きを", "始める前に決める3つ"],
-            "svg_subtitle": "AI初心者向け",
-            "svg_items": [
-                {"number": "1", "lines": ["宛先とやり取りの", "目的を決める"], "icon": "mail"},
-                {"number": "2", "lines": ["伝えたい要点を", "1つに絞る"], "icon": "summary"},
-                {"number": "3", "lines": ["文章のトーン", "（丁寧さ）を決める"], "icon": "idea"},
-            ],
-            "svg_footer": "決めてから頼むと、AIの下書きがぐっと具体的になります。",
         },
+        # MISSION 039: このカードだけ、図形イラスト(SVG生成)ではなく、あらかじめ
+        # 用意した高精細な画像(1024x1536・縦2:3)を<img>で表示する。見出し文字は
+        # 画像に焼き込まず、HTML側(note初回記事のヒーロー画像と同じ仕組み)で
+        # 重ねる。他の2件の投稿(desk-wiring-3points・peripheral-choice-3points)は
+        # 引き続きsvg_headline等のデータからSVG/PNGを生成する既存方式のまま。
+        "hero_image_relative_path": "images/publish-queue-email-draft-v2.png",
+        "hero_image_download_filename": "pinterest-publish-queue-email-draft-v2.png",
+        "hero_title_lines": ["AIにメールの下書きを", "頼む前に決める3つ"],
+        # MISSION 039: 公開済みのnote記事へのPinterestリンク先。手動でPinterestの
+        # 投稿画面に貼り付ける想定であり、このアプリからのアクセス・取得・保存・
+        # 自動連携は一切行わない(クリックは人間の手動操作としてのみ機能する)。
+        "pinterest_link_url": "https://note.com/legal_crow9879/n/nf7af35ac8c28",
         "pinterest_topic_candidates": ["AI活用術", "仕事効率化", "ビジネスメール"],
         "checklist": [
             "タイトル・説明文に誇大表現や断定的な成果表現がないか確認した",
             "商品名・価格・在庫・ランキング・性能・成果予測が含まれていないか確認した",
             "画像内の文字が読みやすいか（誤字・はみ出しがないか）確認した",
             "altテキストが画像の内容を正しく説明しているか確認した",
-            "楽天ROOMリンク欄が空欄のままであることを確認した（社長が手動で貼り付ける）",
+            "リンク先のnote記事が正しく公開されているか確認した",
             "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
         ],
-        "png_relative_path": "images/publish-queue-email-draft-2x3.png",
-        "png_download_filename": "pinterest-publish-queue-email-draft.png",
     },
     {
         "id": "desk-wiring-3points",
@@ -1977,7 +1990,6 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
   post_cards = []
   for post in posts:
     pin = post["pin"]
-    svg_markup = _render_publish_queue_pin_svg(pin)
     post_id = post["id"]
     topic_chips = "".join(
         f'<li>{topic}</li>' for topic in post["pinterest_topic_candidates"]
@@ -1987,25 +1999,53 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
         f'<label for="pq-check-{post_id}-{i}">{item}</label></li>'
         for i, item in enumerate(post["checklist"])
     )
-    post_cards.append(
-        '<div class="pq-card">'
-        '<div class="pq-card-head">'
-        f'<h3>{pin["title"]}</h3>'
-        f'<span class="pq-status-badge">{post["status"]}</span>'
-        '</div>'
-        '<div class="fp-pin-layout">'
-        f'<div><div class="fp-svg-wrap">{svg_markup}</div>'
-        '<p class="fp-svg-ratio">縦長 2:3（画面内SVG・外部画像なし、商品写真・楽天市場画像・'
-        '商品ロゴは使用していません）</p>'
-        # MISSION 036: 通常のダウンロードリンク(<a href download>)のみで
-        # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
-        # 生成済みのローカルPNGファイル(static/配下)を指すだけであり、
-        # クリックしてもPinterest・楽天ROOMへの投稿・送信・連携は一切発生しない。
-        f'<a class="fp-png-download" href="/static/{post["png_relative_path"]}" '
-        f'download="{post["png_download_filename"]}">Pinterest用PNGを保存</a>'
-        '<p class="fp-png-hint">保存したPNGをPinterestで手動アップロードしてください。'
-        'このボタンからの投稿・送信・連携は行われません。</p></div>'
-        '<div class="fp-fields">'
+
+    if "hero_image_relative_path" in post:
+      # MISSION 039: あらかじめ用意した高精細画像を<img>で表示し、見出し
+      # 文字はHTML側(note初回記事のヒーロー画像と同じ.note-hero系クラス)で
+      # 重ねる(画像そのものには文字を焼き込まない)。行の連結結果がpin
+      # titleと一致しない場合は表示内容が食い違ってしまうため、その場で
+      # 検出する。
+      hero_title_lines = post["hero_title_lines"]
+      assert "".join(hero_title_lines) == pin["title"], (
+          "hero_title_lines must reconstruct pin title exactly"
+      )
+      hero_title_html = "<br>".join(hero_title_lines)
+      image_block = (
+          '<div class="note-hero">'
+          f'<img class="note-hero-img" src="/static/{post["hero_image_relative_path"]}" '
+          f'alt="{pin["alt_text"]}">'
+          '<div class="note-hero-scrim"></div>'
+          f'<div class="note-hero-overlay"><h1 class="note-hero-title">{hero_title_html}</h1></div>'
+          '</div>'
+          '<p class="fp-svg-ratio">縦長 2:3（高精細画像・外部素材なし。ロゴ・読める文字・'
+          '実在サービスの画面は写っていません。見出し文字はHTML側で重ねています）</p>'
+          # MISSION 039: 通常のダウンロードリンク(<a href download>)のみで
+          # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
+          # 用意したローカル画像ファイル(static/配下)を指すだけであり、
+          # クリックしてもPinterestへの投稿・送信・連携は一切発生しない。
+          f'<a class="fp-png-download" href="/static/{post["hero_image_relative_path"]}" '
+          f'download="{post["hero_image_download_filename"]}">Pinterest用PNGを保存</a>'
+          '<p class="fp-png-hint">保存した画像をPinterestで手動アップロードしてください。'
+          'このボタンからの投稿・送信・連携は行われません。</p>'
+      )
+    else:
+      svg_markup = _render_publish_queue_pin_svg(pin)
+      image_block = (
+          f'<div class="fp-svg-wrap">{svg_markup}</div>'
+          '<p class="fp-svg-ratio">縦長 2:3（画面内SVG・外部画像なし、商品写真・楽天市場画像・'
+          '商品ロゴは使用していません）</p>'
+          # MISSION 036: 通常のダウンロードリンク(<a href download>)のみで
+          # 保存する。外部通信・JavaScript必須の処理は行わない。あらかじめ
+          # 生成済みのローカルPNGファイル(static/配下)を指すだけであり、
+          # クリックしてもPinterest・楽天ROOMへの投稿・送信・連携は一切発生しない。
+          f'<a class="fp-png-download" href="/static/{post["png_relative_path"]}" '
+          f'download="{post["png_download_filename"]}">Pinterest用PNGを保存</a>'
+          '<p class="fp-png-hint">保存したPNGをPinterestで手動アップロードしてください。'
+          'このボタンからの投稿・送信・連携は行われません。</p>'
+      )
+
+    fields_html = (
         '<div class="fp-field"><div class="fp-field-head"><h4>タイトル</h4>'
         f'<button type="button" class="fp-copy-btn" data-copy-target="pq-title-{post_id}">'
         'コピー</button></div>'
@@ -2018,11 +2058,56 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
         f'<button type="button" class="fp-copy-btn" data-copy-target="pq-alt-{post_id}">'
         'コピー</button></div>'
         f'<p id="pq-alt-{post_id}">{pin["alt_text"]}</p></div>'
+    )
+    if "pinterest_link_url" in post:
+      link_url = post["pinterest_link_url"]
+      # MISSION 039: リンク先はコピー用テキストとして表示するとともに、
+      # 社長が手動で内容を確認できるよう、通常のリンク(新規タブで開く・
+      # noopener/noreferrer)としても提供する。クリックはブラウザを操作する
+      # 人間の手動操作であり、このアプリ自身が外部へアクセス・取得・送信
+      # することはない。
+      fields_html += (
+          '<div class="fp-field"><div class="fp-field-head"><h4>リンク先</h4>'
+          f'<button type="button" class="fp-copy-btn" data-copy-target="pq-link-{post_id}">'
+          'コピー</button></div>'
+          f'<p id="pq-link-{post_id}">'
+          f'<a href="{link_url}" target="_blank" rel="noopener noreferrer">{link_url}</a>'
+          '</p></div>'
+      )
+    fields_html = f'<div class="fp-fields">{fields_html}</div>'
+
+    if "pinterest_link_url" in post:
+      # MISSION 039: このカードはPinterestのリンク先が確定しているため、
+      # 「楽天ROOMリンク欄は空欄」という汎用の注記は表示しない(空欄では
+      # なくなったため)。
+      link_or_room_note_html = ""
+    else:
+      link_or_room_note_html = f'<div class="pq-room-link">{room_link_note}</div>'
+
+    if "hero_image_relative_path" in post:
+      # MISSION 039: ヒーロー画像はnote初回記事と同じ横幅いっぱいのレイアウト
+      # で表示する(他2件のSVGプレビュー用280px固定カラムでは、重ねる見出し
+      # 文字が窮屈になり折り返し崩れの原因になるため)。フィールド類は画像の
+      # 下に縦に並べる。
+      media_and_fields_html = f'{image_block}{fields_html}'
+    else:
+      media_and_fields_html = (
+          '<div class="fp-pin-layout">'
+          f'<div>{image_block}</div>'
+          f'{fields_html}'
+          '</div>'
+      )
+
+    post_cards.append(
+        '<div class="pq-card">'
+        '<div class="pq-card-head">'
+        f'<h3>{pin["title"]}</h3>'
+        f'<span class="pq-status-badge">{post["status"]}</span>'
         '</div>'
-        '</div>'
+        f'{media_and_fields_html}'
         '<p class="pq-topics-label">Pinterestのトピック候補</p>'
         f'<ul class="pq-topics">{topic_chips}</ul>'
-        f'<div class="pq-room-link">{room_link_note}</div>'
+        f'{link_or_room_note_html}'
         f'<div class="pq-manual-note"><b>公開について。</b>{manual_post_note}</div>'
         '<h4 class="fp-section-title">投稿前チェックリスト</h4>'
         f'<ul class="fp-checklist">{checklist_items}</ul>'
