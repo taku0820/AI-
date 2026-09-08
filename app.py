@@ -157,6 +157,15 @@ def _avatar(sprite_key, prop_type, badge_fg, size=""):
 
 @app.route("/")
 def index():
+  # MISSION 038: 会社の全体像ダッシュボードを、現在の実運用(AIとガジェット
+  # で暮らしをラクにする発信を、柴犬社長が手動でPinterest・楽天ROOM・note・
+  # コンテンツスタジオを使って進めている状態)に合わせて整理し直したもの。
+  # A8.net・美容アフィリエイト・美容サロンWEB制作・架空の売上額/更新件数/
+  # LIVE表示・実在しない作業チーム(琴衣・蒼・美咲・海・湊・伊藤)は、
+  # このページから完全に削除した(/officeのライブオフィス表示では、既存の
+  # 演出用デスクキャラクターとして引き続き使われているが、このトップページ
+  # とは無関係)。表示する数値は一切なく、外部サービスからの自動取得や
+  # SNS投稿の自動連携も行わない。
   html_content = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -190,7 +199,6 @@ def index():
             .header-title { display: flex; align-items: center; gap: 8px; }
             h1 { font-size: 19px; color: var(--text-main); margin: 0 0 2px 0; font-weight: bold; }
             .sub-title { font-size: 11px; color: var(--text-sub); }
-            .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); display: inline-block; animation: pulse-dot 1.8s ease-in-out infinite; }
             .btn-top { background: #1a2338; color: var(--text-main); border: 1px solid #2c3856; padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; }
             .btn-top:hover, .btn-top:focus-visible { background: #263655; border-color: var(--accent-blue); outline: none; }
             .details-panel { background: #0e1524; border: 1px solid #2c3856; border-radius: 12px; margin: -6px 0 18px; padding: 14px 16px; }
@@ -198,8 +206,9 @@ def index():
             .details-panel h2 { font-size: 13px; margin: 0 0 8px; }
             .details-panel p { color: var(--text-sub); font-size: 12px; line-height: 1.65; margin: 0; }
 
-            /* グリッドレイアウト */
-            .dashboard-grid { display: grid; grid-template-columns: 1.3fr 1.2fr 1fr; gap: 15px; margin-bottom: 15px; }
+            /* 手動運用についての注記 */
+            .notice-banner { background: #1c2c1f; border: 1px solid #2f5136; color: #bfe8c6; padding: 12px 16px; border-radius: 12px; font-size: 12px; line-height: 1.6; margin-bottom: 18px; }
+            .notice-banner b { color: #eafff0; display: block; margin-bottom: 2px; font-size: 13px; }
 
             .card {
                 background: var(--card-bg);
@@ -213,8 +222,7 @@ def index():
             .card:hover { border-color: #33507a; transform: translateY(-2px); }
             .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-sub); }
 
-            .badge-live { background: #063d2c; color: var(--accent-green); padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
-            .badge-status { background: #1c2c52; color: #8fb4ff; padding: 2px 8px; border-radius: 999px; font-size: 10px; }
+            .badge-manual { background: #1c2c52; color: #8fb4ff; padding: 2px 8px; border-radius: 999px; font-size: 10px; }
 
             /* ミニフィギュア(共通。プロジェクト内のオリジナル画像のみ使用) */
             .avatar-wrap { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
@@ -226,22 +234,12 @@ def index():
                 filter: drop-shadow(0 8px 10px rgba(0,0,0,.26));
             }
             .avatar-sprite-president { background-position: 0% 0%; }
-            .avatar-sprite-ayaka { background-position: 33.333% 0%; }
-            .avatar-sprite-kotoe { background-position: 66.666% 0%; }
-            .avatar-sprite-aoi { background-position: 100% 0%; }
-            .avatar-sprite-misaki { background-position: 0% 100%; }
-            .avatar-sprite-umi { background-position: 33.333% 100%; }
-            .avatar-sprite-minato { background-position: 66.666% 100%; }
-            .avatar-sprite-ito { background-position: 100% 100%; }
-            .avatar-wrap.size-sm .avatar-sprite { width: 38px; height: 52px; }
             .avatar-badge {
                 position: absolute; right: -3px; bottom: -3px;
                 width: 22px; height: 22px; border-radius: 50%;
                 background: #0b0f1c; border: 2px solid var(--card-bg);
                 display: flex; align-items: center; justify-content: center;
             }
-            .avatar-wrap.size-sm .avatar-badge { width: 16px; height: 16px; right: -2px; bottom: -2px; }
-            .avatar-wrap.size-sm .avatar-badge svg { width: 12px; height: 12px; }
             .avatar-badge svg circle:not([fill="none"]),
             .avatar-badge svg rect:not([fill="none"]),
             .avatar-badge svg ellipse:not([fill="none"]) { fill: var(--badge-fg); }
@@ -250,28 +248,11 @@ def index():
 
             /* アニメーション定義(prefers-reduced-motionで一括縮退。下部メディアクエリ参照) */
             @keyframes fig-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-            @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
             @keyframes stamp-press { 0%, 45%, 100% { transform: translateY(0); } 55% { transform: translateY(3px); } }
             @keyframes stamp-flash { 0%, 55%, 100% { opacity: 0; } 62% { opacity: 1; } 75% { opacity: 0; } }
-            @keyframes doc-flip { 0%, 60%, 100% { opacity: 1; transform: rotate(0deg); } 80% { opacity: .35; transform: rotate(-4deg); } }
-            @keyframes check-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
-            @keyframes dot-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
-            @keyframes list-highlight { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-            @keyframes pen-wiggle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-            @keyframes cursor-blink { 0%, 49%, 100% { opacity: 1; } 50%, 99% { opacity: 0; } }
-            @keyframes search-sweep { 0%, 100% { transform: translateX(-1.5px); } 50% { transform: translateX(1.5px); } }
 
             .prop-stamp .prop-stamp-head, .prop-stamp .prop-stamp-handle { animation: stamp-press 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
             .prop-stamp .prop-stamp-mark { animation: stamp-flash 3.2s ease-in-out infinite; }
-            .prop-doc .prop-doc-top { animation: doc-flip 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
-            .prop-check .prop-check-mark { animation: check-pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-            .prop-phone .prop-phone-dot { animation: dot-blink 1.6s ease-in-out infinite; }
-            .prop-list .prop-list-line:nth-child(2) { animation: list-highlight 2.6s ease-in-out infinite; }
-            .prop-list .prop-list-line:nth-child(3) { animation: list-highlight 2.6s ease-in-out infinite .5s; }
-            .prop-list .prop-list-line:nth-child(4) { animation: list-highlight 2.6s ease-in-out infinite 1s; }
-            .prop-pen .prop-pen-tip { animation: pen-wiggle 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 8px 13px; }
-            .prop-code .prop-code-cursor { animation: cursor-blink 1.1s steps(1) infinite; }
-            .prop-search .prop-search-lens { animation: search-sweep 1.8s ease-in-out infinite; }
 
             @media (prefers-reduced-motion: reduce) {
                 *, *::before, *::after {
@@ -281,46 +262,24 @@ def index():
                 }
             }
 
-            /* 1. 社長室 */
-            .president-card { display: flex; gap: 15px; align-items: center; }
-            .progress-item { margin-bottom: 8px; }
-            .progress-label { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
-            .progress-bar-bg { background: #182238; height: 6px; border-radius: 3px; overflow: hidden; }
-            .progress-bar-fill { background: var(--accent-blue); height: 100%; border-radius: 3px; }
+            /* 社長からのひとこと */
+            .intro-card { display: flex; gap: 15px; align-items: center; margin-bottom: 15px; }
 
-            /* 2. 運用チームフロア */
-            .team-grid-small { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .member-mini-card { background: var(--card-bg-soft); border: 1px solid #1c2740; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 10px; }
-
-            /* 3. 下段：WEB制作フロア（ミニフィギュア表示） */
-            .web-team-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-            .web-member-card {
-                background: linear-gradient(180deg, #17203a 0%, #0d1220 100%);
-                border: 1px solid #263355;
-                border-radius: 16px;
-                overflow: hidden;
-                text-align: center;
-                box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-            }
-            .room-preview {
-                height: 110px;
-                background: radial-gradient(circle at center, #23245a 0%, #0d1220 100%);
-                display: flex; align-items: center; justify-content: center;
-                position: relative;
-            }
-            .web-member-info { padding: 12px; }
-            .status-chip { background: #0b0f17; padding: 4px 8px; border-radius: 999px; font-size: 10px; display: inline-block; }
+            /* Pinterest・楽天ROOM・note・コンテンツスタジオの4枚 */
+            .channel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+            .channel-role, .channel-next { font-size: 12px; color: var(--text-sub); line-height: 1.6; margin: 0 0 6px; }
+            .channel-next b { color: var(--text-main); }
+            .channel-link { display: inline-block; margin-top: 8px; background: #1a2338; color: var(--text-main); border: 1px solid #2c3856; padding: 6px 12px; border-radius: 8px; font-size: 11px; text-decoration: none; }
+            .channel-link:hover, .channel-link:focus-visible { background: #263655; border-color: var(--accent-blue); outline: none; }
 
             /* レスポンシブ(小画面) */
             @media (max-width: 860px) {
-                .dashboard-grid { grid-template-columns: 1fr !important; }
-                .web-team-grid { grid-template-columns: 1fr 1fr; }
+                .channel-grid { grid-template-columns: 1fr; }
             }
             @media (max-width: 480px) {
                 body { padding: 12px; }
-                .web-team-grid { grid-template-columns: 1fr; }
-                .team-grid-small { grid-template-columns: 1fr; }
                 .header { flex-direction: column; }
+                .intro-card { flex-direction: column; align-items: flex-start; }
             }
         </style>
     </head>
@@ -329,7 +288,7 @@ def index():
             <div class="header-title">
                 <div>
                     <h1>会社の全体像ダッシュボード</h1>
-                    <span class="sub-title"><span class="live-dot" aria-hidden="true"></span> 社長室・事業・制作・運用を1画面で確認(ライブオフィス表示)</span>
+                    <span class="sub-title">AIとガジェットで暮らしをラクにする発信の、投稿準備と手動確認をまとめた画面です</span>
                 </div>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -338,149 +297,66 @@ def index():
                 <button class="btn-top" type="button" id="details-toggle" aria-expanded="false" aria-controls="details-panel">詳細を表示</button>
             </div>
         </div>
+
+        <div class="notice-banner">
+            <b>この画面について。</b>
+            この画面は投稿準備と手動確認のためのローカル画面であり、SNS投稿・分析取得・売上取得の自動連携は行いません。
+        </div>
+
         <section class="details-panel" id="details-panel" hidden aria-labelledby="details-title">
             <h2 id="details-title">ダッシュボードの見方</h2>
-            <p>表示中のカードは、既存の事業・運用ステータスを見やすくまとめたものです。アバターの動きはステータスを補助する演出で、実際の処理実績を追加で示すものではありません。詳しい運用確認は、ローカルの統合ヘルプCLIから明示的に実行してください。</p>
+            <p>表示中のカードは、Pinterest・楽天ROOM・note・コンテンツスタジオそれぞれの「現在の役割」と「次の行動」をまとめたものです。フォロワー数・PV・クリック数・売上額などの数値は表示していません。投稿の準備や確認は、それぞれのリンク先の画面で行ってください。</p>
         </section>
 
-        <!-- 上段エリア -->
-        <div class="dashboard-grid">
-            <!-- 社長室カード -->
-            <div class="card">
-                <div class="card-header">
-                    <span>社長室</span>
-                    <span class="badge-status">承認 ✓</span>
-                </div>
-                <div class="president-card">
-                    __AVATAR_PRESIDENT__
-                    <div style="flex-grow: 1;">
-                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px;">柴犬社長</div>
-                        <div class="progress-item">
-                            <div class="progress-label"><span>楽天ROOM</span><span>68%</span></div>
-                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 68%;"></div></div>
-                        </div>
-                        <div class="progress-item">
-                            <div class="progress-label"><span>Pinterest</span><span>3%</span></div>
-                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 3%; background: var(--accent-pink);"></div></div>
-                        </div>
-                        <div class="progress-item">
-                            <div class="progress-label"><span>A8.net</span><span>3%</span></div>
-                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 3%; background: var(--accent-green);"></div></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 現在のタスク作業 -->
-            <div class="card">
-                <div class="card-header">
-                    <span>現在の作業</span>
-                    <span style="color: var(--accent-green); font-size: 11px;">✓ 完了</span>
-                </div>
-                <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px; color: var(--accent-blue);" id="latest-theme">公開済みラッシュアディクト投稿をキューへ反映</div>
-                <div style="font-size: 12px; color: var(--text-sub);" id="latest-content">データを読み込んでいます...</div>
-            </div>
-
-            <!-- 経理・売上フロア -->
-            <div class="card">
-                <div class="card-header">
-                    <span>経理・売上フロア</span>
-                    <span class="badge-live"><span class="live-dot" aria-hidden="true"></span>LIVE</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                    __AVATAR_AYAKA__
-                    <div>
-                        <div style="font-size: 13px; font-weight: bold;">彩・経理担当</div>
-                        <div style="font-size: 10px; color: var(--text-sub);">「1/4部署から受け取りました。残りを承認中です。」</div>
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--card-border); padding-top: 8px; font-size: 12px;">
-                    <div><span style="color: var(--text-sub);">本日の売上:</span> <strong style="color: var(--accent-green);">¥301</strong></div>
-                    <div><span style="color: var(--text-sub);">更新:</span> <strong>75件</strong></div>
-                </div>
+        <!-- 社長からのひとこと -->
+        <div class="card intro-card">
+            __AVATAR_PRESIDENT__
+            <div style="flex-grow: 1;">
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 4px;">柴犬社長</div>
+                <div style="font-size: 12px; color: var(--text-sub); line-height: 1.6;">Pinterest・楽天ROOM・note・投稿づくりは、すべて社長が手動で担当しています。自動投稿・自動集計・外部サービスとの自動連携は行っていません。</div>
             </div>
         </div>
 
-        <!-- 中段：運用チームフロア & 事業ポートフォリオ -->
-        <div class="dashboard-grid" style="grid-template-columns: 1.5fr 1.5fr;">
+        <!-- Pinterest・楽天ROOM・note・コンテンツスタジオ -->
+        <div class="channel-grid">
             <div class="card">
                 <div class="card-header">
-                    <span>運用チームフロア</span>
-                    <span class="badge-live"><span class="live-dot" aria-hidden="true"></span>LIVE</span>
+                    <span>Pinterest</span>
+                    <span class="badge-manual">手動</span>
                 </div>
-                <div class="team-grid-small">
-                    <div class="member-mini-card">
-                        __AVATAR_KOTOE__
-                        <div>
-                            <div style="font-size: 12px; font-weight: bold;">琴衣 (Lv.1)</div>
-                            <div style="font-size: 10px; color: var(--text-sub);">A8.net提携確認</div>
-                        </div>
-                    </div>
-                    <div class="member-mini-card">
-                        __AVATAR_AOI__
-                        <div>
-                            <div style="font-size: 12px; font-weight: bold;">蒼 (Lv.1)</div>
-                            <div style="font-size: 10px; color: var(--text-sub);">Pinterest投稿準備</div>
-                        </div>
-                    </div>
-                </div>
+                <p class="channel-role">現在の役割：初回投稿1件と投稿キュー3件の準備。</p>
+                <p class="channel-next">次の行動：<b>投稿キューの内容を確認し、社長が手動でPinterestへ投稿・分析確認を行う。</b></p>
+                <a class="channel-link" href="/content-studio/publish-queue">投稿キューを見る →</a>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <span>事業ポートフォリオ</span>
-                    <span style="font-size: 11px; color: var(--text-sub);">5 事業</span>
+                    <span>楽天ROOM</span>
+                    <span class="badge-manual">手動</span>
                 </div>
-                <div class="progress-item">
-                    <div class="progress-label"><span>美容アフィリエイト</span><span>68%</span></div>
-                    <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 68%;"></div></div>
-                </div>
-                <div class="progress-item">
-                    <div class="progress-label"><span>美容サロンWEB制作</span><span>64%</span></div>
-                    <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 64%; background: var(--accent-pink);"></div></div>
-                </div>
+                <p class="channel-role">現在の役割：紹介できそうなカテゴリ候補の整理(商品はまだ未登録)。</p>
+                <p class="channel-next">次の行動：<b>ROOM投稿準備を確認し、社長が手動で商品整理・投稿を行う。</b></p>
+                <a class="channel-link" href="/revenue#room-prep">ROOM投稿準備を見る →</a>
             </div>
-        </div>
 
-        <!-- 下段：WEB制作フロア -->
-        <div class="card" style="margin-bottom: 0;">
-            <div class="card-header">
-                <span>WEB制作フロア</span>
-                <span style="font-size: 11px; color: var(--text-sub);">4人稼働</span>
+            <div class="card">
+                <div class="card-header">
+                    <span>note</span>
+                    <span class="badge-manual">手動</span>
+                </div>
+                <p class="channel-role">現在の役割：初回記事1本を準備済み(まだ未公開)。</p>
+                <p class="channel-next">次の行動：<b>note初回記事を確認し、社長が手動でnoteに貼り付けて公開する。</b></p>
+                <a class="channel-link" href="/content-studio/note-first-article">note初回記事を見る →</a>
             </div>
-            <div class="web-team-grid">
-                <div class="web-member-card">
-                    <div class="room-preview">__AVATAR_MISAKI__</div>
-                    <div class="web-member-info">
-                        <div style="font-weight: bold; font-size: 13px;">美咲 (Lv.1)</div>
-                        <div style="font-size: 11px; color: var(--text-sub); margin-bottom: 6px;">WEBディレクター</div>
-                        <div class="status-chip" style="color: var(--accent-green);">制約進行を整理中</div>
-                    </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>コンテンツスタジオ</span>
+                    <span class="badge-manual">手動</span>
                 </div>
-                <div class="web-member-card">
-                    <div class="room-preview">__AVATAR_UMI__</div>
-                    <div class="web-member-info">
-                        <div style="font-weight: bold; font-size: 13px;">海 (Lv.1)</div>
-                        <div style="font-size: 11px; color: var(--text-sub); margin-bottom: 6px;">UIデザイナー</div>
-                        <div class="status-chip" style="color: var(--accent-pink);">デザインを調整中</div>
-                    </div>
-                </div>
-                <div class="web-member-card">
-                    <div class="room-preview">__AVATAR_MINATO__</div>
-                    <div class="web-member-info">
-                        <div style="font-weight: bold; font-size: 13px;">湊 (Lv.1)</div>
-                        <div style="font-size: 11px; color: var(--text-sub); margin-bottom: 6px;">フロントエンド</div>
-                        <div class="status-chip" style="color: var(--accent-amber);">コードを実装中</div>
-                    </div>
-                </div>
-                <div class="web-member-card">
-                    <div class="room-preview">__AVATAR_ITO__</div>
-                    <div class="web-member-info">
-                        <div style="font-weight: bold; font-size: 13px;">伊藤 (Lv.1)</div>
-                        <div style="font-size: 11px; color: var(--text-sub); margin-bottom: 6px;">QA・SEO</div>
-                        <div class="status-chip" style="color: var(--accent-green);">テストを実施中</div>
-                    </div>
-                </div>
+                <p class="channel-role">現在の役割：投稿テーマ・投稿パッケージ・計画のたたき台づくり。</p>
+                <p class="channel-next">次の行動：<b>投稿企画工場で次のテーマ・投稿パッケージを作成する。</b></p>
+                <a class="channel-link" href="/content-studio">投稿企画工場を見る →</a>
             </div>
         </div>
 
@@ -493,15 +369,6 @@ def index():
                 detailsToggle.setAttribute('aria-expanded', String(willOpen));
                 detailsToggle.textContent = willOpen ? '詳細を閉じる' : '詳細を表示';
             });
-            fetch('/api/logs')
-                .then(response => response.json())
-                .then(data => {
-                    if(data.length > 0) {
-                        const latest = data[0];
-                        document.getElementById('latest-theme').innerText = latest[2];
-                        document.getElementById('latest-content').innerText = latest[3];
-                    }
-                });
         </script>
     </body>
     </html>
@@ -510,13 +377,6 @@ def index():
   # のみ。DB・API・ネットワーク通信には一切関与しない)。
   avatars = {
       "__AVATAR_PRESIDENT__": _avatar("president", "stamp", "#f59e0b"),
-      "__AVATAR_AYAKA__": _avatar("ayaka", "doc", "#34d399"),
-      "__AVATAR_KOTOE__": _avatar("kotoe", "check", "#a78bfa", size="size-sm"),
-      "__AVATAR_AOI__": _avatar("aoi", "phone", "#38bdf8", size="size-sm"),
-      "__AVATAR_MISAKI__": _avatar("misaki", "list", "#34d399"),
-      "__AVATAR_UMI__": _avatar("umi", "pen", "#f472b6"),
-      "__AVATAR_MINATO__": _avatar("minato", "code", "#fbbf24"),
-      "__AVATAR_ITO__": _avatar("ito", "search", "#34d399"),
   }
   for placeholder, avatar_svg in avatars.items():
     html_content = html_content.replace(placeholder, avatar_svg)

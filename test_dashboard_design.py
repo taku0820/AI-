@@ -57,10 +57,16 @@ class DashboardDesignTestCase(unittest.TestCase):
     # マーカー文字列。これが失われると既存のヘルスチェックCLIが誤検知する。
     self.assertIn("会社の全体像ダッシュボード", self.html)
 
-  def test_api_logs_integration_script_is_preserved(self):
-    self.assertIn("fetch('/api/logs')", self.html)
-    self.assertIn('id="latest-theme"', self.html)
-    self.assertIn('id="latest-content"', self.html)
+  def test_logs_api_endpoint_still_exists_though_root_page_no_longer_uses_it(self):
+    # MISSION 038でトップページの「現在の作業」カード(/api/logsから最新の
+    # 作業ログを表示していた箇所)を削除したため、トップページ自体は
+    # /api/logsを呼び出さなくなった。エンドポイント自体は/officeなど他の
+    # 画面が読み取り専用で使い続けているため、削除していない。
+    self.assertNotIn("fetch('/api/logs')", self.html)
+    self.assertNotIn('id="latest-theme"', self.html)
+    self.assertNotIn('id="latest-content"', self.html)
+    res = self.client.get("/api/logs")
+    self.assertEqual(res.status_code, 200)
 
   def test_logs_api_still_returns_200_and_json_array(self):
     res = self.client.get("/api/logs")
@@ -114,16 +120,22 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertGreater(figure_count, 0)
     self.assertEqual(figure_count, aria_hidden_on_figure)
 
-  # --- ミニフィギュア(ローカル画像スプライト)が8名分描画されていること -------
+  # --- ミニフィギュア(ローカル画像スプライト) ---------------------------------
 
-  def test_eight_member_mini_figures_are_rendered(self):
-    self.assertEqual(self.html.count('class="avatar-sprite '), 8)
-    for name in ("柴犬社長", "彩・経理担当", "琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
-      self.assertIn(name, self.html)
+  def test_only_president_mini_figure_is_rendered(self):
+    # MISSION 038で、実在しない作業チーム(彩・琴衣・蒼・美咲・海・湊・伊藤)
+    # をトップページから削除したため、描画されるミニフィギュアは柴犬社長の
+    # 1名のみになった。
+    self.assertEqual(self.html.count('class="avatar-sprite '), 1)
+    self.assertIn("柴犬社長", self.html)
+    for removed_name in ("彩・経理担当", "琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
+      self.assertNotIn(removed_name, self.html)
 
   def test_each_role_status_prop_badge_is_rendered(self):
-    for prop in ("stamp", "doc", "check", "phone", "list", "pen", "code", "search"):
-      self.assertIn(f'avatar-badge prop-{prop}', self.html)
+    # 残っているのは柴犬社長のstampバッジのみ。
+    self.assertIn('avatar-badge prop-stamp', self.html)
+    for removed_prop in ("doc", "check", "phone", "list", "pen", "code", "search"):
+      self.assertNotIn(f'avatar-badge prop-{removed_prop}', self.html)
 
   # --- レスポンシブ対応 --------------------------------------------------------
 
@@ -134,17 +146,76 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("@media (max-width: 860px)", self.html)
     self.assertIn("@media (max-width: 480px)", self.html)
 
-  # --- アニメーションは既存ステータス文言に紐づく装飾のみであること ----------------
+  # --- MISSION 038: 現在の実運用に合わせた整理 ---------------------------------
 
-  def test_status_text_labels_are_unchanged_example_data(self):
-    # 各ステータス文言は元のダッシュボードから引き継いだ表示用の例示
-    # データであり、新規に「リアルタイムの実処理」を主張する文言を
-    # 追加していないことを確認する。
-    for status in (
-        "A8.net提携確認", "Pinterest投稿準備", "制約進行を整理中",
-        "デザインを調整中", "コードを実装中", "テストを実施中",
+  def test_root_dashboard_removes_unrelated_fictional_business_content(self):
+    # A8.net・美容アフィリエイト・美容サロンWEB制作・架空の売上額/更新件数/
+    # LIVE表示・実在しない作業チーム/事業ポートフォリオを、トップページから
+    # 完全に削除したことを確認する。
+    for removed in (
+        "A8.net", "美容アフィリエイト", "美容サロン", "事業ポートフォリオ",
+        "経理・売上フロア", "運用チームフロア", "WEB制作フロア",
+        "琴衣", "蒼", "美咲", "海", "湊", "伊藤", "彩・経理担当",
+        "LIVE", "¥301", "75件", "68%", "64%", "3%",
     ):
-      self.assertIn(status, self.html)
+      with self.subTest(removed=removed):
+        self.assertNotIn(removed, self.html)
+
+  def test_root_dashboard_shows_only_the_four_required_channels(self):
+    for channel in ("Pinterest", "楽天ROOM", "note", "コンテンツスタジオ"):
+      self.assertIn(channel, self.html)
+    self.assertEqual(self.html.count('class="badge-manual"'), 4)
+    self.assertEqual(self.html.count("現在の役割："), 4)
+    self.assertEqual(self.html.count("次の行動："), 4)
+
+  def test_root_dashboard_states_local_manual_only_notice(self):
+    self.assertIn(
+        "この画面は投稿準備と手動確認のためのローカル画面であり、"
+        "SNS投稿・分析取得・売上取得の自動連携は行いません。",
+        self.html,
+    )
+
+  def test_root_dashboard_does_not_show_fabricated_metrics(self):
+    # 収益額・フォロワー数・PV・クリック数などの数値を新たに固定表示して
+    # いないことを確認する(既存のパーセンテージ・円表示もすべて削除済み)。
+    # 「フォロワー数・PV・クリック数…は表示していません」という否定形の
+    # 案内文の中にのみ、これらの語が1回ずつ登場することを確認する。
+    self.assertNotIn("¥", self.html)
+    self.assertNotIn("%</span>", self.html)
+    self.assertEqual(self.html.count("フォロワー"), 1)
+    self.assertEqual(self.html.count("PV"), 1)
+    self.assertEqual(self.html.count("クリック数"), 1)
+    self.assertIn(
+        "フォロワー数・PV・クリック数・売上額などの数値は表示していません",
+        self.html,
+    )
+
+  def test_root_dashboard_links_to_content_studio_pages(self):
+    for path in (
+        '"/content-studio"', '"/content-studio/publish-queue"',
+        '"/content-studio/note-first-article"',
+    ):
+      self.assertIn(f'href={path}', self.html)
+
+  def test_root_dashboard_links_to_room_prep_on_revenue_board(self):
+    self.assertIn('href="/revenue#room-prep"', self.html)
+
+  def test_root_dashboard_president_intro_states_manual_operation(self):
+    self.assertIn("柴犬社長", self.html)
+    self.assertIn(
+        "Pinterest・楽天ROOM・note・投稿づくりは、すべて社長が手動で担当しています。",
+        self.html,
+    )
+    self.assertIn("自動投稿・自動集計・外部サービスとの自動連携は行っていません。", self.html)
+
+  def test_root_dashboard_office_page_still_has_its_own_fictional_desk_characters(self):
+    # /officeの「ライブオフィス」表示は、このミッションの対象外であり、
+    # 既存の演出用デスクキャラクター(琴衣・蒼・美咲・海・湊・伊藤)は
+    # そのまま残っていることを確認する(トップページからの削除が、他画面を
+    # 壊していないことの回帰確認)。
+    office_html = self.client.get("/office").get_data(as_text=True)
+    for name in ("琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
+      self.assertIn(name, office_html)
 
   def test_details_button_opens_a_real_in_page_panel(self):
     self.assertIn('id="details-toggle"', self.html)
