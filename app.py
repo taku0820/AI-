@@ -324,7 +324,7 @@ def index():
                     <span>Pinterest</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：初回投稿1件と投稿キュー3件の準備。</p>
+                <p class="channel-role">現在の役割：公開済みピンの反応を手動で確認し、次の投稿を準備する。</p>
                 <p class="channel-next">次の行動：<b>投稿キューの内容を確認し、社長が手動でPinterestへ投稿・分析確認を行う。</b></p>
                 <a class="channel-link" href="/content-studio/publish-queue">投稿キューを見る →</a>
             </div>
@@ -334,8 +334,8 @@ def index():
                     <span>楽天ROOM</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：紹介できそうなカテゴリ候補の整理(商品はまだ未登録)。</p>
-                <p class="channel-next">次の行動：<b>ROOM投稿準備を確認し、社長が手動で商品整理・投稿を行う。</b></p>
+                <p class="channel-role">現在の役割：公開済みの商品投稿を確認し、次に紹介する候補を整理する。</p>
+                <p class="channel-next">次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b></p>
                 <a class="channel-link" href="/revenue#room-prep">ROOM投稿準備を見る →</a>
             </div>
 
@@ -344,8 +344,8 @@ def index():
                     <span>note</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：初回記事1本を準備済み(まだ未公開)。</p>
-                <p class="channel-next">次の行動：<b>note初回記事を確認し、社長が手動でnoteに貼り付けて公開する。</b></p>
+                <p class="channel-role">現在の役割：初回記事を公開済み。表示と反応を手動で確認する。</p>
+                <p class="channel-next">次の行動：<b>公開済み記事の表示と反応を確認し、次の記事を準備する。</b></p>
                 <a class="channel-link" href="/content-studio/note-first-article">note初回記事を見る →</a>
             </div>
 
@@ -354,8 +354,8 @@ def index():
                     <span>コンテンツスタジオ</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：投稿テーマ・投稿パッケージ・計画のたたき台づくり。</p>
-                <p class="channel-next">次の行動：<b>投稿企画工場で次のテーマ・投稿パッケージを作成する。</b></p>
+                <p class="channel-role">現在の役割：投稿パッケージを作成し、公開前の内容を確認する。</p>
+                <p class="channel-next">次の行動：<b>投稿キューから次のテーマを選び、投稿パッケージを作成する。</b></p>
                 <a class="channel-link" href="/content-studio">投稿企画工場を見る →</a>
             </div>
         </div>

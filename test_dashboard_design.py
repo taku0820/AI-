@@ -217,6 +217,62 @@ class DashboardDesignTestCase(unittest.TestCase):
     for name in ("琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
       self.assertIn(name, office_html)
 
+  # --- MISSION 038.1: 4カードの現状表示を実際の運用状況へ合わせる更新 -----------
+
+  def test_root_dashboard_cards_reflect_current_actual_status(self):
+    for role, next_action in (
+        (
+            "現在の役割：公開済みピンの反応を手動で確認し、次の投稿を準備する。",
+            "次の行動：<b>投稿キューの内容を確認し、社長が手動でPinterestへ"
+            "投稿・分析確認を行う。</b>",
+        ),
+        (
+            "現在の役割：公開済みの商品投稿を確認し、次に紹介する候補を整理する。",
+            "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
+        ),
+        (
+            "現在の役割：初回記事を公開済み。表示と反応を手動で確認する。",
+            "次の行動：<b>公開済み記事の表示と反応を確認し、次の記事を準備する。</b>",
+        ),
+        (
+            "現在の役割：投稿パッケージを作成し、公開前の内容を確認する。",
+            "次の行動：<b>投稿キューから次のテーマを選び、投稿パッケージを"
+            "作成する。</b>",
+        ),
+    ):
+      with self.subTest(role=role):
+        self.assertIn(role, self.html)
+        self.assertIn(next_action, self.html)
+
+  def test_root_dashboard_no_longer_shows_stale_preparation_wording(self):
+    for stale in (
+        "初回投稿1件と投稿キュー3件の準備",
+        "商品はまだ未登録",
+        "初回記事1本を準備済み",
+        "まだ未公開",
+        "投稿テーマ・投稿パッケージ・計画のたたき台づくり",
+    ):
+      self.assertNotIn(stale, self.html)
+
+  def test_root_dashboard_cards_still_have_no_fabricated_metrics_or_live_claims(self):
+    self.assertNotIn("LIVE", self.html)
+    self.assertNotIn("リアルタイム", self.html)
+    self.assertNotIn("¥", self.html)
+    # 「フォロワー数・PV・クリック数…は表示していません」という否定形の
+    # 案内文の中にのみ、これらの語が1回ずつ登場する(MISSION 038から継続)。
+    self.assertEqual(self.html.count("フォロワー"), 1)
+    self.assertEqual(self.html.count("PV"), 1)
+    self.assertEqual(self.html.count("クリック数"), 1)
+
+  def test_root_dashboard_links_and_images_unchanged_by_wording_update(self):
+    for link in (
+        "/content-studio/publish-queue", "/revenue#room-prep",
+        "/content-studio/note-first-article", "/content-studio",
+        "/office", "/revenue",
+    ):
+      self.assertIn(f'href="{link}"', self.html)
+    self.assertNotIn("<img", self.html)
+
   def test_details_button_opens_a_real_in_page_panel(self):
     self.assertIn('id="details-toggle"', self.html)
     self.assertIn('id="details-panel"', self.html)
