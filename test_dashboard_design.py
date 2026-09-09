@@ -702,53 +702,80 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("対象テーマ", html)
     self.assertIn("AIとガジェットで、仕事と暮らしを少しラクにする", html)
 
-  def test_content_studio_shows_all_five_topics(self):
+  # --- MISSION 040: Pinterest・note・楽天ROOM運用だけへの整理 ------------------
+
+  def test_content_studio_shows_only_the_two_active_themes(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
     for title in (
         "AI初心者が最初に試す便利な使い方",
         "仕事の文章作成・要約をラクにするAI活用",
+    ):
+      self.assertIn(title, html)
+    for removed_title in (
         "デスク周りを整える便利ガジェット",
         "スマホ・PC作業を快適にする周辺機器",
         "買う前に確認したいAI対応ガジェットの選び方",
     ):
-      self.assertIn(title, html)
+      self.assertNotIn(removed_title, html)
+    self.assertEqual(html.count('class="cs-plan-card"'), 2)
 
-  def test_content_studio_shows_media_specific_drafts_for_every_topic(self):
-    # テーマカード(5件)と、MISSION 031のワークフロー内の改善案(5件)を
-    # それぞれ区別して数える。前者は<section class="cs-refine-section"
-    # より前、後者はそれ以降に現れる。
+  def test_content_studio_removes_instagram_and_threads_everywhere(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
-    topic_section, refine_section = html.split(
-        '<section class="cs-refine-section"', 1
+    self.assertNotIn("Instagram", html)
+    self.assertNotIn("Threads", html)
+
+  def test_content_studio_removes_unconfirmed_product_candidates(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for removed in (
+        "関連商品ジャンル候補", "AIアシスタント対応スマートスピーカー",
+        "音声入力対応キーボード", "音声文字起こしデバイス", "ノートPC用外付けマイク",
+        "cs-genre-chip",
+    ):
+      self.assertNotIn(removed, html)
+
+  def test_content_studio_removes_refinement_workflow_and_status_tiers(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for removed in (
+        "投稿改善ワークフロー", "投稿候補", "要確認", "見送り",
+        "手動投稿候補", "cs-status-badge", "cs-refine-section",
+    ):
+      self.assertNotIn(removed, html)
+
+  def test_content_studio_shows_three_fields_per_theme(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertEqual(html.count("<dt>Pinterest用の切り口</dt>"), 2)
+    self.assertEqual(html.count("<dt>note用の切り口</dt>"), 2)
+    self.assertEqual(html.count("<dt>楽天ROOMリンクの扱い</dt>"), 2)
+    self.assertEqual(html.count("今回はなし"), 2)
+
+  def test_content_studio_states_room_link_policy(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn(
+        "楽天ROOMの商品投稿ページを、柴犬社長が手動で確認できた場合のみ、"
+        "Pinterestへリンクを追加します。",
+        html,
     )
-    for medium in ("Instagram", "Threads", "Pinterest", "note"):
-      self.assertEqual(topic_section.count(f'<h4>{medium}</h4>'), 5)
-      self.assertEqual(refine_section.count(f'<h4>{medium}</h4>'), 5)
 
-  def test_content_studio_shows_three_comparison_tiers(self):
+  def test_content_studio_states_manual_prep_only_notice(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn("投稿候補", html)
-    self.assertIn("要確認", html)
-    self.assertIn("見送り", html)
-    # 5テーマすべてにステータスバッジが付与されている
-    # (凡例3件 + テーマ5件 = 8件)。
-    self.assertEqual(html.count('class="cs-status-badge'), 8)
+    self.assertIn(
+        "この画面は投稿企画の手動準備用であり、外部サービスへの投稿・送信・連携は"
+        "行わない。",
+        html,
+    )
 
-  def test_content_studio_product_genres_have_no_fabricated_price_or_rank(self):
+  def test_content_studio_has_no_numeric_or_realtime_claims(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn("関連商品ジャンル候補", html)
-    self.assertIn("価格・順位・実績は未確定・未記載", html)
     self.assertNotIn("円", html)
     self.assertNotIn("¥", html)
     self.assertNotIn("位獲得", html)
-    self.assertNotIn("楽天市場URL", html)
-    self.assertNotIn("http://", html)
-    self.assertNotIn("https://", html)
+    self.assertNotIn("LIVE", html)
+    self.assertNotIn("リアルタイム", html)
+    self.assertNotIn("フォロワー", html)
+    self.assertNotIn("PV", html)
 
   def test_content_studio_states_internal_draft_not_published_or_sent(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn("社内向けの投稿企画たたき台です", html)
-    self.assertIn("投稿・公開・送信・商品紹介は", html)
     self.assertIn("SNS投稿・note投稿・広告出稿・営業送信は行われません", html)
     self.assertIn("localhost限定", html)
 
@@ -770,123 +797,22 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_content_studio_has_responsive_layout(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn('name="viewport"', html)
-    self.assertIn("@media(max-width:760px){.cs-topic-head", html)
+    self.assertIn("@media(max-width:760px){.cs-plan-card", html)
 
   def test_content_studio_content_is_data_driven_for_future_edits(self):
     import office_views
-    self.assertEqual(len(office_views.CONTENT_STUDIO_TOPICS), 5)
-    for topic in office_views.CONTENT_STUDIO_TOPICS:
-      self.assertIn(topic["status"], office_views.CONTENT_STUDIO_STATUS_LABELS)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_PLANS), 2)
+    for plan in office_views.CONTENT_STUDIO_PLANS:
       self.assertEqual(
-          set(topic["drafts"].keys()), {"Instagram", "Threads", "Pinterest", "note"}
+          set(plan.keys()),
+          {"title", "pinterest_angle", "note_angle", "room_link_handling"},
       )
     rendered = office_views._render_content_studio_scene(
         office_views.CONTENT_STUDIO_THEME,
-        office_views.CONTENT_STUDIO_TOPICS,
-        office_views.CONTENT_STUDIO_STATUS_LABELS,
+        office_views.CONTENT_STUDIO_PLANS,
+        office_views.CONTENT_STUDIO_ROOM_LINK_POLICY,
     )
     self.assertIn(office_views.CONTENT_STUDIO_THEME, rendered)
-
-  # --- MISSION 031: 投稿改善ワークフロー(最大5案の自動改善・採点) ---------------
-
-  def test_content_studio_shows_five_iterations(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn(
-        "投稿改善ワークフロー：AI初心者が最初に試す便利な使い方（最大5案）", html
-    )
-    for label in ("初稿", "改善1", "改善2", "改善3", "改善4"):
-      self.assertIn(f"<h4>{label}</h4>", html)
-
-  def test_content_studio_each_iteration_has_media_drafts(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    refine_section = html.split('<section class="cs-refine-section"', 1)[1]
-    for medium in ("Instagram", "Threads", "Pinterest", "note"):
-      self.assertEqual(refine_section.count(f'<h4>{medium}</h4>'), 5)
-
-  def test_content_studio_shows_scoring_criteria_and_reasons(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    for label in (
-        "誰向けかが明確か",
-        "冒頭で悩みや得られる価値が分かるか",
-        "実際に試せる具体性があるか",
-        "Pinterestで保存・検索されやすいタイトルになっているか",
-        "誇大表現・断定・未確認の商品情報がないか",
-    ):
-      self.assertGreaterEqual(html.count(label), 5)  # 5案すべてに表示
-    # 採点理由が具体的な文言として表示されている(空欄ではない)。
-    self.assertIn("誰向けか曖昧です", html)
-    self.assertIn("誇大表現や断定的な言い回しはありません", html)
-
-  def test_content_studio_scoring_is_not_a_growth_guarantee(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn("採点についての注意", html)
-    self.assertIn("投稿が伸びることを保証する予測ではありません", html)
-    self.assertIn("公開前の編集チェック", html)
-
-  def test_content_studio_highlights_best_candidate(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn("現在の手動投稿候補", html)
-    self.assertIn("<b>改善4</b>", html)
-    self.assertIn('cs-iteration-card is-candidate', html)
-    self.assertEqual(html.count("手動投稿候補"), 3)  # 見出し1 + 要約1 + バッジ1
-    self.assertEqual(html.count('class="cs-verdict-badge verdict-candidate"'), 1)
-
-  def test_content_studio_shows_needs_improvement_with_reason_to_continue(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertEqual(html.count('class="cs-verdict-badge verdict-review"'), 4)
-    self.assertIn("次の改善案へ進みます", html)
-    self.assertIn("誰向けかと具体的な手順が弱いため", html)
-
-  def test_content_studio_explains_auto_post_activation_condition(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn("自動投稿について", html)
-    self.assertIn("最初の手動投稿の内容を確認し", html)
-    self.assertIn(
-        "Instagram・Threads・Pinterest・noteそれぞれの公式連携（API等）が完了した"
-        "あとに有効化します",
-        html,
-    )
-    self.assertIn("現時点では自動投稿は行いません", html)
-
-  def test_content_studio_refinement_does_not_break_existing_topic_grid(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    # 既存の投稿候補・要確認・見送りの凡例・5テーマ表示が維持されている。
-    self.assertEqual(html.count('class="cs-status-badge'), 8)
-    for title in (
-        "AI初心者が最初に試す便利な使い方",
-        "仕事の文章作成・要約をラクにするAI活用",
-        "デスク周りを整える便利ガジェット",
-        "スマホ・PC作業を快適にする周辺機器",
-        "買う前に確認したいAI対応ガジェットの選び方",
-    ):
-      self.assertIn(title, html)
-
-  def test_content_studio_refinement_has_no_fabricated_results_or_external_calls(self):
-    html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertNotIn("http://", html)
-    self.assertNotIn("https://", html)
-    self.assertNotIn("<script", html)
-    self.assertNotIn("fetch(", html)
-    self.assertNotIn("/api/", html)
-    self.assertNotIn('method="POST"', html)
-    self.assertNotIn("円", html)
-    self.assertNotIn("¥", html)
-    self.assertNotIn("位獲得", html)
-
-  def test_content_studio_refinement_content_is_data_driven(self):
-    import office_views
-    self.assertEqual(len(office_views.CONTENT_STUDIO_REFINEMENT["iterations"]), 5)
-    self.assertEqual(len(office_views.CONTENT_STUDIO_REFINEMENT["criteria"]), 5)
-    candidates = [
-        it for it in office_views.CONTENT_STUDIO_REFINEMENT["iterations"]
-        if it["verdict"] == "candidate"
-    ]
-    self.assertEqual(len(candidates), 1)
-    rendered = office_views._render_refinement_section(
-        office_views.CONTENT_STUDIO_REFINEMENT,
-        office_views.CONTENT_STUDIO_REFINEMENT["criteria"],
-    )
-    self.assertIn(office_views.CONTENT_STUDIO_REFINEMENT["topic_title"], rendered)
 
   # --- MISSION 032: 初回手動投稿パッケージ(Pinterest向け) ----------------------
 
@@ -1151,18 +1077,25 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
     for day in range(1, 8):
       self.assertIn(f"{day}日目：", html)
-    # 既存の投稿企画(初回投稿テーマ + CONTENT_STUDIO_TOPICSの4件)だけを
-    # 使っており、新しいテーマ名を発明していないことを確認する。
+    # 既存の投稿企画(初回投稿テーマ + 過去に検討したテーマ4件)だけを使って
+    # おり、新しいテーマ名を発明していないことを確認する。WEEKLY_PLANは
+    # office_views.py内で独立して定義されたデータであり、MISSION 040で
+    # /content-studioの表示テーマを2件に絞った後も、このデータ自体は
+    # 変更していない(過去に検討されたテーマの記録として、この画面には
+    # 引き続き表示され続ける)。
     import office_views
     self.assertIn(
         office_views.FIRST_POST_PACKAGE["theme"], html
     )
-    for topic in office_views.CONTENT_STUDIO_TOPICS[:4]:
-      self.assertIn(topic["title"], html)
-    # 「見送り」ステータスのテーマは計画に含めない。
-    passed_over = office_views.CONTENT_STUDIO_TOPICS[4]
-    self.assertEqual(passed_over["status"], "pass")
-    self.assertNotIn(passed_over["title"], html)
+    for title in (
+        "AI初心者が最初に試す便利な使い方",
+        "仕事の文章作成・要約をラクにするAI活用",
+        "デスク周りを整える便利ガジェット",
+        "スマホ・PC作業を快適にする周辺機器",
+    ):
+      self.assertIn(title, html)
+    # 「見送り」扱いだったテーマは計画に含めない。
+    self.assertNotIn("買う前に確認したいAI対応ガジェットの選び方", html)
 
   def test_weekly_plan_shows_medium_purpose_and_status_for_each_day(self):
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
@@ -1316,12 +1249,14 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(status_label, section)
 
   def test_room_prep_excludes_the_passed_over_topic(self):
-    import office_views
+    # ROOM_PREP_CATEGORIESはoffice_views.py内で独立して定義されたデータ
+    # であり、MISSION 040で/content-studioの表示テーマを2件に絞った後も、
+    # このデータ自体は変更していない。「見送り」扱いだったテーマ
+    # (買う前に確認したいAI対応ガジェットの選び方)の商品ジャンル候補は、
+    # 引き続きROOM投稿準備には含まれないことを確認する。
     html = self.client.get("/revenue").get_data(as_text=True)
     section = html.split('id="room-prep"', 1)[1]
-    passed_over = office_views.CONTENT_STUDIO_TOPICS[4]
-    self.assertEqual(passed_over["status"], "pass")
-    for genre in passed_over["product_genre_ideas"]:
+    for genre in ("AI搭載イヤホン", "スマートディスプレイ"):
       self.assertNotIn(genre, section)
 
   def test_room_prep_states_manual_registration_and_approval_before_publish(self):
