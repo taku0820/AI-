@@ -181,7 +181,6 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .fp-checklist{list-style:none;padding:0;margin:0;display:grid;gap:8px}
 .fp-checklist li{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 10px}
 .fp-checklist input{margin-top:2px}
-.fp-threads-card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
 .fp-footnote{margin-top:18px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.fp-pin-layout{grid-template-columns:1fr}.fp-svg-wrap{max-width:280px;margin:0 auto}}
 .weekly-plan-board{max-width:900px;margin:0 auto}
@@ -261,7 +260,7 @@ REVENUE_FOCUS = {
     "price_tiers": [
         ("Pinterest経由の流入", "検討中"),
         ("楽天ROOMでの手動紹介", "検討中"),
-        ("Instagram・Threads・noteでの信頼構築", "検討中"),
+        ("noteでの信頼構築", "検討中"),
     ],
     "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
@@ -446,10 +445,6 @@ FIRST_POST_PACKAGE = {
         ],
         "svg_footer": "毎日の仕事に、AIをひとつまみ。",
     },
-    "threads_draft": (
-        "AIって結局なにに使えばいいの？って人へ。まずはメールの下書きを1文で頼む"
-        "ところから始めてみませんか。長い文章の要約やアイデア出しの壁打ちにも使えます。"
-    ),
     "checklist": [
         "タイトル・説明文に誇大表現や断定的な成果表現がないか確認した",
         "商品名・価格・ランキング・実績などの未確認情報が含まれていないか確認した",
@@ -645,7 +640,7 @@ def generate_first_post_pin_png(pin, out_path=None):
 
 
 def _render_first_post_scene(package):
-  """初回手動投稿パッケージ(Pinterest+Threads)のHTMLを組み立てる。
+  """初回手動投稿パッケージ(Pinterest向け)のHTMLを組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
   アクセスは一切行わない。コピー用ボタンはクライアント側JSのみで完結し、
@@ -692,10 +687,6 @@ def _render_first_post_scene(package):
       '</div>'
       '<h3 class="fp-section-title">投稿前チェックリスト</h3>'
       f'<ul class="fp-checklist">{checklist_items}</ul>'
-      '<h3 class="fp-section-title">Threads投稿案（同テーマ）</h3>'
-      '<div class="fp-threads-card"><div class="fp-field-head"><h4>Threads下書き</h4>'
-      '<button type="button" class="fp-copy-btn" data-copy-target="fp-threads">コピー</button></div>'
-      f'<p id="fp-threads">{package["threads_draft"]}</p></div>'
       # MISSION 032: コピー操作はクライアント側JSのみで完結し、外部通信
       # は行わない。navigator.clipboardが使えない/失敗する環境でも、
       # 例外を投げずに安全な文言へフォールバックする。
@@ -715,7 +706,7 @@ def _render_first_post_scene(package):
       '});'
       '});</script>'
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の資料です。'
-      'Pinterest・Instagram・Threads・note・楽天への投稿・送信・連携は行われません。</p>'
+      'Pinterest・楽天ROOM・noteへの投稿・送信・連携は行われません。</p>'
       '</section>'
   )
 
@@ -753,16 +744,16 @@ WEEKLY_PLAN = [
     {
         "day": 2,
         "theme": "AI初心者が仕事で最初に試す3つの使い方",
-        "medium": "Threads",
-        "purpose": "初回投稿について会話のきっかけを作る",
+        "medium": "note",
+        "purpose": "初回投稿の内容を、もう少し詳しく解説する",
         "status": "draft",
         "checks": ["断定的な表現になっていないか", "初回投稿の内容と矛盾していないか"],
     },
     {
         "day": 3,
         "theme": "AI初心者が最初に試す便利な使い方",
-        "medium": "Instagram",
-        "purpose": "保存・シェアされる分かりやすさ",
+        "medium": "Pinterest",
+        "purpose": "保存・検索からの流入",
         "status": "manual_candidate",
         "checks": ["誰向けかが明確か", "誇大表現・断定的な言い回しがないか"],
     },
@@ -785,16 +776,16 @@ WEEKLY_PLAN = [
     {
         "day": 6,
         "theme": "デスク周りを整える便利ガジェット",
-        "medium": "Threads",
-        "purpose": "会話のきっかけづくり",
+        "medium": "note",
+        "purpose": "紹介する商品ジャンルについて整理して解説する",
         "status": "review",
         "checks": ["紹介する商品ジャンルの選定基準が整理されているか（要確認事項）"],
     },
     {
         "day": 7,
         "theme": "スマホ・PC作業を快適にする周辺機器",
-        "medium": "Instagram",
-        "purpose": "保存・シェアされる分かりやすさ",
+        "medium": "Pinterest",
+        "purpose": "保存・検索からの流入",
         "status": "review",
         "checks": ["対象ガジェットの切り口が絞り込まれているか（要確認事項）"],
     },
@@ -1455,8 +1446,8 @@ PUBLISH_QUEUE_ROOM_LINK_NOTE = (
     "URLの取得・保存・外部連携は、この画面では一切行いません。"
 )
 PUBLISH_QUEUE_MANUAL_POST_NOTE = (
-    "公開は社長がPinterestで手動実行します。Pinterest・楽天ROOM・Threads・"
-    "Instagram・noteへの自動投稿・予約投稿・外部通信は一切行いません。"
+    "公開は社長がPinterestで手動実行します。Pinterest・楽天ROOM・noteへの"
+    "自動投稿・予約投稿・外部通信は一切行いません。"
 )
 
 # SVGアイコン(装飾のみ・画面内完結・外部素材なし・商品写真やロゴは使わない)。
@@ -1887,7 +1878,7 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
       '<a class="cs-first-post-link" href="/content-studio/weekly-plan">'
       '→ 7日間コンテンツ計画を見る</a>'
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の資料です。'
-      'Pinterest・楽天ROOM・Threads・Instagram・noteへの投稿・送信・連携は行われません。</p>'
+      'Pinterest・楽天ROOM・noteへの投稿・送信・連携は行われません。</p>'
       '</section>'
   )
 

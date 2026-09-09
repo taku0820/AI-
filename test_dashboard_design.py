@@ -886,11 +886,14 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(item, html)
     self.assertEqual(html.count('type="checkbox"'), 5)
 
-  def test_first_post_shows_threads_draft(self):
+  def test_first_post_has_no_threads_content_remaining(self):
+    # MISSION 041: いまはPinterest・楽天ROOM・noteだけを手動運用しているため、
+    # 使っていないThreads下書きセクションを削除した。
     html = self.client.get("/content-studio/first-post").get_data(as_text=True)
-    self.assertIn("Threads投稿案（同テーマ）", html)
-    self.assertIn('id="fp-threads"', html)
-    self.assertIn("AIって結局なにに使えばいいの？", html)
+    self.assertNotIn("Threads", html)
+    self.assertNotIn("Instagram", html)
+    import office_views
+    self.assertNotIn("threads_draft", office_views.FIRST_POST_PACKAGE)
 
   def test_first_post_states_manual_posting_and_next_automation_step(self):
     html = self.client.get("/content-studio/first-post").get_data(as_text=True)
@@ -901,8 +904,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("自動投稿・自動連携は行いません", html)
 
   def test_first_post_copy_buttons_fail_safely_without_breaking_page(self):
+    # MISSION 041: Threads下書きフィールドを削除したため、コピーボタンは
+    # title/description/altの3個になった。
     html = self.client.get("/content-studio/first-post").get_data(as_text=True)
-    self.assertEqual(html.count('class="fp-copy-btn"'), 4)  # title/description/alt/threads
+    self.assertEqual(html.count('class="fp-copy-btn"'), 3)
     self.assertIn("navigator.clipboard&&navigator.clipboard.writeText", html)
     self.assertIn(".catch(()=>showResult(false))", html)
     self.assertIn("}catch(e){showResult(false);}", html)
@@ -988,8 +993,6 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('id="fp-alt"', html)
     self.assertIn("投稿前チェックリスト", html)
     self.assertEqual(html.count('type="checkbox"'), 5)
-    self.assertIn("Threads投稿案（同テーマ）", html)
-    self.assertIn('id="fp-threads"', html)
 
   def test_first_post_png_route_does_not_require_pillow_at_app_import_time(self):
     # office_views.py自体のimportにPillowが必須になっていないこと
@@ -1098,9 +1101,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("買う前に確認したいAI対応ガジェットの選び方", html)
 
   def test_weekly_plan_shows_medium_purpose_and_status_for_each_day(self):
+    # MISSION 041: いまはPinterest・楽天ROOM・noteだけを手動運用しているため、
+    # 使っていないThreads・Instagramを想定媒体から外し、Pinterest・noteの
+    # 2媒体だけに揃えた。
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
-    for medium in ("Pinterest", "Threads", "Instagram", "note"):
+    for medium in ("Pinterest", "note"):
       self.assertIn(f"<b>{medium}</b>", html)
+    self.assertNotIn("Threads", html)
+    self.assertNotIn("Instagram", html)
     for status_label in ("公開済み", "下書き", "確認待ち", "手動投稿候補"):
       self.assertIn(status_label, html)
     self.assertIn("目的：", html)
@@ -1747,10 +1755,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(
         html.count("公開は社長がPinterestで手動実行します"), 4
     )
+    # MISSION 041: いまはPinterest・楽天ROOM・noteだけを手動運用しているため、
+    # 使っていないThreads・Instagramへの言及を削除した。
     self.assertIn(
-        "Pinterest・楽天ROOM・Threads・Instagram・noteへの自動投稿・予約投稿・外部通信は"
-        "一切行いません", html
+        "Pinterest・楽天ROOM・noteへの自動投稿・予約投稿・外部通信は一切行いません", html
     )
+    self.assertNotIn("Threads", html)
+    self.assertNotIn("Instagram", html)
 
   def test_publish_queue_links_to_desk_setup_post_and_weekly_plan(self):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
@@ -2154,6 +2165,105 @@ class DashboardDesignTestCase(unittest.TestCase):
         res = self.client.get(path)
         self.assertEqual(res.status_code, 200)
         self.assertIn(title, res.get_data(as_text=True))
+
+  # --- MISSION 041: 夜間点検(現在の手動運用との整合性チェック) ------------------
+
+  def test_night_check_no_page_mentions_instagram_or_threads(self):
+    # いまはPinterest・楽天ROOM・noteだけを社長が手動運用しているため、
+    # 実際には使っていないInstagram・Threadsへの言及(内容・注記文どちらも)
+    # が、利用者に見える画面のどこにも残っていないことを確認する。
+    for path in (
+        "/", "/content-studio", "/content-studio/desk-setup-post",
+        "/content-studio/first-post", "/content-studio/note-first-article",
+        "/content-studio/publish-queue", "/content-studio/weekly-plan",
+        "/revenue",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertNotIn("Instagram", html)
+        self.assertNotIn("Threads", html)
+
+  def test_night_check_no_page_mentions_a8net_or_beauty_content(self):
+    for path in (
+        "/", "/content-studio", "/content-studio/desk-setup-post",
+        "/content-studio/first-post", "/content-studio/note-first-article",
+        "/content-studio/publish-queue", "/content-studio/weekly-plan",
+        "/revenue",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertNotIn("A8.net", html)
+        self.assertNotIn("美容", html)
+
+  def test_night_check_no_page_shows_fabricated_metrics_or_live_claims(self):
+    for path in (
+        "/", "/content-studio", "/content-studio/desk-setup-post",
+        "/content-studio/first-post", "/content-studio/note-first-article",
+        "/content-studio/publish-queue", "/content-studio/weekly-plan",
+        "/revenue",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertNotIn("LIVE", html)
+        self.assertNotIn("リアルタイム", html)
+
+  def test_night_check_weekly_plan_days_only_use_pinterest_or_note(self):
+    import office_views
+    for entry in office_views.WEEKLY_PLAN:
+      with self.subTest(day=entry["day"]):
+        self.assertIn(entry["medium"], ("Pinterest", "note"))
+
+  def test_night_check_revenue_entry_points_do_not_mention_unused_channels(self):
+    import office_views
+    for label, _status in office_views.REVENUE_FOCUS["price_tiers"]:
+      self.assertNotIn("Instagram", label)
+      self.assertNotIn("Threads", label)
+
+  def test_night_check_first_post_no_longer_has_threads_field_or_section(self):
+    import office_views
+    self.assertNotIn("threads_draft", office_views.FIRST_POST_PACKAGE)
+    html = self.client.get("/content-studio/first-post").get_data(as_text=True)
+    self.assertNotIn("fp-threads", html)
+    self.assertIn(
+        "Pinterest・楽天ROOM・noteへの投稿・送信・連携は行われません。", html
+    )
+
+  def test_night_check_publish_queue_email_draft_v3_png_still_has_baked_in_title(self):
+    # MISSION 039.2で焼き込んだタイトルが、その後の変更で失われていないことを
+    # 実ファイルのバイト内容から再確認する(画像ファイル自体は今回変更して
+    # いない)。
+    import office_views
+    v3_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.PUBLISH_QUEUE_EMAIL_DRAFT_V3_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(v3_path))
+    with open(v3_path, "rb") as f:
+      header = f.read(33)
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1024, 1536))
+
+  def test_night_check_all_internal_links_from_core_pages_resolve(self):
+    # 点検対象5画面から到達できる主要リンクが、すべて実在するページに
+    # 移動することを確認する(内部リンクのみ。外部URLはこのチェックの
+    # 対象外)。
+    import re
+    core_pages = [
+        "/", "/content-studio", "/content-studio/publish-queue",
+        "/content-studio/note-first-article", "/revenue",
+    ]
+    internal_hrefs = set()
+    for path in core_pages:
+      html = self.client.get(path).get_data(as_text=True)
+      for href in re.findall(r'href="(/[^"]*)"', html):
+        internal_hrefs.add(href.split("#")[0])
+    self.assertGreater(len(internal_hrefs), 0)
+    for href in internal_hrefs:
+      with self.subTest(href=href):
+        res = self.client.get(href)
+        self.assertEqual(res.status_code, 200)
 
 
 if __name__ == "__main__":
