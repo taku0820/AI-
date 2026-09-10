@@ -2481,6 +2481,24 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
     self.assertIn('class="note-hero-overlay"', first_section_html)
 
+  def test_note_second_article_draft_alt_text_draft_does_not_contradict_shown_cover_image(self):
+    # MISSION 045夜間点検で発見・修正: MISSION 044で見出し画像を実際に
+    # 表示するようになったにもかかわらず、Pinterest用altテキスト案が
+    # 「実際の画像は、この記事下書きでは新規作成していません」という
+    # MISSION 043時点の古い文言のままだった(同じ画面内で矛盾する記述に
+    # なっていた)。この文言が残っていないことを確認する回帰テスト。
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    self.assertNotIn("新規作成していません", article["alt_text_draft"])
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    second_section_html = html.split(
+        'aria-label="スマホAI下書きテーマのnote記事下書き"', 1
+    )[1].split("</section>", 1)[0]
+    self.assertNotIn("新規作成していません", second_section_html)
+    # 見出し画像が実際に表示されている旨とaltテキスト案が整合していることも
+    # あわせて確認する。
+    self.assertIn("上記のとおり表示済み", article["alt_text_draft"])
+
   def test_note_second_article_draft_cover_image_is_unchanged_and_served_as_plain_static_file(self):
     import office_views
     png_path = os.path.join(
