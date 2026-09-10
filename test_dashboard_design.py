@@ -2305,7 +2305,10 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_note_first_article_shows_pre_post_checklist(self):
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     self.assertIn("投稿前チェックリスト", html)
-    self.assertEqual(html.count('type="checkbox"'), 7)
+    # MISSION 043で、同じページにスマホAI下書きテーマのnote記事下書き
+    # (チェックリスト7項目)を追加したため、既存の初回記事分(7項目)と
+    # 合わせて14個になった。
+    self.assertEqual(html.count('type="checkbox"'), 14)
     self.assertIn("本文が4,500〜5,500字の目安に収まっているか確認した", html)
 
   def test_note_first_article_has_no_external_resources_or_network_calls(self):
@@ -2330,6 +2333,158 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(len(office_views.NOTE_FIRST_ARTICLE["closing_sections"]), 5)
     rendered = office_views._render_note_article_scene(office_views.NOTE_FIRST_ARTICLE)
     self.assertIn(office_views.NOTE_FIRST_ARTICLE["title"], rendered)
+
+  # --- MISSION 043: スマホAI下書きテーマのnote記事下書き(2本目) -----------------
+
+  def test_note_second_article_draft_appears_on_note_first_article_page(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("次のnote記事下書き", html)
+    self.assertIn(
+        "スマホでAIに下書きを頼む前に確認する3つ──端末・入力・読み返しを先に決める", html
+    )
+    self.assertIn(
+        "対象テーマ：<b>スマホでAIに下書きを頼む前に確認する3つ</b>"
+        "（Pinterest投稿キューの「スマホでAIに下書きを頼む前に確認する3つ」と対応）",
+        html,
+    )
+    # 既存の初回記事のタイトルも引き続き表示されていることを確認する
+    # (既存記事は変更・削除していない)。
+    self.assertIn(
+        "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める", html
+    )
+
+  def test_note_second_article_draft_body_char_count_is_within_4500_to_5500(self):
+    import office_views
+    body_text = office_views._note_second_article_draft_body_plain_text(
+        office_views.NOTE_SECOND_ARTICLE_DRAFT
+    )
+    char_count = len(body_text)
+    self.assertGreaterEqual(char_count, 4500)
+    self.assertLessEqual(char_count, 5500)
+
+  def test_note_second_article_draft_covers_required_3_points_with_examples(self):
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    headings = [s["heading"] for s in article["sections"]]
+    for required in ("1. 使う端末を決める", "2. 文字入力の方法を決める", "3. 読み返す場所を決める"):
+      self.assertIn(required, headings)
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    for required in ("1. 使う端末を決める", "2. 文字入力の方法を決める", "3. 読み返す場所を決める"):
+      self.assertIn(required, html)
+    # 各項目に具体例が含まれていることを、代表的な語で確認する。
+    self.assertIn("たとえば", article["sections"][0]["body"])
+    self.assertIn("たとえば", article["sections"][1]["body"])
+    self.assertIn("たとえば", article["sections"][2]["body"])
+
+  def test_note_second_article_draft_shows_overview_pinterest_description_and_alt_text(self):
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn('id="note2-title"', html)
+    self.assertIn('id="note2-overview"', html)
+    self.assertIn('id="note2-pinterest-description"', html)
+    self.assertIn('id="note2-alt-text"', html)
+    self.assertIn(article["overview"], html)
+    self.assertIn(article["pinterest_description"], html)
+    self.assertIn(article["alt_text_draft"], html)
+    self.assertLessEqual(len(article["pinterest_description"]), 500)
+
+  def test_note_second_article_draft_has_no_definitive_claims_or_business_data(self):
+    # チェックリスト自体には「こうした表現が含まれていないか確認した」という
+    # 形で断定表現の語そのものが引用として登場するため、判定対象は記事本文
+    # (タイトル・概要・本文)に限定する(投稿前チェックリストより前の部分)。
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    article_only = html.split(
+        'aria-label="スマホAI下書きテーマのnote記事下書き"', 1
+    )[1].split('<h3 class="fp-section-title">投稿前チェックリスト</h3>', 1)[0]
+    for forbidden in ("必ず効率が上がる", "成果が出る", "絶対に", "必ず稼げ"):
+      self.assertNotIn(forbidden, article_only)
+    for forbidden in ("¥", "円", "位獲得", "在庫あり", "在庫切れ", "ランキング"):
+      self.assertNotIn(forbidden, article_only)
+    # 「レビュー」自体は概要・Pinterest用説明文案に登場するが、「紹介や
+    # レビューは含みません」という否定形でのみ使われており、実際のレビュー
+    # 内容を記載するものではない(既存カードの否定形と同じ扱い、MISSION 042
+    # のtest_publish_queue_smartphone_ai_draft_has_no_definitive_claims_or_
+    # business_dataと同じ考え方)。
+    self.assertIn("紹介やレビューは含みません", article["pinterest_description"])
+    self.assertNotIn("楽天ROOM", article_only)
+    self.assertNotIn('href="https://room.rakuten.co.jp', html)
+    body_text = office_views._note_second_article_draft_body_plain_text(article)
+    for forbidden in ("必ず効率が上がる", "成果が出る", "絶対に", "必ず稼げ", "¥", "在庫あり"):
+      self.assertNotIn(forbidden, body_text)
+
+  def test_note_second_article_draft_does_not_duplicate_first_article_body(self):
+    # 公開済みのメール下書き記事(NOTE_FIRST_ARTICLE)と文章を重複させない
+    # という要件を、本文プレーンテキストが完全一致しないことで確認する
+    # (それぞれ独立したテーマ・文面であること)。
+    import office_views
+    first_body = office_views._note_article_body_plain_text(office_views.NOTE_FIRST_ARTICLE)
+    second_body = office_views._note_second_article_draft_body_plain_text(
+        office_views.NOTE_SECOND_ARTICLE_DRAFT
+    )
+    self.assertNotEqual(first_body, second_body)
+    self.assertNotIn(second_body, first_body)
+    self.assertNotIn(first_body, second_body)
+
+  def test_note_second_article_draft_states_draft_only_not_posted_to_note(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("この記事はまだ下書きであり、noteへは投稿していません", html)
+    self.assertIn(
+        "note・SNSへの自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切行いません", html
+    )
+
+  def test_note_second_article_draft_has_no_new_hero_image_or_external_resources(self):
+    # MISSION 043は画像の新規作成・差し替えを行わないため、この下書き
+    # セクションには見出し画像(<img>)を含めない。
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    second_section_html = html.split(
+        'aria-label="スマホAI下書きテーマのnote記事下書き"', 1
+    )[1].split("</section>", 1)[0]
+    self.assertNotIn("<img", second_section_html)
+    self.assertNotIn("https://", second_section_html)
+    self.assertNotIn("fetch(", second_section_html)
+    self.assertNotIn("/api/", second_section_html)
+
+  def test_note_second_article_draft_checklist_and_copy_buttons(self):
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    for item in article["checklist"]:
+      self.assertIn(item, html)
+    for target in (
+        "note2-title", "note2-overview", "note2-body-copy",
+        "note2-pinterest-description", "note2-alt-text",
+    ):
+      self.assertIn(f'data-copy-target="{target}"', html)
+
+  def test_note_second_article_draft_content_is_data_driven_for_future_edits(self):
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    self.assertEqual(len(article["sections"]), 4)
+    rendered = office_views._render_note_second_article_draft_scene(article)
+    self.assertIn(article["title"], rendered)
+    self.assertIn("note-article-board", rendered)
+
+  def test_existing_pages_unaffected_by_note_second_article_draft_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+        ("/content-studio/desk-setup-post", "デスク環境投稿パッケージ"),
+        ("/content-studio/publish-queue", "投稿キュー（社長承認待ち）"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    import office_views
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
 
   def test_note_hero_png_file_exists_with_correct_landscape_dimensions(self):
     import office_views
