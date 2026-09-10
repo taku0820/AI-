@@ -2306,9 +2306,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     self.assertIn("投稿前チェックリスト", html)
     # MISSION 043で、同じページにスマホAI下書きテーマのnote記事下書き
-    # (チェックリスト7項目)を追加したため、既存の初回記事分(7項目)と
-    # 合わせて14個になった。
-    self.assertEqual(html.count('type="checkbox"'), 14)
+    # (チェックリスト7項目)を追加し、既存の初回記事分(7項目)と合わせて
+    # 14個になった。MISSION 044でその下書きに見出し画像用のチェック項目が
+    # 1件追加され、合計15個になった。
+    self.assertEqual(html.count('type="checkbox"'), 15)
     self.assertIn("本文が4,500〜5,500字の目安に収まっているか確認した", html)
 
   def test_note_first_article_has_no_external_resources_or_network_calls(self):
@@ -2435,17 +2436,96 @@ class DashboardDesignTestCase(unittest.TestCase):
         "note・SNSへの自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切行いません", html
     )
 
-  def test_note_second_article_draft_has_no_new_hero_image_or_external_resources(self):
-    # MISSION 043は画像の新規作成・差し替えを行わないため、この下書き
-    # セクションには見出し画像(<img>)を含めない。
+  def test_note_second_article_draft_has_no_external_resources_or_network_calls(self):
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     second_section_html = html.split(
         'aria-label="スマホAI下書きテーマのnote記事下書き"', 1
     )[1].split("</section>", 1)[0]
-    self.assertNotIn("<img", second_section_html)
     self.assertNotIn("https://", second_section_html)
     self.assertNotIn("fetch(", second_section_html)
     self.assertNotIn("/api/", second_section_html)
+
+  def test_note_second_article_draft_shows_existing_cover_image_without_html_title_overlay(self):
+    # MISSION 044: あらかじめ用意された既存の見出し画像(1672x941)を、この
+    # note記事下書きにだけ表示する。新規画像の作成・差し替えは行わず、HTML
+    # 側でタイトル文字を重ねる処理(note-hero-overlay等)も行わない。
+    import office_views
+    article = office_views.NOTE_SECOND_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    second_section_html = html.split(
+        'aria-label="スマホAI下書きテーマのnote記事下書き"', 1
+    )[1].split("</section>", 1)[0]
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/note-smartphone-ai-draft-cover.png" '
+        f'alt="{article["hero_image_alt"]}">',
+        second_section_html,
+    )
+    self.assertNotIn('class="note-hero-overlay"', second_section_html)
+    self.assertNotIn('class="note-hero-title"', second_section_html)
+    self.assertNotIn('class="note-hero-scrim"', second_section_html)
+    self.assertEqual(second_section_html.count("<img"), 1)
+    self.assertIn("横長 1672×941", second_section_html)
+    self.assertIn("見出し文字はHTML側で重ねていません", second_section_html)
+    self.assertEqual(
+        article["hero_image_alt"],
+        "夜の木目デスクにスマートフォン、タブレット、折りたたみキーボード、ノートが置かれた様子。"
+        "ロゴや実在サービスの画面は写っていません。",
+    )
+    # 既存の初回記事(NOTE_FIRST_ARTICLE)の見出し画像には影響しないことを確認する。
+    first_section_html = html.split(
+        'aria-label="スマホAI下書きテーマのnote記事下書き"', 1
+    )[0]
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/note-first-article-hero.png"',
+        first_section_html,
+    )
+    self.assertIn('class="note-hero-overlay"', first_section_html)
+
+  def test_note_second_article_draft_cover_image_is_unchanged_and_served_as_plain_static_file(self):
+    import office_views
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.NOTE_SECOND_ARTICLE_DRAFT_COVER_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1672, 941))
+    res = self.client.get(f"/static/{office_views.NOTE_SECOND_ARTICLE_DRAFT_COVER_RELATIVE_PATH}")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_note_second_article_draft_cover_image_has_download_button_as_plain_link(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn(
+        'href="/static/images/note-smartphone-ai-draft-cover.png" '
+        'download="note-smartphone-ai-draft-cover.png"',
+        html,
+    )
+    self.assertNotIn("createObjectURL", html)
+    self.assertNotIn("toDataURL", html)
+
+  def test_existing_first_article_and_publish_queue_images_unaffected_by_cover_image_addition(self):
+    # MISSION 044は「スマホでAIに下書きを頼む前に確認する3つ」のnote記事
+    # 下書きにのみ画像を追加する。既存のnote初回記事・Pinterest投稿キュー・
+    # 既存画像ファイルは変更しない。
+    import office_views
+    for relative_path in (
+        "images/note-first-article-hero.png",
+        "images/publish-queue-email-draft-v3.png",
+        "images/publish-queue-desk-wiring-2x3.png",
+        "images/publish-queue-peripherals-2x3.png",
+        "images/publish-queue-smartphone-ai-draft-2x3.png",
+        "images/publish-queue-smartphone-ai-photo-base.png",
+    ):
+      path = os.path.join(os.path.dirname(office_views.__file__), "static", relative_path)
+      self.assertTrue(os.path.isfile(path), f"{relative_path} should still exist")
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(html.count('class="pq-status-badge"'), 4)
 
   def test_note_second_article_draft_checklist_and_copy_buttons(self):
     import office_views

@@ -2623,14 +2623,26 @@ def _render_note_article_scene(article):
 # 3つ」(投稿キューのsmartphone-ai-draft-3points)と内容が一致するnote記事の
 # 下書き。公開済みのNOTE_FIRST_ARTICLE(パソコンでのメール下書き・要約・
 # 壁打ち)とは重複させず、スマホ・タブレットでの下書き依頼に焦点を絞る。
-# 見出し画像は新規作成・差し替えを行わないため、このデータ構造には画像
-# 関連のフィールドを持たない。note・SNSへの投稿・自動投稿・予約投稿・
-# ログイン操作・API連携・外部通信は一切行わない(下書き表示のみ)。将来
-# 文面を差し替える場合は、このデータ構造(NOTE_SECOND_ARTICLE_DRAFT)を
-# 編集するだけでよい。
+# note・SNSへの投稿・自動投稿・予約投稿・ログイン操作・API連携・外部通信は
+# 一切行わない(下書き表示のみ)。将来文面を差し替える場合は、このデータ
+# 構造(NOTE_SECOND_ARTICLE_DRAFT)を編集するだけでよい。
+# MISSION 044: あらかじめ用意された見出し画像(NOTE_SECOND_ARTICLE_DRAFT_
+# COVER_RELATIVE_PATH。1672x941の横長)を、このnote記事下書きにだけ表示
+# する。画像は新規作成・差し替えを行わず、既存ファイルをそのまま使う。
+# 見出し文字はHTML側で重ねない(画像そのものにも文字は焼き込まれていない)。
+NOTE_SECOND_ARTICLE_DRAFT_COVER_RELATIVE_PATH = "images/note-smartphone-ai-draft-cover.png"
+NOTE_SECOND_ARTICLE_DRAFT_COVER_WIDTH = 1672
+NOTE_SECOND_ARTICLE_DRAFT_COVER_HEIGHT = 941
+
 NOTE_SECOND_ARTICLE_DRAFT = {
     "theme": "スマホでAIに下書きを頼む前に確認する3つ",
     "title": "スマホでAIに下書きを頼む前に確認する3つ──端末・入力・読み返しを先に決める",
+    # MISSION 044: あらかじめ用意された見出し画像のaltテキスト(社長指定の
+    # 文言をそのまま使用)。
+    "hero_image_alt": (
+        "夜の木目デスクにスマートフォン、タブレット、折りたたみキーボード、ノートが置かれた様子。"
+        "ロゴや実在サービスの画面は写っていません。"
+    ),
     "overview": (
         "AI初心者がスマートフォンやタブレットで、AIにメール・メモ・短い文章の下書きを頼む場面を"
         "想定し、入力前に決めておくと入力や読み返しがしやすくなる3つのポイント（使う端末・文字"
@@ -2810,6 +2822,7 @@ NOTE_SECOND_ARTICLE_DRAFT = {
         "楽天ROOMの商品紹介・リンクを含めていないか確認した",
         "公開済みのメール下書き記事(NOTE_FIRST_ARTICLE)と文章が重複していないか確認した",
         "Pinterest用説明文案が500字以内に収まっているか確認した",
+        "見出し画像に日本語文字・ロゴ・実在サービスの画面が写っていないか確認した",
         "noteアカウントにログインした状態で、手動で貼り付けて公開できる準備ができている",
     ],
 }
@@ -2831,12 +2844,15 @@ def _note_second_article_draft_body_plain_text(article):
 
 
 def _render_note_second_article_draft_scene(article):
-  """MISSION 043: スマホAI下書きテーマのnote記事下書きのHTMLを組み立てる。
+  """MISSION 043/044: スマホAI下書きテーマのnote記事下書きのHTMLを組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・note・外部通信への
-  アクセスは一切行わない。見出し画像は新規作成・差し替えを行わないため表示
-  しない。コピー用ボタンはクライアント側JSのみで完結し、クリップボード操作が
-  失敗しても例外を伝播させず、安全なフォールバック表示にする。
+  アクセスは一切行わない。見出し画像は、あらかじめ用意された既存ファイル
+  (NOTE_SECOND_ARTICLE_DRAFT_COVER_RELATIVE_PATH)をそのまま<img>で表示する
+  だけで、新規作成・差し替えは行わない。タイトル文字はHTML側で重ねず、画像
+  そのものにも焼き込まれていない(プレーンな写真としてそのまま表示する)。
+  コピー用ボタンはクライアント側JSのみで完結し、クリップボード操作が失敗
+  しても例外を伝播させず、安全なフォールバック表示にする。
   """
   visible_parts = [_paragraphs_html(article["intro"])]
   for section in article["sections"]:
@@ -2861,6 +2877,23 @@ def _render_note_second_article_draft_scene(article):
       f'<p class="fp-theme">対象テーマ：<b>{article["theme"]}</b>'
       '（Pinterest投稿キューの「スマホでAIに下書きを頼む前に確認する3つ」と対応）</p>'
       f'<div class="fp-note fp-note-warn"><b>下書きについて。</b>{article["manual_post_note"]}</div>'
+      # MISSION 044: あらかじめ用意された見出し画像をそのまま<img>で表示する。
+      # HTML側でタイトル文字を重ねる処理は行わない(画像本体にも文字は焼き
+      # 込まれていない、プレーンな写真)。通常のダウンロードリンクのみで
+      # 保存し、外部通信・JavaScript必須の処理は行わない。クリックしても
+      # note・SNSへの投稿・送信・連携は一切発生しない。
+      '<h3 class="fp-section-title">見出し画像</h3>'
+      '<div class="note-hero">'
+      f'<img class="note-hero-img" src="/static/{NOTE_SECOND_ARTICLE_DRAFT_COVER_RELATIVE_PATH}" '
+      f'alt="{article["hero_image_alt"]}">'
+      '</div>'
+      f'<p class="fp-svg-ratio">横長 {NOTE_SECOND_ARTICLE_DRAFT_COVER_WIDTH}×'
+      f'{NOTE_SECOND_ARTICLE_DRAFT_COVER_HEIGHT}'
+      '（あらかじめ用意した画像・見出し文字はHTML側で重ねていません）</p>'
+      f'<a class="fp-png-download" href="/static/{NOTE_SECOND_ARTICLE_DRAFT_COVER_RELATIVE_PATH}" '
+      'download="note-smartphone-ai-draft-cover.png">見出し画像PNGを保存</a>'
+      '<p class="fp-png-hint">保存したPNGをnoteの見出し画像として手動アップロードしてください。'
+      'このボタンからの投稿・送信・連携は行われません。</p>'
       '<div class="fp-field"><div class="fp-field-head"><h4>タイトル</h4>'
       '<button type="button" class="fp-copy-btn" data-copy-target="note2-title">'
       'コピー</button></div>'
