@@ -1439,6 +1439,67 @@ PUBLISH_QUEUE_POSTS = [
         "png_relative_path": "images/publish-queue-peripherals-2x3.png",
         "png_download_filename": "pinterest-publish-queue-peripherals.png",
     },
+    {
+        # MISSION 042: スマホ・タブレットでAIにメール/メモの下書きを頼む
+        # 初心者向け。前日公開済みの折りたたみキーボードの楽天ROOM投稿と、
+        # 社長が手動で結び付けられる状態にする(このアプリからは投稿URLを
+        # 取得・保存・自動連携しない)。
+        "id": "smartphone-ai-draft-3points",
+        "status": "社長承認待ち",
+        "pin": {
+            "title": "スマホでAIに下書きを頼む前に確認する3つ",
+            "description": (
+                "スマホやタブレットでAIにメールやメモの下書きを頼む前に、確認して"
+                "おくと入力がスムーズになる3つのポイントをまとめました。使う端末・"
+                "文字入力の方法・読み返す場所を先に決めておくだけで、指示や確認が"
+                "しやすくなります。特定の商品の紹介やレビューではありません。"
+            ),
+            # MISSION 042: 実写真は支給されていないため、note-hero-imageと
+            # 同じ手法(グラデーション+図形の重ね合わせ)で描いたイラスト調の
+            # 擬似写真ビジュアル。ロゴ・読める商品名・実在サービスの画面・
+            # 楽天市場の商品画像は写っていない。タイトルと3項目は画像本体に
+            # 焼き込み済み。
+            "alt_text": (
+                "スマホでAIに下書きを頼む前に確認する3つ、というテーマのイメージ"
+                "ビジュアル。木目のデスクにスマートフォン・タブレット・折りたたみ"
+                "キーボードが置かれた様子。上部に「1. 使う端末を決める」「2. 文字"
+                "入力の方法を決める」「3. 読み返す場所を決める」の3項目とタイトルを"
+                "焼き込んでいる。ロゴ・読める商品名・実在サービスの画面・楽天市場の"
+                "商品画像は写っていません。"
+            ),
+        },
+        "hero_image_relative_path": "images/publish-queue-smartphone-ai-draft-2x3.png",
+        "hero_image_download_filename": "pinterest-publish-queue-smartphone-ai-draft.png",
+        "hero_title_lines": ["スマホでAIに下書きを", "頼む前に確認する3つ"],
+        "hero_item_lines": [
+            "1. 使う端末を決める",
+            "2. 文字入力の方法を決める",
+            "3. 読み返す場所を決める",
+        ],
+        # MISSION 042: 楽天ROOMリンク欄は空欄のまま、公開済みの折りたたみ
+        # キーボード投稿URLを社長が手動で貼る想定であることを明記する
+        # (このアプリはURLの取得・保存・自動連携を一切行わない)。
+        "custom_room_link_note": (
+            "楽天ROOMリンク：（空欄）公開済みの折りたたみキーボード投稿URLを、"
+            "社長が手動で貼り付けてください。URLの取得・保存・外部連携は、この"
+            "画面では一切行いません。"
+        ),
+        "pinterest_topic_candidates": ["AI活用術", "スマホ活用", "在宅ワーク"],
+        "checklist": [
+            "タイトル・説明文に「自分で使った」「おすすめ」「効率が上がる」"
+            "「成果が出る」等の断定表現がないか確認した",
+            "価格・在庫・性能・ランキング・レビュー・成果を記載していないか確認した",
+            "画像内の文字（タイトル・3項目）が読みやすいか（誤字・はみ出しがないか）"
+            "確認した",
+            "altテキストが画像の内容を正しく説明しているか確認した",
+            "楽天ROOMリンク欄が空欄のままであることを確認した（社長が公開済みの"
+            "折りたたみキーボード投稿URLを手動で貼り付ける）",
+            "この画像がAIで加工（タイトル・3項目の文字焼き込み）した画像であり、"
+            "Pinterest側で必要な「AIで修正済み」等の画像ラベル設定が必要である"
+            "ことを確認した",
+            "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
+        ],
+    },
 ]
 
 PUBLISH_QUEUE_ROOM_LINK_NOTE = (
@@ -1669,6 +1730,23 @@ PUBLISH_QUEUE_EMAIL_DRAFT_V2_RELATIVE_PATH = "images/publish-queue-email-draft-v
 PUBLISH_QUEUE_EMAIL_DRAFT_V3_RELATIVE_PATH = "images/publish-queue-email-draft-v3.png"
 _PUBLISH_QUEUE_EMAIL_DRAFT_FONT_PATH = "/System/Library/Fonts/Hiragino Sans GB.ttc"
 
+# MISSION 042: 「スマホでAIに下書きを頼む前に確認する3つ」投稿用の縦長
+# (1024x1536, 2:3)画像。
+# MISSION 042.1: 社長から高品質な写真風ビジュアル(publish-queue-
+# smartphone-ai-photo-base.png、夜の木目デスクにスマホ・タブレット・
+# 折りたたみキーボードが自然に置かれた構図)の支給を受け、MISSION 042
+# 時点のPillow製イラスト(グラデーション+単純な図形描画)からこちらへ
+# 差し替えた。タイトルと画像内の3項目は、支給された元写真の上に直接
+# 焼き込む(HTML側では重ねない)。元写真にはロゴ・読める商品名・実在
+# サービスの画面・楽天市場の商品画像・人物は写っていないことを目視確認
+# 済み。元写真ファイル自体は削除・上書きしない。
+PUBLISH_QUEUE_SMARTPHONE_AI_PHOTO_BASE_RELATIVE_PATH = (
+    "images/publish-queue-smartphone-ai-photo-base.png"
+)
+PUBLISH_QUEUE_SMARTPHONE_AI_DRAFT_RELATIVE_PATH = (
+    "images/publish-queue-smartphone-ai-draft-2x3.png"
+)
+
 
 def generate_publish_queue_email_draft_v3_png(out_path=None):
   """v2.pngにタイトル文字を焼き込んだv3.pngを生成し、ファイルへ保存する
@@ -1715,6 +1793,89 @@ def generate_publish_queue_email_draft_v3_png(out_path=None):
   out_path = out_path or os.path.join(
       os.path.dirname(os.path.abspath(__file__)), "static",
       PUBLISH_QUEUE_EMAIL_DRAFT_V3_RELATIVE_PATH,
+  )
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
+def generate_publish_queue_smartphone_ai_draft_png(out_path=None):
+  """「スマホでAIに下書きを頼む前に確認する3つ」投稿用の縦長画像
+
+  (1024x1536, 2:3)を生成し、ファイルへ保存する(開発時専用)。
+
+  MISSION 042.1: 社長から支給された高品質な写真風ビジュアル(元写真、
+  PUBLISH_QUEUE_SMARTPHONE_AI_PHOTO_BASE_RELATIVE_PATH。夜の木目デスクに
+  スマホ・タブレット・折りたたみキーボードが自然に置かれた構図。ロゴ・
+  読める商品名・実在サービスの画面・楽天市場の商品画像・人物は写って
+  いないことを目視確認済み)を土台に、タイトル(2行)と画像内の3項目を
+  この画像自体へ直接焼き込む(HTML側では重ねない)。元写真の左上には
+  もともと夜空の暗い領域があるため、そこに白抜き文字を配置し、念のため
+  薄い暗色のスクリム(グラデーション)を重ねて、写真の内容によらず文字が
+  確実に読める状態にする。元写真ファイル自体は削除・上書きしない。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。文言を
+  差し替えたい場合、この関数を手動で再実行してPNGを作り直すこと。実行には
+  Pillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; o.generate_publish_queue_smartphone_ai_draft_png()"
+  """
+  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+
+  base_path = os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      PUBLISH_QUEUE_SMARTPHONE_AI_PHOTO_BASE_RELATIVE_PATH,
+  )
+  img = Image.open(base_path).convert("RGB")
+  width, height = img.size
+
+  # 元写真の左上(夜空の暗い領域)に、念のため薄い暗色スクリムを重ねて
+  # 可読性を確実にする(元写真の明るさに文字の可読性を左右されないため)。
+  scrim = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+  scrim_draw = ImageDraw.Draw(scrim)
+  scrim_bottom = 540
+  for y in range(scrim_bottom):
+    t = y / scrim_bottom
+    alpha = int(120 * (1 - t))
+    scrim_draw.line([(0, y), (width, y)], fill=(0, 0, 0, alpha))
+  img = Image.alpha_composite(img.convert("RGBA"), scrim).convert("RGB")
+
+  draw = ImageDraw.Draw(img)
+
+  # タイトル(2行・大)+ 画像内の3項目(小)を、元写真の左上(夜空の暗い
+  # 領域)へ焼き込む。太字フォントを別途用意していないため、疑似ボールド
+  # (数px刻みでずらして複数回描画)+影で、写真の上でも確実なコントラスト
+  # を確保する(既存のgenerate_publish_queue_email_draft_v3_pngと同じ手法)。
+  title_font = ImageFont.truetype(_PUBLISH_QUEUE_EMAIL_DRAFT_FONT_PATH, 66)
+  item_font = ImageFont.truetype(_PUBLISH_QUEUE_EMAIL_DRAFT_FONT_PATH, 42)
+  shadow_color = (0, 0, 0)
+  white = (255, 255, 255)
+
+  def _draw_baked_text(text, xy, font):
+    x, y = xy
+    for dx, dy in ((3, 3), (-2, 2), (2, -2), (-2, -2), (2, 2)):
+      draw.text((x + dx, y + dy), text, font=font, fill=shadow_color)
+    for dx in (0, 1):
+      for dy in (0, 1):
+        draw.text((x + dx, y + dy), text, font=font, fill=white)
+
+  title_lines = ["スマホでAIに下書きを", "頼む前に確認する3つ"]
+  x, y = 56, 60
+  for line in title_lines:
+    _draw_baked_text(line, (x, y), title_font)
+    y += 84
+
+  y += 30
+  item_lines = ["1. 使う端末を決める", "2. 文字入力の方法を決める", "3. 読み返す場所を決める"]
+  for line in item_lines:
+    _draw_baked_text(line, (x, y), item_font)
+    y += 62
+
+  out_path = out_path or os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      PUBLISH_QUEUE_SMARTPHONE_AI_DRAFT_RELATIVE_PATH,
   )
   os.makedirs(os.path.dirname(out_path), exist_ok=True)
   img.save(out_path)
@@ -1817,6 +1978,11 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
       # 「楽天ROOMリンク欄は空欄」という汎用の注記は表示しない(空欄では
       # なくなったため)。
       link_or_room_note_html = ""
+    elif "custom_room_link_note" in post:
+      # MISSION 042: このカードは、既存の別投稿(折りたたみキーボード)の
+      # 楽天ROOM投稿URLと手動で結び付けられる想定のため、汎用の空欄注記
+      # ではなく、どのURLを貼るべきかを明記した専用の文言を表示する。
+      link_or_room_note_html = f'<div class="pq-room-link">{post["custom_room_link_note"]}</div>'
     else:
       link_or_room_note_html = f'<div class="pq-room-link">{room_link_note}</div>'
 

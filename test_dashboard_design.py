@@ -1507,11 +1507,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     # でメール下書き投稿の画像焼き込み用(generate_publish_queue_email_draft_
     # v3_png)のPNG生成関数が追加され、同じ遅延importパターン(ImageFontを
     # 使う版)の箇所が4件(初回投稿・デスク環境・投稿キュー・メール下書き
-    # v3画像)になった。MISSION 037.1のnoteヒーロー画像は文字を画像に
-    # 焼き込まないためImageFontを使わず、ImageDraw+ImageFilterのみの
-    # 遅延importになっている(別テストで検証)。
+    # v3画像)になった。MISSION 042.1でスマホAI下書き投稿用の画像焼き込み
+    # (generate_publish_queue_smartphone_ai_draft_png)も、支給された写真の
+    # 上に文字を焼き込む同じ手法(ImageFontを使う版)に切り替えたため、5件に
+    # なった。MISSION 037.1のnoteヒーロー画像は文字を画像に焼き込まない
+    # ためImageFontを使わず、ImageDraw+ImageFilterのみの遅延importになって
+    # いる(別テストで検証)。
     self.assertEqual(
-        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 4
+        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 5
     )
     self.assertIn("  from PIL import Image, ImageDraw, ImageFilter", module_source)
     self.assertNotIn("def generate_note_eyecatch_png", module_source)
@@ -1545,19 +1548,21 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("投稿キュー（社長承認待ち）", html)
     self.assertIn("<title>投稿キュー（社長承認待ち） | AI Hive</title>", html)
 
-  def test_publish_queue_shows_three_posts_as_awaiting_approval(self):
+  def test_publish_queue_shows_four_posts_as_awaiting_approval(self):
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 3)
+    # MISSION 042で「スマホでAIに下書きを頼む前に確認する3つ」を追加し、3件→4件になった。
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
     for post in office_views.PUBLISH_QUEUE_POSTS:
       self.assertIn(post["pin"]["title"], html)
       self.assertEqual(post["status"], "社長承認待ち")
-    self.assertEqual(html.count('class="pq-status-badge"'), 3)
+    self.assertEqual(html.count('class="pq-status-badge"'), 4)
     for title in (
         # MISSION 039でメール下書き用の投稿タイトルを更新した。
         "AIにメールの下書きを頼む前に決める3つ",
         "デスクが狭いときに配線を見直す3つのポイント",
         "スマホ・PC作業をラクにする周辺機器の選び方",
+        "スマホでAIに下書きを頼む前に確認する3つ",
     ):
       self.assertIn(title, html)
 
@@ -1565,18 +1570,22 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
     # MISSION 039で「AIにメールの下書きを頼む前に決める3つ」だけ、SVG生成
     # ではなく高精細画像(<img>)を使うようになったため、SVG件数は3→2件になった
-    # (デスク配線・周辺機器選びの2件は引き続きSVG生成のまま)。
+    # (デスク配線・周辺機器選びの2件は引き続きSVG生成のまま)。MISSION 042の
+    # 新規追加分も高精細画像(<img>)方式のため、SVG件数は引き続き2件のまま。
     self.assertEqual(html.count('<svg viewBox="0 0 1000 1500"'), 2)
-    self.assertEqual(html.count("Pinterestのトピック候補"), 3)
-    self.assertEqual(html.count("投稿前チェックリスト"), 3)
-    for post_id in ("email-draft-3points", "desk-wiring-3points", "peripheral-choice-3points"):
+    self.assertEqual(html.count("Pinterestのトピック候補"), 4)
+    self.assertEqual(html.count("投稿前チェックリスト"), 4)
+    for post_id in (
+        "email-draft-3points", "desk-wiring-3points", "peripheral-choice-3points",
+        "smartphone-ai-draft-3points",
+    ):
       self.assertIn(f'id="pq-title-{post_id}"', html)
       self.assertIn(f'id="pq-description-{post_id}"', html)
       self.assertIn(f'id="pq-alt-{post_id}"', html)
     for topic in (
         "AI活用術", "仕事効率化", "ビジネスメール",
         "デスク環境", "配線収納", "在宅ワーク",
-        "周辺機器", "ガジェット選び",
+        "周辺機器", "ガジェット選び", "スマホ活用",
     ):
       self.assertIn(topic, html)
 
@@ -1601,7 +1610,9 @@ class DashboardDesignTestCase(unittest.TestCase):
     # ため表示しない。
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count("<img"), 1)
+    # MISSION 042で追加した「スマホでAIに下書きを頼む前に確認する3つ」も
+    # hero_image方式(<img>1枚)のため、<img>件数は1→2件になった。
+    self.assertEqual(html.count("<img"), 2)
     self.assertIn(
         '<img class="note-hero-img" src="/static/images/publish-queue-email-draft-v3.png"',
         html,
@@ -1718,15 +1729,24 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 039で「AIにメールの下書きを頼む前に決める3つ」はリンク先が
     # 確定したため、汎用の「楽天ROOMリンク：空欄」注記は表示しなくなった
     # (代わりに専用の「リンク先」フィールドを表示する。別テストで検証)。
-    # 残る2件(デスク配線・周辺機器選び)は引き続き空欄のまま。
+    # 残る2件(デスク配線・周辺機器選び)は引き続き空欄のまま。MISSION 042の
+    # 新規追加分も空欄のままだが、汎用文言ではなく専用の注記(折りたたみ
+    # キーボード投稿URLを手動で貼る旨)を表示するため、「楽天ROOMリンク：
+    # （空欄）」自体の出現数は3件(共通の書き出し部分)になる。
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 2)
+    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 3)
     self.assertEqual(
         html.count(
             "社長がPinterestへ投稿する際に手動で貼り付けてください。"
             "URLの取得・保存・外部連携は、この画面では一切行いません。"
         ),
         2,
+    )
+    self.assertIn(
+        "楽天ROOMリンク：（空欄）公開済みの折りたたみキーボード投稿URLを、"
+        "社長が手動で貼り付けてください。URLの取得・保存・外部連携は、この"
+        "画面では一切行いません。",
+        html,
     )
 
   def test_publish_queue_email_draft_pinterest_link_points_to_published_note_article(self):
@@ -1749,11 +1769,12 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_publish_queue_states_manual_publish_by_president_on_every_card(self):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count("公開について"), 3)
-    # ページ冒頭のリード文でも同じ文言を明記しているため、カード3件+リード文1件
-    # の合計4件が期待値。
+    # MISSION 042でカードが3件→4件になった。
+    self.assertEqual(html.count("公開について"), 4)
+    # ページ冒頭のリード文でも同じ文言を明記しているため、カード4件+リード文1件
+    # の合計5件が期待値。
     self.assertEqual(
-        html.count("公開は社長がPinterestで手動実行します"), 4
+        html.count("公開は社長がPinterestで手動実行します"), 5
     )
     # MISSION 041: いまはPinterest・楽天ROOM・noteだけを手動運用しているため、
     # 使っていないThreads・Instagramへの言及を削除した。
@@ -1773,10 +1794,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("fp-copy-btn", html)
     self.assertIn("showResult(false)", html)
     self.assertIn("catch(e)", html)
-    # コピー用ボタンは、デスク配線・周辺機器選びが3フィールド×2件=6個、
-    # メール下書きがタイトル・説明文・altテキスト・リンク先の4フィールド=
-    # 4個で、合計10個(MISSION 039でリンク先フィールドが1件追加された)。
-    self.assertEqual(html.count('class="fp-copy-btn"'), 10)
+    # コピー用ボタンは、デスク配線・周辺機器選び・スマホAI下書きの3件が
+    # タイトル・説明文・altテキストの3フィールド×3件=9個、メール下書きが
+    # タイトル・説明文・altテキスト・リンク先の4フィールド=4個で、合計13個
+    # (MISSION 042でスマホAI下書きカードの3フィールドが追加された)。
+    self.assertEqual(html.count('class="fp-copy-btn"'), 13)
 
   def test_publish_queue_has_no_external_resources_or_network_calls(self):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
@@ -1857,7 +1879,8 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_publish_queue_has_png_download_buttons_as_plain_links(self):
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count("Pinterest用PNGを保存"), 3)
+    # MISSION 042でカードが3件→4件になった。
+    self.assertEqual(html.count("Pinterest用PNGを保存"), 4)
     for post in office_views.PUBLISH_QUEUE_POSTS:
       asset_path = post.get("png_relative_path") or post.get("hero_image_relative_path")
       filename = post.get("png_download_filename") or post.get("hero_image_download_filename")
@@ -1911,6 +1934,211 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertNotIn("hero_image_relative_path", post)
         self.assertNotIn("pinterest_link_url", post)
         self.assertIn("png_relative_path", post)
+
+  # --- MISSION 042: スマホでAIに下書きを頼む前に確認する3つ(新規カード) ----
+
+  def test_publish_queue_smartphone_ai_draft_card_added_with_required_content(self):
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "smartphone-ai-draft-3points"
+    ][0]
+    self.assertEqual(post["pin"]["title"], "スマホでAIに下書きを頼む前に確認する3つ")
+    self.assertEqual(post["status"], "社長承認待ち")
+    self.assertIn('id="pq-title-smartphone-ai-draft-3points"', html)
+    self.assertIn('id="pq-description-smartphone-ai-draft-3points"', html)
+    self.assertIn('id="pq-alt-smartphone-ai-draft-3points"', html)
+    # 画像内の3項目が、投稿データ(hero_item_lines)とpinの説明・altの両方に
+    # 反映されていることを確認する。
+    self.assertEqual(
+        post["hero_item_lines"],
+        ["1. 使う端末を決める", "2. 文字入力の方法を決める", "3. 読み返す場所を決める"],
+    )
+    for item in ("使う端末を決める", "文字入力の方法を決める", "読み返す場所を決める"):
+      self.assertIn(item, post["pin"]["alt_text"])
+    # hero_title_linesを連結するとpinのタイトルと一致することを確認する
+    # (email-draft-3points等の既存カードと同じ規約)。
+    self.assertEqual("".join(post["hero_title_lines"]), post["pin"]["title"])
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/publish-queue-smartphone-ai-draft-2x3.png"',
+        html,
+    )
+    self.assertIn(
+        'href="/static/images/publish-queue-smartphone-ai-draft-2x3.png" '
+        'download="pinterest-publish-queue-smartphone-ai-draft.png"',
+        html,
+    )
+
+  def test_publish_queue_smartphone_ai_draft_checklist_includes_ai_label_requirement(self):
+    import office_views
+    post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "smartphone-ai-draft-3points"
+    ][0]
+    checklist_text = "".join(post["checklist"])
+    self.assertIn("AIで修正済み", checklist_text)
+    self.assertIn("画像ラベル", checklist_text)
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertIn("AIで修正済み", html)
+    self.assertIn(
+        "この画面では一切行いません", html
+    )
+
+  def test_publish_queue_smartphone_ai_draft_room_link_is_blank_with_custom_note(self):
+    import office_views
+    post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "smartphone-ai-draft-3points"
+    ][0]
+    self.assertNotIn("pinterest_link_url", post)
+    self.assertIn("custom_room_link_note", post)
+    self.assertIn("折りたたみキーボード投稿URL", post["custom_room_link_note"])
+    self.assertIn("空欄", post["custom_room_link_note"])
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertNotIn('id="pq-link-smartphone-ai-draft-3points"', html)
+
+  def test_publish_queue_smartphone_ai_draft_has_no_definitive_claims_or_business_data(self):
+    import office_views
+    post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "smartphone-ai-draft-3points"
+    ][0]
+    combined_text = post["pin"]["title"] + post["pin"]["description"] + post["pin"]["alt_text"]
+    for forbidden in ("自分で使った", "おすすめ", "効率が上がる", "成果が出る"):
+      self.assertNotIn(forbidden, combined_text)
+    for forbidden in ("円", "¥", "位獲得", "在庫あり", "在庫切れ", "ランキング"):
+      self.assertNotIn(forbidden, combined_text)
+    # 「レビュー」自体は説明文に登場するが、「紹介やレビューではありません」
+    # という否定形でのみ使われており、実際のレビュー内容を記載するものでは
+    # ない(既存カードの「空欄では…行いません」等の否定形と同じ扱い)。
+    self.assertIn("紹介やレビューではありません", post["pin"]["description"])
+
+  def test_publish_queue_smartphone_ai_draft_png_has_correct_2_3_dimensions_and_baked_title(self):
+    # 外部ライブラリを使わず、PNGの生バイト列(シグネチャ+IHDRチャンク)から
+    # 幅・高さを直接読み取る(既存のemail-draft-3points用テストと同じ手法)。
+    import office_views
+    post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "smartphone-ai-draft-3points"
+    ][0]
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static", post["hero_image_relative_path"],
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1024, 1536))
+
+  def test_publish_queue_smartphone_ai_draft_generator_has_no_top_level_pil_import(self):
+    # PillowはPNG再生成用の開発時専用ツールであり、Flaskアプリの起動・
+    # リクエスト処理からは一切importされない(既存のgenerate_*_png系関数と
+    # 同じ規約)。モジュール全体に、列頭(インデントなし)のPIL import文が
+    # 存在しないこと(=関数内での遅延importのみであること)を確認する。
+    import office_views
+    import inspect
+    source = inspect.getsource(office_views)
+    lines = source.splitlines()
+    top_level_import_lines = [
+        line for line in lines
+        if line.startswith("from PIL") or line.startswith("import PIL")
+    ]
+    self.assertEqual(top_level_import_lines, [])
+    func_source = inspect.getsource(office_views.generate_publish_queue_smartphone_ai_draft_png)
+    self.assertIn("from PIL import", func_source)
+
+  def test_publish_queue_smartphone_ai_draft_served_as_plain_static_png(self):
+    res = self.client.get("/static/images/publish-queue-smartphone-ai-draft-2x3.png")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  # --- MISSION 042.1: 支給された高品質写真への差し替え -----------------------
+
+  def test_publish_queue_smartphone_ai_draft_uses_supplied_photo_base_not_pillow_illustration(self):
+    # MISSION 042.1で、社長から支給された高品質な写真風ビジュアルを土台に
+    # 差し替えた。元写真ファイルが存在し、実際に配信するPNG(タイトル焼き込み
+    # 済み)と元写真はピクセル内容が異なる(=単なるコピーではなく、文字の
+    # 焼き込みが行われた)ことを確認する。既存のemail-draft-3points用
+    # (v2/v3.png)テストと同じ手法で、外部ライブラリを使わず生バイト列を
+    # 直接比較する。
+    import office_views
+    base_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.PUBLISH_QUEUE_SMARTPHONE_AI_PHOTO_BASE_RELATIVE_PATH,
+    )
+    baked_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.PUBLISH_QUEUE_SMARTPHONE_AI_DRAFT_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(base_path))
+    self.assertTrue(os.path.isfile(baked_path))
+    with open(base_path, "rb") as f:
+      base_bytes = f.read()
+    with open(baked_path, "rb") as f:
+      baked_bytes = f.read()
+    self.assertNotEqual(base_bytes, baked_bytes)
+    for path in (base_path, baked_path):
+      with open(path, "rb") as f:
+        header = f.read(33)
+      self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+      width = int.from_bytes(header[16:20], "big")
+      height = int.from_bytes(header[20:24], "big")
+      self.assertEqual((width, height), (1024, 1536))
+
+  def test_publish_queue_smartphone_ai_draft_generator_no_longer_draws_illustration_shapes(self):
+    # MISSION 042.1で、Pillow製イラスト(グラデーション背景・図形描画による
+    # 端末シルエット)から、支給された実写真ベースの画像へ切り替えた。
+    # 関数のソースに、旧イラスト描画特有のコード(図形描画・ぼかしフィルタ)
+    # が残っていないことを確認する。
+    import office_views
+    import inspect
+    func_source = inspect.getsource(office_views.generate_publish_queue_smartphone_ai_draft_png)
+    self.assertNotIn("rounded_rectangle", func_source)
+    self.assertNotIn("ImageFilter", func_source)
+    self.assertNotIn("polygon", func_source)
+    self.assertIn("PUBLISH_QUEUE_SMARTPHONE_AI_PHOTO_BASE_RELATIVE_PATH", func_source)
+    self.assertIn("Image.open", func_source)
+
+  def test_publish_queue_other_three_posts_unaffected_by_smartphone_ai_draft_addition(self):
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    for post_id, title in (
+        ("email-draft-3points", "AIにメールの下書きを頼む前に決める3つ"),
+        ("desk-wiring-3points", "デスクが狭いときに配線を見直す3つのポイント"),
+        ("peripheral-choice-3points", "スマホ・PC作業をラクにする周辺機器の選び方"),
+    ):
+      with self.subTest(post_id=post_id):
+        self.assertIn(title, html)
+        self.assertIn(f'id="pq-title-{post_id}"', html)
+    self.assertIn(
+        'href="https://note.com/legal_crow9879/n/nf7af35ac8c28" '
+        'target="_blank" rel="noopener noreferrer"',
+        html,
+    )
+    # 既存3件の画像アセットが、MISSION 042の追加により上書き・削除されて
+    # いないことを確認する。
+    for relative_path in (
+        "images/publish-queue-email-draft-v3.png",
+        "images/publish-queue-desk-wiring-2x3.png",
+        "images/publish-queue-peripherals-2x3.png",
+    ):
+      path = os.path.join(os.path.dirname(office_views.__file__), "static", relative_path)
+      self.assertTrue(os.path.isfile(path), f"{relative_path} should still exist")
+
+  def test_existing_pages_unaffected_by_smartphone_ai_draft_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+        ("/content-studio/desk-setup-post", "デスク環境投稿パッケージ"),
+        ("/content-studio/note-first-article", "note初回記事"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
 
   def test_existing_pages_unaffected_by_email_draft_hero_image_update(self):
     for path, title in (
