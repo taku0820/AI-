@@ -1009,6 +1009,16 @@ def _render_first_post_scene(package):
 # 「公開済み」として記録するが、反応数・成果は一切表示・推測しない。
 # 将来、日ごとの割り当てを差し替える場合は、このデータ構造
 # (WEEKLY_PLAN)を編集するだけでよい。
+#
+# MISSION 050: 現在の実際の運用状況に合わせて整理し直した。2日目
+# (note初回記事)は実際にはすでに柴犬社長が手動で公開済みのため、
+# status を draft から published へ更新した。6日目・7日目は、MISSION 040
+# で投稿企画工場の表示から外れた未実施の汎用ガジェットテーマ(「デスク
+# 周りを整える便利ガジェット」「スマホ・PC作業を快適にする周辺機器」)を
+# 参照したまま古くなっていたため、実際に投稿キューから公開済みの2テーマ
+# (デスク配線・周辺機器選び)へ差し替えた。3〜5日目は、投稿企画工場
+# (CONTENT_STUDIO_PLANS)にいまも残っている未着手の候補テーマのままで
+# 変わっていないため、手動投稿候補のまま維持している。
 WEEKLY_PLAN_POST_PUBLISH_CHECKS = [
     "表示回数（インプレッション）をPinterest上で手動確認する",
     "保存数をPinterest上で手動確認する",
@@ -1034,8 +1044,12 @@ WEEKLY_PLAN = [
         "theme": "AI初心者が仕事で最初に試す3つの使い方",
         "medium": "note",
         "purpose": "初回投稿の内容を、もう少し詳しく解説する",
-        "status": "draft",
-        "checks": ["断定的な表現になっていないか", "初回投稿の内容と矛盾していないか"],
+        "status": "published",
+        "note": (
+            "note初回記事（/content-studio/note-first-article）の内容を、"
+            "柴犬社長が手動でnoteへ貼り付けて公開済みとして記録しています。"
+            "閲覧数・スキ数などの反応・成果は、この画面では一切表示・推測しません。"
+        ),
     },
     {
         "day": 3,
@@ -1063,24 +1077,36 @@ WEEKLY_PLAN = [
     },
     {
         "day": 6,
-        "theme": "デスク周りを整える便利ガジェット",
-        "medium": "note",
-        "purpose": "紹介する商品ジャンルについて整理して解説する",
-        "status": "review",
-        "checks": ["紹介する商品ジャンルの選定基準が整理されているか（要確認事項）"],
+        "theme": "デスクが狭いときに配線を見直す3つのポイント",
+        "medium": "Pinterest",
+        "purpose": "保存・検索からの流入",
+        "status": "published",
+        "note": (
+            "投稿キュー（/content-studio/publish-queue）のデスク配線テーマの内容を、"
+            "柴犬社長が手動でPinterestへ投稿済みとして記録しています。"
+            "表示回数・保存数・クリック数などの反応・成果は、この画面では"
+            "一切表示・推測しません。"
+        ),
     },
     {
         "day": 7,
-        "theme": "スマホ・PC作業を快適にする周辺機器",
+        "theme": "スマホ・PC作業をラクにする周辺機器の選び方",
         "medium": "Pinterest",
         "purpose": "保存・検索からの流入",
-        "status": "review",
-        "checks": ["対象ガジェットの切り口が絞り込まれているか（要確認事項）"],
+        "status": "published",
+        "note": (
+            "投稿キュー（/content-studio/publish-queue）の周辺機器選びテーマの内容を、"
+            "柴犬社長が手動でPinterestへ投稿済みとして記録しています。"
+            "表示回数・保存数・クリック数などの反応・成果は、この画面では"
+            "一切表示・推測しません。"
+        ),
     },
 ]
 
 WEEKLY_PLAN_STATUS_LABELS = {
-    "published": "公開済み（初回投稿）",
+    # MISSION 050: 公開済みの投稿が1日目(初回投稿)以外にも複数あるため、
+    # 「（初回投稿）」の限定を外し、汎用の「公開済み」ラベルへ整理した。
+    "published": "公開済み",
     "draft": "下書き",
     "review": "確認待ち",
     "manual_candidate": "手動投稿候補",
@@ -1129,18 +1155,27 @@ def _render_weekly_plan_scene(plan, status_labels, publish_checks):
   return (
       '<section class="weekly-plan-board" aria-label="7日間コンテンツ計画">'
       '<div class="wp-notice"><b>社内向けの確認用計画です。</b>'
-      'ここに表示する7日分の内容はすべて下書き・計画段階であり、予約投稿・'
-      '自動投稿は一切行われません。既存の投稿企画（投稿企画工場・初回手動'
-      '投稿パッケージ）だけを使って構成しています。</div>'
+      'ここに表示する7日分の内容は、実際に柴犬社長が手動で公開済みの投稿・'
+      '記事の記録と、まだ下書き・候補段階の内容が混在した計画表です。'
+      'この画面から予約投稿・自動投稿は一切行われません。既存の投稿企画'
+      '（投稿企画工場・投稿キュー・note記事下書き）だけを使って構成して'
+      'います。</div>'
       '<div class="wp-callout"><b>公開後24時間で確認すること（1日目・初回投稿）</b>'
       f'<ul>{publish_checks_html}</ul></div>'
       '<a class="cs-first-post-link" href="/revenue#room-prep">'
       '→ 楽天ROOM投稿準備を見る</a>'
       + "".join(day_cards) +
-      '<p class="wp-footnote">初回投稿の実績（表示回数・保存数・クリック数など）を柴犬社長が'
-      '確認したうえで、2日目以降のどの内容をどこまで自動化するかを判断します。'
-      'この画面はlocalhost限定で表示される社内検討用の資料であり、'
-      'SNS投稿・予約投稿・広告出稿・営業送信は行われません。</p>'
+      # MISSION 050: 「実績を見てから2日目以降の自動化を判断する」という
+      # 当初の見通しから、実際の運用が固まった(Pinterest・楽天ROOM・noteは
+      # 引き続き手動、Threadsのみ別管理のDify自動投稿)ため、その内容へ
+      # 更新した。投稿キュー・note記事の最新の全件リストは、それぞれの
+      # 画面で確認できる旨を明記する。
+      '<p class="wp-footnote">Pinterest・楽天ROOM・noteは、柴犬社長による手動運用を'
+      '継続しています。Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、'
+      'この画面（このダッシュボード）からの自動投稿・予約投稿・広告出稿・営業送信は'
+      '一切行われません。最新の投稿状況は、投稿キュー（/content-studio/publish-queue）'
+      'とnote記事（/content-studio/note-first-article）でご確認ください。'
+      'この画面はlocalhost限定で表示される社内検討用の資料です。</p>'
       '</section>'
   )
 

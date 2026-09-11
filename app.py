@@ -166,6 +166,14 @@ def index():
   # 演出用デスクキャラクターとして引き続き使われているが、このトップページ
   # とは無関係)。表示する数値は一切なく、外部サービスからの自動取得や
   # SNS投稿の自動連携も行わない。
+  #
+  # MISSION 050: 実際の運用状況(note記事2本・Pinterest4件が公開済みで、
+  # それぞれ次の下書きが準備済みであること、Threadsのみ別システム(Dify)で
+  # 自動投稿を運用していること)に合わせて表示内容を更新した。このアプリ
+  # 自体は、Pinterest・楽天ROOM・note・Threadsのいずれに対しても、投稿・
+  # 送信・ログイン・API連携・外部通信を一切行わない(表示専用)。Threadsの
+  # 実際の投稿・認証情報はDify側で管理されており、このダッシュボードでは
+  # 一切扱わない。
   html_content = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -223,6 +231,9 @@ def index():
             .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-sub); }
 
             .badge-manual { background: #1c2c52; color: #8fb4ff; padding: 2px 8px; border-radius: 999px; font-size: 10px; }
+            /* MISSION 050: Threadsのみ、Difyを使った別管理の自動投稿のため、
+               手動運用の「手動」バッジとは異なる配色で区別する。 */
+            .badge-dify { background: #3a2a12; color: #f5b768; padding: 2px 8px; border-radius: 999px; font-size: 10px; }
 
             /* ミニフィギュア(共通。プロジェクト内のオリジナル画像のみ使用) */
             .avatar-wrap { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
@@ -305,7 +316,7 @@ def index():
 
         <section class="details-panel" id="details-panel" hidden aria-labelledby="details-title">
             <h2 id="details-title">ダッシュボードの見方</h2>
-            <p>表示中のカードは、Pinterest・楽天ROOM・note・コンテンツスタジオそれぞれの「現在の役割」と「次の行動」をまとめたものです。フォロワー数・PV・クリック数・売上額などの数値は表示していません。投稿の準備や確認は、それぞれのリンク先の画面で行ってください。</p>
+            <p>表示中のカードは、Pinterest・楽天ROOM・note・Threads・コンテンツスタジオそれぞれの「現在の役割」と「次の行動」をまとめたものです。フォロワー数・PV・クリック数・売上額などの数値は表示していません。投稿の準備や確認は、それぞれのリンク先の画面で行ってください（Threadsのみこのダッシュボードに準備画面はなく、Dify側で運用しています）。</p>
         </section>
 
         <!-- 社長からのひとこと -->
@@ -313,19 +324,19 @@ def index():
             __AVATAR_PRESIDENT__
             <div style="flex-grow: 1;">
                 <div style="font-size: 13px; font-weight: bold; margin-bottom: 4px;">柴犬社長</div>
-                <div style="font-size: 12px; color: var(--text-sub); line-height: 1.6;">Pinterest・楽天ROOM・note・投稿づくりは、すべて社長が手動で担当しています。自動投稿・自動集計・外部サービスとの自動連携は行っていません。</div>
+                <div style="font-size: 12px; color: var(--text-sub); line-height: 1.6;">Pinterest・楽天ROOM・noteは、すべて社長が手動で担当しています。Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、このダッシュボードからの自動投稿・自動集計・外部サービスとの自動連携は行っていません。</div>
             </div>
         </div>
 
-        <!-- Pinterest・楽天ROOM・note・コンテンツスタジオ -->
+        <!-- Pinterest・楽天ROOM・note・Threads・コンテンツスタジオ -->
         <div class="channel-grid">
             <div class="card">
                 <div class="card-header">
                     <span>Pinterest</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：公開済みピンの反応を手動で確認し、次の投稿を準備する。</p>
-                <p class="channel-next">次の行動：<b>投稿キューの内容を確認し、社長が手動でPinterestへ投稿・分析確認を行う。</b></p>
+                <p class="channel-role">現在の役割：4件公開済み。反応を手動で確認しつつ、次の投稿案（1件）を準備済み。</p>
+                <p class="channel-next">次の行動：<b>投稿キューの準備済み案を確認し、社長が手動でPinterestへ投稿・分析確認を行う。</b></p>
                 <a class="channel-link" href="/content-studio/publish-queue">投稿キューを見る →</a>
             </div>
 
@@ -344,9 +355,18 @@ def index():
                     <span>note</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：初回記事を公開済み。表示と反応を手動で確認する。</p>
-                <p class="channel-next">次の行動：<b>公開済み記事の表示と反応を確認し、次の記事を準備する。</b></p>
-                <a class="channel-link" href="/content-studio/note-first-article">note初回記事を見る →</a>
+                <p class="channel-role">現在の役割：2本公開済み。次の記事の下書き・見出し画像・Pinterest投稿案まで準備済み。</p>
+                <p class="channel-next">次の行動：<b>準備済みの下書きを確認し、社長が手動でnoteへ貼り付けて公開する。</b></p>
+                <a class="channel-link" href="/content-studio/note-first-article">note記事を見る →</a>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>Threads</span>
+                    <span class="badge-dify">Dify自動（別管理）</span>
+                </div>
+                <p class="channel-role">現在の役割：Difyを使った別システムで自動投稿を運用中。</p>
+                <p class="channel-next">次の行動：<b>このダッシュボードでは投稿・ログイン・連携を一切行わない。運用状況の確認・変更はDify側で行う。</b></p>
             </div>
 
             <div class="card">

@@ -161,12 +161,16 @@ class DashboardDesignTestCase(unittest.TestCase):
       with self.subTest(removed=removed):
         self.assertNotIn(removed, self.html)
 
-  def test_root_dashboard_shows_only_the_four_required_channels(self):
-    for channel in ("Pinterest", "楽天ROOM", "note", "コンテンツスタジオ"):
+  def test_root_dashboard_shows_only_the_five_required_channels(self):
+    # MISSION 050で、実際にDifyで別管理の自動投稿を運用しているThreadsの
+    # カードを追加したため、4チャンネル→5チャンネルになった。Threadsは
+    # 手動運用ではないため、badge-manualではなくbadge-dify(別配色)を使う。
+    for channel in ("Pinterest", "楽天ROOM", "note", "Threads", "コンテンツスタジオ"):
       self.assertIn(channel, self.html)
     self.assertEqual(self.html.count('class="badge-manual"'), 4)
-    self.assertEqual(self.html.count("現在の役割："), 4)
-    self.assertEqual(self.html.count("次の行動："), 4)
+    self.assertEqual(self.html.count('class="badge-dify"'), 1)
+    self.assertEqual(self.html.count("現在の役割："), 5)
+    self.assertEqual(self.html.count("次の行動："), 5)
 
   def test_root_dashboard_states_local_manual_only_notice(self):
     self.assertIn(
@@ -201,12 +205,20 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('href="/revenue#room-prep"', self.html)
 
   def test_root_dashboard_president_intro_states_manual_operation(self):
+    # MISSION 050: Threadsのみ実際にDifyで別管理の自動投稿を運用している
+    # ため、「すべて手動」という一文からThreadsを除き、その旨を明記する
+    # ように更新した。
     self.assertIn("柴犬社長", self.html)
     self.assertIn(
-        "Pinterest・楽天ROOM・note・投稿づくりは、すべて社長が手動で担当しています。",
+        "Pinterest・楽天ROOM・noteは、すべて社長が手動で担当しています。",
         self.html,
     )
-    self.assertIn("自動投稿・自動集計・外部サービスとの自動連携は行っていません。", self.html)
+    self.assertIn(
+        "Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、"
+        "このダッシュボードからの自動投稿・自動集計・外部サービスとの"
+        "自動連携は行っていません。",
+        self.html,
+    )
 
   def test_root_dashboard_office_page_still_has_its_own_fictional_desk_characters(self):
     # /officeの「ライブオフィス」表示は、このミッションの対象外であり、
@@ -220,19 +232,30 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 038.1: 4カードの現状表示を実際の運用状況へ合わせる更新 -----------
 
   def test_root_dashboard_cards_reflect_current_actual_status(self):
+    # MISSION 050: Pinterestは4件公開済み+次の投稿案1件、noteは2本公開済み
+    # +次の記事下書き準備済み、という実際の運用状況に合わせて更新した。
+    # Threadsカード(Dify別管理の自動投稿)も新たに追加した。
     for role, next_action in (
         (
-            "現在の役割：公開済みピンの反応を手動で確認し、次の投稿を準備する。",
-            "次の行動：<b>投稿キューの内容を確認し、社長が手動でPinterestへ"
-            "投稿・分析確認を行う。</b>",
+            "現在の役割：4件公開済み。反応を手動で確認しつつ、"
+            "次の投稿案（1件）を準備済み。",
+            "次の行動：<b>投稿キューの準備済み案を確認し、社長が手動で"
+            "Pinterestへ投稿・分析確認を行う。</b>",
         ),
         (
             "現在の役割：公開済みの商品投稿を確認し、次に紹介する候補を整理する。",
             "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
         ),
         (
-            "現在の役割：初回記事を公開済み。表示と反応を手動で確認する。",
-            "次の行動：<b>公開済み記事の表示と反応を確認し、次の記事を準備する。</b>",
+            "現在の役割：2本公開済み。次の記事の下書き・見出し画像・"
+            "Pinterest投稿案まで準備済み。",
+            "次の行動：<b>準備済みの下書きを確認し、社長が手動でnoteへ"
+            "貼り付けて公開する。</b>",
+        ),
+        (
+            "現在の役割：Difyを使った別システムで自動投稿を運用中。",
+            "次の行動：<b>このダッシュボードでは投稿・ログイン・連携を"
+            "一切行わない。運用状況の確認・変更はDify側で行う。</b>",
         ),
         (
             "現在の役割：投稿パッケージを作成し、公開前の内容を確認する。",
@@ -1422,12 +1445,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
     for day in range(1, 8):
       self.assertIn(f"{day}日目：", html)
-    # 既存の投稿企画(初回投稿テーマ + 過去に検討したテーマ4件)だけを使って
-    # おり、新しいテーマ名を発明していないことを確認する。WEEKLY_PLANは
-    # office_views.py内で独立して定義されたデータであり、MISSION 040で
-    # /content-studioの表示テーマを2件に絞った後も、このデータ自体は
-    # 変更していない(過去に検討されたテーマの記録として、この画面には
-    # 引き続き表示され続ける)。
+    # MISSION 050: 6・7日目が参照していた、投稿企画工場からすでに外れた
+    # 未実施の汎用ガジェットテーマ(デスク周り・スマホPC周辺機器)を、実際に
+    # 投稿キューから公開済みの2テーマへ差し替えた。新しいテーマ名を発明した
+    # のではなく、既存の投稿企画(初回投稿テーマ・投稿企画工場の候補テーマ・
+    # 投稿キューの公開済みテーマ)だけを使っていることを確認する。
     import office_views
     self.assertIn(
         office_views.FIRST_POST_PACKAGE["theme"], html
@@ -1435,23 +1457,31 @@ class DashboardDesignTestCase(unittest.TestCase):
     for title in (
         "AI初心者が最初に試す便利な使い方",
         "仕事の文章作成・要約をラクにするAI活用",
-        "デスク周りを整える便利ガジェット",
-        "スマホ・PC作業を快適にする周辺機器",
+        "デスクが狭いときに配線を見直す3つのポイント",
+        "スマホ・PC作業をラクにする周辺機器の選び方",
     ):
       self.assertIn(title, html)
-    # 「見送り」扱いだったテーマは計画に含めない。
+    # 「見送り」扱いだったテーマは計画に含めない。MISSION 040で表示から
+    # 外れた古い汎用ガジェットテーマも、もう計画に含めない。
     self.assertNotIn("買う前に確認したいAI対応ガジェットの選び方", html)
+    self.assertNotIn("デスク周りを整える便利ガジェット", html)
+    self.assertNotIn("スマホ・PC作業を快適にする周辺機器", html)
 
   def test_weekly_plan_shows_medium_purpose_and_status_for_each_day(self):
     # MISSION 041: いまはPinterest・楽天ROOM・noteだけを手動運用しているため、
-    # 使っていないThreads・Instagramを想定媒体から外し、Pinterest・noteの
-    # 2媒体だけに揃えた。
+    # 使っていないInstagramを想定媒体から外し、Pinterest・noteの2媒体だけに
+    # 揃えた。MISSION 050で、Threadsが実際にDify経由で運用されている実態を
+    # 明記する脚注を追加したため、Threads自体への言及はこのページに存在する
+    # (投稿の想定媒体としてではなく、脚注内の説明としてのみ)。
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
     for medium in ("Pinterest", "note"):
       self.assertIn(f"<b>{medium}</b>", html)
-    self.assertNotIn("Threads", html)
+    self.assertNotIn("<b>Threads</b>", html)
     self.assertNotIn("Instagram", html)
-    for status_label in ("公開済み", "下書き", "確認待ち", "手動投稿候補"):
+    # MISSION 050で、複数日が公開済みになったため「（初回投稿）」の限定を
+    # 外して汎用の「公開済み」ラベルへ整理した。「下書き」「確認待ち」の
+    # 状態は、現在はどの日も使っていないため表示されない。
+    for status_label in ("公開済み", "手動投稿候補"):
       self.assertIn(status_label, html)
     self.assertIn("目的：", html)
 
@@ -1490,11 +1520,21 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("クリック数", html)
     self.assertIn("手動確認", html)
 
-  def test_weekly_plan_explains_review_then_decide_flow(self):
+  def test_weekly_plan_explains_current_manual_and_threads_dify_status(self):
+    # MISSION 050: 「実績を見てから2日目以降の自動化を判断する」という
+    # 当初の見通しの説明から、実際に固まった運用(Pinterest・楽天ROOM・note
+    # は手動、Threadsのみ別管理のDify自動投稿)を説明する内容へ更新した。
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
-    self.assertIn("初回投稿の実績", html)
-    self.assertIn("確認したうえで", html)
-    self.assertIn("自動化するかを判断します", html)
+    self.assertIn(
+        "Pinterest・楽天ROOM・noteは、柴犬社長による手動運用を継続しています。",
+        html,
+    )
+    self.assertIn("Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、", html)
+    self.assertIn(
+        "投稿キュー（/content-studio/publish-queue）とnote記事"
+        "（/content-studio/note-first-article）でご確認ください。",
+        html,
+    )
 
   def test_weekly_plan_states_internal_draft_not_published_or_sent(self):
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
@@ -1502,8 +1542,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("予約投稿・", html)
     self.assertIn("自動投稿は一切行われません", html)
     self.assertIn("localhost限定", html)
+    # MISSION 050: 末尾の安全注記を、Threads(Dify別管理)の実態を含めて
+    # 1文に整理したため、文言を更新した(予約投稿・広告出稿・営業送信を
+    # 行わない、という内容自体は変わっていない)。
     self.assertIn(
-        "SNS投稿・予約投稿・広告出稿・営業送信は行われません", html
+        "この画面（このダッシュボード）からの自動投稿・予約投稿・"
+        "広告出稿・営業送信は一切行われません。",
+        html,
     )
 
   def test_weekly_plan_has_no_external_resources_scripts_or_writes(self):
@@ -3007,9 +3052,12 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 041: 夜間点検(現在の手動運用との整合性チェック) ------------------
 
   def test_night_check_no_page_mentions_instagram_or_threads(self):
-    # いまはPinterest・楽天ROOM・noteだけを社長が手動運用しているため、
-    # 実際には使っていないInstagram・Threadsへの言及(内容・注記文どちらも)
-    # が、利用者に見える画面のどこにも残っていないことを確認する。
+    # Instagramはどの画面でも使っていないため、引き続き一切言及しない。
+    # MISSION 050で、Threadsのみ実際にDifyで別管理の自動投稿を運用している
+    # 実態を反映するため、トップダッシュボード(/)と7日間計画
+    # (/content-studio/weekly-plan)にだけ、正確な説明として言及するように
+    # なった(このアプリ自体はThreadsへの投稿・ログイン・連携を行わない)。
+    # それ以外の画面には、引き続きThreadsへの言及がないことを確認する。
     for path in (
         "/", "/content-studio", "/content-studio/desk-setup-post",
         "/content-studio/first-post", "/content-studio/note-first-article",
@@ -3019,7 +3067,11 @@ class DashboardDesignTestCase(unittest.TestCase):
       with self.subTest(path=path):
         html = self.client.get(path).get_data(as_text=True)
         self.assertNotIn("Instagram", html)
-        self.assertNotIn("Threads", html)
+        if path in ("/", "/content-studio/weekly-plan"):
+          self.assertIn("Threads", html)
+          self.assertIn("Dify", html)
+        else:
+          self.assertNotIn("Threads", html)
 
   def test_night_check_no_page_mentions_a8net_or_beauty_content(self):
     for path in (
@@ -3416,6 +3468,67 @@ class DashboardDesignTestCase(unittest.TestCase):
     ):
       self.assertIn(title, html)
       self.assertIn(f'id="pq-title-{post_id}"', html)
+
+  # --- MISSION 050: 実際の運用状況(公開件数・Threads/Dify)にダッシュボードを揃える ---
+
+  def test_root_dashboard_and_weekly_plan_handle_no_credentials_or_dify_api_details(self):
+    # ThreadsがDifyで別管理の自動投稿を使っているという実態を説明文として
+    # 記載するだけで、APIキー・アクセストークン・認証情報・実際のAPI
+    # エンドポイントは一切扱わない・記載しないことを確認する。トップページ
+    # には既存の「詳細を表示」トグル用インラインscriptが元々あるため
+    # (Dify等の新規追加ではない)、script自体の有無は対象外にする。
+    for path in ("/", "/content-studio/weekly-plan"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for forbidden in (
+            "api_key", "API_KEY", "access_token", "ACCESS_TOKEN", "Bearer ",
+            "Authorization", "client_secret", "AI_HIVE_", "dify.ai",
+            "fetch(",
+        ):
+          self.assertNotIn(forbidden, html)
+        self.assertNotIn("/api/", html)
+
+  def test_root_dashboard_and_weekly_plan_have_no_fabricated_business_data(self):
+    # A8.net・美容系事業を、今回の更新で利用者向け画面へ追加していないこと
+    # を確認する。「¥」「売上」は、既存の「表示していません」等の否定形の
+    # 注記でのみ使われている(架空の数値を新たに記載してはいない)ため、
+    # 別テスト(test_root_dashboard_does_not_show_fabricated_metrics)で
+    # 検証済みであり、ここでは対象にしない。
+    for path in ("/", "/content-studio/weekly-plan"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for forbidden in ("A8.net", "美容", "サロン"):
+          self.assertNotIn(forbidden, html)
+
+  def test_office_avatars_and_room_pages_unaffected_by_dashboard_realignment(self):
+    # MISSION 050はダッシュボードの説明文を実態に合わせて更新するミッション
+    # であり、人物アバターや各部屋の画像・キャラクターは変更しないことを
+    # 確認する(既存の演出用デスクキャラクターがそのまま残っていること)。
+    office_html = self.client.get("/office").get_data(as_text=True)
+    for name in ("琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
+      self.assertIn(name, office_html)
+
+  def test_weekly_plan_published_days_have_no_fabricated_reaction_numbers(self):
+    # MISSION 050で新たに公開済みへ変わった2・6・7日目も、1日目と同様に
+    # 表示回数・保存数・クリック数などの反応・成果を、数値付きで記載して
+    # いないことを確認する。
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    for day_start, day_end in (("2日目：", "3日目："), ("6日目：", "7日目："), ("7日目：", "</section>")):
+      with self.subTest(day_start=day_start):
+        card = html.split(day_start, 1)[1].split(day_end, 1)[0]
+        self.assertIn("公開済み", card)
+        self.assertIn("反応・成果は", card)
+        for word in ("表示回数", "保存数", "クリック数", "閲覧数", "スキ数"):
+          self.assertNotIn(f"{word}：", card)
+          self.assertNotIn(f"{word}が", card)
+
+  def test_weekly_plan_status_labels_reflect_only_statuses_in_use(self):
+    import office_views
+    used_statuses = {entry["status"] for entry in office_views.WEEKLY_PLAN}
+    self.assertEqual(used_statuses, {"published", "manual_candidate"})
+    html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    self.assertEqual(html.count('class="wp-day-status status-published"'), 4)
+    self.assertEqual(html.count('class="wp-day-status status-manual_candidate"'), 3)
 
 
 if __name__ == "__main__":
