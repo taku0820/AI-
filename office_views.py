@@ -336,6 +336,30 @@ CONTENT_STUDIO_ROOM_LINK_POLICY = (
     "Pinterestへリンクを追加します。確認できていない間はリンクを追加しません。"
 )
 
+# MISSION 046: 今後作成するnote記事・Pinterest投稿案の文章品質をそろえる
+# ための作成基準。表示専用の静的な参照情報であり、この基準に沿って過去の
+# 記事・投稿キューの内容をさかのぼって書き換えるものではない。将来基準を
+# 差し替える場合は、このデータ構造(CONTENT_STUDIO_WRITING_STANDARDS)を
+# 編集するだけでよい。
+CONTENT_STUDIO_WRITING_STANDARDS_HEADING = (
+    "文章の作成基準（読者が続きを読みたくなる、人間味のある文章）"
+)
+CONTENT_STUDIO_WRITING_STANDARDS_INTRO = (
+    "今後作成するnote記事・Pinterest投稿案は、次の基準を満たすように作成します。"
+    "公開済みのnote記事・既存のPinterest投稿・投稿キューの内容をさかのぼって"
+    "書き換えるものではありません。"
+)
+CONTENT_STUDIO_WRITING_STANDARDS = [
+    "タイトルは、読者が抱えそうな困りごと・場面・気づきが伝わる表現にする",
+    "「必ず」「絶対」「これだけで成功」など、過剰なクリック誘導や断定は使わない",
+    "note記事本文は日本語で4,500〜5,500文字程度を目安にする",
+    "冒頭は解説から始めず、読者が想像できる具体的な場面・困りごと・問いかけから始める",
+    "実体験がないことを、本人の経験として書かない",
+    "説明書のような箇条書きだけにせず、自然な会話調と具体例を交える",
+    "読者が次の段落を読みたくなる流れを意識する",
+    "Pinterestのタイトルは画像内の文字と矛盾させない",
+]
+
 # 現在公開済みのnote記事(note初回記事)に合う2テーマだけを残した。他の
 # テーマ(デスク周り・スマホPC周辺機器・買う前に確認したいガジェット選び)
 # は、現在の運用(Pinterest・note・楽天ROOM)に対応する準備がまだできて
@@ -365,13 +389,21 @@ CONTENT_STUDIO_PLANS = [
 ]
 
 
-def _render_content_studio_scene(theme, plans, room_link_policy):
+def _render_content_studio_scene(
+    theme, plans, room_link_policy,
+    writing_standards_heading, writing_standards_intro, writing_standards,
+):
   """投稿企画工場のカード群を、CONTENT_STUDIO_PLANSのデータから組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・外部通信への
   アクセスは一切行わない。Pinterest・noteの2媒体だけを扱い、各テーマに
   つき「Pinterest用の切り口」「note用の切り口」「楽天ROOMリンクの扱い」
   の3項目だけを簡潔に示す。
+
+  MISSION 046: writing_standards_heading/writing_standards_intro/
+  writing_standards(リスト)は、今後の下書き作成基準を表示するための
+  参照情報。公開済みのnote記事・既存のPinterest投稿・投稿キューの内容を
+  書き換えるものではない。
   """
   plan_cards = "".join(
       '<div class="cs-plan-card">'
@@ -387,6 +419,16 @@ def _render_content_studio_scene(theme, plans, room_link_policy):
       '</div>'
       for plan in plans
   )
+  # MISSION 046: 今後の下書き作成基準を、既存の楽天ROOMリンク方針と同じ
+  # 見せ方(見出し+一覧)で追加する。チェックボックス操作の対象ではない静的な
+  # 参照情報のため、既存のfp-checklistのカードスタイルだけを再利用し、
+  # 入力欄は含めない。
+  writing_standard_items = "".join(f'<li>{item}</li>' for item in writing_standards)
+  writing_standards_html = (
+      f'<h3 class="fp-section-title">{writing_standards_heading}</h3>'
+      f'<p class="cs-theme">{writing_standards_intro}</p>'
+      f'<ul class="fp-checklist">{writing_standard_items}</ul>'
+  )
   return (
       '<section class="content-studio" aria-label="投稿企画工場">'
       '<div class="revenue-notice">'
@@ -396,6 +438,7 @@ def _render_content_studio_scene(theme, plans, room_link_policy):
       '</div>'
       f'<p class="cs-theme">対象テーマ：<b>{theme}</b></p>'
       f'<div class="cs-room-policy"><b>楽天ROOMリンクについて。</b>{room_link_policy}</div>'
+      + writing_standards_html +
       '<a class="cs-first-post-link" href="/content-studio/first-post">'
       '→ 初回手動投稿パッケージを見る（Pinterest向け）</a> '
       '<a class="cs-first-post-link" href="/content-studio/weekly-plan">'
@@ -3267,6 +3310,8 @@ def register_office_views(app):
   def content_studio():
     scene = _render_content_studio_scene(
         CONTENT_STUDIO_THEME, CONTENT_STUDIO_PLANS, CONTENT_STUDIO_ROOM_LINK_POLICY,
+        CONTENT_STUDIO_WRITING_STANDARDS_HEADING, CONTENT_STUDIO_WRITING_STANDARDS_INTRO,
+        CONTENT_STUDIO_WRITING_STANDARDS,
     )
     return _page(
         "content", "投稿企画工場",

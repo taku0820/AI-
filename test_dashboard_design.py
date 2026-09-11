@@ -811,8 +811,88 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.CONTENT_STUDIO_THEME,
         office_views.CONTENT_STUDIO_PLANS,
         office_views.CONTENT_STUDIO_ROOM_LINK_POLICY,
+        office_views.CONTENT_STUDIO_WRITING_STANDARDS_HEADING,
+        office_views.CONTENT_STUDIO_WRITING_STANDARDS_INTRO,
+        office_views.CONTENT_STUDIO_WRITING_STANDARDS,
     )
     self.assertIn(office_views.CONTENT_STUDIO_THEME, rendered)
+
+  # --- MISSION 046: 今後の下書き作成基準(文章品質をそろえるための参照情報) -------
+
+  def test_content_studio_shows_writing_standards_heading_and_intro(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("文章の作成基準（読者が続きを読みたくなる、人間味のある文章）", html)
+    self.assertIn(
+        "今後作成するnote記事・Pinterest投稿案は、次の基準を満たすように作成します。",
+        html,
+    )
+    self.assertIn(
+        "公開済みのnote記事・既存のPinterest投稿・投稿キューの内容をさかのぼって"
+        "書き換えるものではありません。",
+        html,
+    )
+
+  def test_content_studio_shows_all_eight_writing_standard_items(self):
+    import office_views
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_WRITING_STANDARDS), 8)
+    for item in office_views.CONTENT_STUDIO_WRITING_STANDARDS:
+      self.assertIn(f"<li>{item}</li>", html)
+    for required in (
+        "タイトルは、読者が抱えそうな困りごと・場面・気づきが伝わる表現にする",
+        "「必ず」「絶対」「これだけで成功」など、過剰なクリック誘導や断定は使わない",
+        "note記事本文は日本語で4,500〜5,500文字程度を目安にする",
+        "冒頭は解説から始めず、読者が想像できる具体的な場面・困りごと・問いかけから始める",
+        "実体験がないことを、本人の経験として書かない",
+        "説明書のような箇条書きだけにせず、自然な会話調と具体例を交える",
+        "読者が次の段落を読みたくなる流れを意識する",
+        "Pinterestのタイトルは画像内の文字と矛盾させない",
+    ):
+      self.assertIn(required, office_views.CONTENT_STUDIO_WRITING_STANDARDS)
+
+  def test_content_studio_writing_standards_do_not_alter_existing_note_pinterest_queue(self):
+    # MISSION 046は今後の下書き作成基準を追加するのみで、既存のnote記事・
+    # Pinterest投稿・投稿キュー4本・既存画像・既存の本文には一切影響しない
+    # ことを確認する。
+    import office_views
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_PLANS), 2)
+    note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn(
+        "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+        note_html,
+    )
+    self.assertIn(
+        "スマホでAIに下書きを頼む前に確認する3つ──端末・入力・読み返しを先に決める",
+        note_html,
+    )
+    queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(queue_html.count('class="pq-status-badge"'), 4)
+    # 作成基準セクション自体は投稿企画工場だけに追加し、note記事・投稿キュー
+    # ページには表示しない。
+    self.assertNotIn("文章の作成基準", note_html)
+    self.assertNotIn("文章の作成基準", queue_html)
+
+  def test_content_studio_writing_standards_has_no_external_resources_or_network_calls(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    standards_section = html.split(
+        "文章の作成基準（読者が続きを読みたくなる、人間味のある文章）", 1
+    )[1].split('<a class="cs-first-post-link"', 1)[0]
+    self.assertNotIn("https://", standards_section)
+    self.assertNotIn("fetch(", standards_section)
+    self.assertNotIn("/api/", standards_section)
+    self.assertNotIn("<script", standards_section)
+
+  def test_content_studio_writing_standards_has_responsive_layout(self):
+    # 既存のfp-checklistスタイルを再利用しているため、専用のメディアクエリを
+    # 新規追加していない(既存のレスポンシブ対応をそのまま流用する)ことを
+    # ソースコード上で確認する。
+    import office_views
+    import inspect
+    source = inspect.getsource(office_views._render_content_studio_scene)
+    self.assertIn('class="fp-checklist"', source)
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
 
   # --- MISSION 032: 初回手動投稿パッケージ(Pinterest向け) ----------------------
 
