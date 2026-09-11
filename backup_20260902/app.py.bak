@@ -2,16 +2,8 @@ import os
 import sqlite3
 from flask import Flask, jsonify, render_template_string
 
-import hive_db
-from hive_api import bp as hive_api_bp
-
 app = Flask(__name__)
 DB_NAME = "ai_company.db"
-
-# AI Hive OS: additive data foundation (new tables only, CREATE TABLE IF NOT
-# EXISTS). This never touches the existing work_logs table.
-hive_db.init_hive_schema()
-app.register_blueprint(hive_api_bp)
 
 
 @app.route("/")
