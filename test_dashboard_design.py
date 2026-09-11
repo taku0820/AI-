@@ -8,7 +8,8 @@ Flaskのテストクライアントで `GET /` のレスポンスHTMLを取得�
   一切含まれていないか
 - prefers-reduced-motion に対応したCSSが含まれているか
 - プロジェクト内のミニフィギュア画像が8名分描画されているか
-- 既存の /api/logs 連携用の要素・スクリプトが維持されているか
+- 読み取り専用の /api/logs エンドポイント自体が維持されているか
+  （MISSION 051以降、UI側(/office等)からの動的な参照は行っていない）
 - レスポンシブ対応のメディアクエリが含まれているか
 といった、安全要件・アクセシビリティ要件・既存機能の維持に関わる点のみ。
 
@@ -60,8 +61,11 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_logs_api_endpoint_still_exists_though_root_page_no_longer_uses_it(self):
     # MISSION 038でトップページの「現在の作業」カード(/api/logsから最新の
     # 作業ログを表示していた箇所)を削除したため、トップページ自体は
-    # /api/logsを呼び出さなくなった。エンドポイント自体は/officeなど他の
-    # 画面が読み取り専用で使い続けているため、削除していない。
+    # /api/logsを呼び出さなくなった。MISSION 051で/office・/office/ceo-office
+    # もwork_logs(現在と無関係な古いテスト用データしかない)への依存を
+    # やめ、静的な現在状況を表示するように変更したため、UI側から/api/logs
+    # を呼び出す画面は無くなったが、既存の読み取り専用エンドポイント自体は
+    # 引き続き削除していない(将来の利用に備えて残している)。
     self.assertNotIn("fetch('/api/logs')", self.html)
     self.assertNotIn('id="latest-theme"', self.html)
     self.assertNotIn('id="latest-content"', self.html)
@@ -326,12 +330,24 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertNotIn("http://", html)
         self.assertNotIn("https://", html)
 
-  def test_work_floor_reads_existing_logs_only(self):
+  def test_work_floor_shows_static_current_posting_status(self):
+    # MISSION 051: work_logsが2026-09-01付けの3件(A8.net提携確認など現在の
+    # 実際の運用と無関係な古いテスト用データ)しかなく、これをそのまま
+    # 「現在の作業」として表示すると実態と食い違うため、/api/logsの参照を
+    # やめ、柴犬社長が確認した現在のPinterest・note・Threadsの状況を静的に
+    # 表示するように変更した。
     html = self.client.get("/office").get_data(as_text=True)
     self.assertIn('id="office-live-status"', html)
-    self.assertIn('fetch("/api/logs")', html)
+    self.assertIn("現在の投稿運用状況", html)
+    self.assertIn("Pinterest：4件公開済み", html)
+    self.assertIn("note：2本公開済み", html)
+    self.assertIn("Threads：Difyで別管理の自動投稿を運用中", html)
+    self.assertNotIn('fetch("/api/logs")', html)
     self.assertNotIn('fetch("/api/employees")', html)
     self.assertNotIn('method="POST"', html)
+    self.assertNotIn("A8.net", html)
+    self.assertNotIn("ラッシュアディクト", html)
+    self.assertNotIn("美容サロン", html)
 
   # --- MISSION 025: 役割別ライブオフィス連携(実データ表示) --------------------
 
@@ -359,73 +375,63 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("Authorization", html)
     self.assertNotIn("AI_HIVE_", html)
 
-  def test_desk_status_reflects_completed_vs_in_progress_logs(self):
-    # 実データ(work_logs)の"完了"ステータスはstatus-done、それ以外(進行中等)
-    # はstatus-progressへ安全に切り替わるロジックが含まれていることを、
-    # レスポンスHTML中のスクリプト文字列で確認する(実際のDOM挙動そのものは
-    # ヘッドレスブラウザでの目視確認で別途行った)。
+  def test_desk_status_chip_is_static_and_not_derived_from_logs(self):
+    # MISSION 051: work_logsが現在の実際の運用と無関係な古いテスト用
+    # データしかないため、デスクの状態チップを実データから動的に
+    # 切り替える仕組みは廃止した。チップ要素自体は残しつつ、常に中立の
+    # 表示(status-pending)のままにする。
     html = self.client.get("/office").get_data(as_text=True)
-    self.assertIn('log[4]==="完了"', html)
-    self.assertIn('done?"status-done":"status-progress"', html)
+    self.assertIn('class="status-chip status-pending"', html)
+    self.assertNotIn('log[4]==="完了"', html)
+    self.assertNotIn('done?"status-done":"status-progress"', html)
 
-  def test_ceo_office_shows_today_and_total_task_counts_from_real_logs(self):
-    # 社長室に「今日の最新タスク数・完了数」を実データ(work_logs)から
-    # 表示する。書き込みは一切行わない。
+  def test_ceo_office_shows_static_pinterest_and_note_publish_counts(self):
+    # MISSION 051: 社長室の「今日の作業/完了/進行中」という実データ由来の
+    # カウント(work_logsが古いテスト用データしかなく、常に実態と食い違う)
+    # をやめ、柴犬社長が確認したPinterest・noteの公開件数・次の投稿案の
+    # 準備状況を静的に表示する。書き込みは一切行わない。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn('id="ceo-today-count"', html)
-    self.assertIn('id="ceo-today-done"', html)
-    self.assertIn('id="ceo-total-note"', html)
-    self.assertIn('fetch("/api/logs")', html)
+    self.assertIn("<b>4件</b><span>Pinterest公開済み</span>", html)
+    self.assertIn("<b>2本</b><span>note公開済み</span>", html)
+    self.assertIn("<b>1件</b><span>Pinterest次の投稿案</span>", html)
+    self.assertNotIn('id="ceo-today-count"', html)
+    self.assertNotIn('fetch("/api/logs")', html)
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("/api/employees", html)
     self.assertNotIn("/api/tasks", html)
 
-  def test_ceo_office_and_desk_scripts_have_graceful_fallback_on_fetch_failure(self):
-    # 作業ログの取得に失敗しても、例外を投げずに安全な表示へ切り替わる
-    # (catch節が存在する)ことを確認する。
-    office_html = self.client.get("/office").get_data(as_text=True)
-    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn(".catch(()=>{", office_html)
-    self.assertIn(".catch(()=>{", ceo_html)
+  def test_ceo_office_notes_threads_is_managed_separately_via_dify(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn("Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、", html)
+    self.assertIn(
+        "この画面（このダッシュボード）からの投稿・ログイン・連携は一切行いません。", html
+    )
 
   # --- MISSION 026: 社長室(業務司令室)への拡張 --------------------------------
+  # MISSION 051で、work_logs(実データ)に基づく件数集計から、柴犬社長が
+  # 確認した現在の実際の運用状況を示す静的な表示へ切り替えた。
 
-  def test_ceo_office_shows_today_progress_count_in_addition_to_done(self):
-    # 「今日の作業件数・完了件数・進行中件数」の3つがすべて表示される。
+  def test_ceo_office_shows_recent_items_matching_current_reality(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn('id="ceo-today-count"', html)
-    self.assertIn('id="ceo-today-done"', html)
-    self.assertIn('id="ceo-today-progress"', html)
-    self.assertIn("今日の作業", html)
-    self.assertIn("完了", html)
-    self.assertIn("進行中", html)
-
-  def test_ceo_office_shows_up_to_three_recent_items(self):
-    # 最新の仕事を最大3件表示する一覧が存在し、slice(0,3)で件数を
-    # 制限していることをスクリプト内容で確認する。
-    html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn('id="ceo-recent-list"', html)
     self.assertIn("最新の仕事", html)
-    self.assertIn("logs.slice(0,3)", html)
+    self.assertIn(
+        "Pinterest：「AIが「なんか違う」ときに見直す3つ」を準備（社長承認待ち）", html
+    )
+    self.assertIn(
+        "note：「AIに聞いても「なんか違う」と感じる人へ」の下書きを準備", html
+    )
+    self.assertIn("前回Pinterest投稿の反応を確認中（48時間ほど様子を見る段階）", html)
+    self.assertNotIn("logs.slice(0,3)", html)
 
-  def test_ceo_office_shows_priority_derived_from_real_data(self):
-    # 「いま優先すること」は、実データのうち未完了(進行中)の最新項目から
-    # 導出される(該当が無ければ安全なフォールバック文言になる)。
+  def test_ceo_office_shows_fixed_priority_text(self):
+    # 優先事項は「Pinterestの反応確認と、次の手動投稿タイミングの判断」の
+    # 固定文言で表示する(社長からの明示的な指定内容)。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn('id="ceo-priority"', html)
     self.assertIn("いま優先すること", html)
-    self.assertIn("logs.find(l=>!isDone(l))", html)
-    self.assertIn("すべて完了しています", html)
+    self.assertIn("<p>Pinterestの反応確認と、次の手動投稿タイミングの判断</p>", html)
+    self.assertNotIn("logs.find(l=>!isDone(l))", html)
 
-  def test_ceo_office_and_office_desks_use_identical_completion_rule(self):
-    # 社長室とライブオフィスの各デスクが、"完了"以外はすべて"進行中"として
-    # 扱うという同一の判定基準を使っていることを確認する(表示の整合性)。
-    office_html = self.client.get("/office").get_data(as_text=True)
-    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn('log[4]==="完了"', office_html)
-    self.assertIn('l[4]==="完了"', ceo_html)
-
-  def test_ceo_office_command_center_reads_only_logs_and_never_writes(self):
+  def test_ceo_office_command_center_never_writes_or_calls_hive_api(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertNotIn("/api/employees", html)
     self.assertNotIn("/api/missions", html)
@@ -434,20 +440,6 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("AI_HIVE_", html)
-
-  def test_ceo_office_command_center_has_fallback_text_for_all_new_fields(self):
-    html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn(
-        'document.querySelector("#ceo-today-progress").textContent="―"', html
-    )
-    self.assertIn(
-        '"<li>作業ログを取得できませんでした。</li>"', html
-    )
-    self.assertIn(
-        'document.querySelector("#ceo-priority").textContent='
-        '"作業ログを取得できませんでした。"',
-        html,
-    )
 
   # --- MISSION 027: 柴犬社長の業務サポート会話(4ボタン) ------------------------
 
@@ -473,10 +465,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     res = self.client.get("/office")
     self.assertEqual(res.status_code, 200)
 
-  def test_quick_action_buttons_use_only_existing_logs_api(self):
+  def test_quick_action_buttons_use_only_static_content_no_hive_api(self):
+    # MISSION 051: 4ボタンの応答は、work_logs(実データ)から動的に導出する
+    # 方式から、柴犬社長が確認した現在の状況を示す静的な応答へ切り替えた。
+    # DB・APIへのアクセスは一切行わない。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn('fetch("/api/logs")', html)
-    self.assertIn("qaWithLogs", html)
+    self.assertIn("qaAppendBoss", html)
+    self.assertNotIn('fetch("/api/logs")', html)
+    self.assertNotIn("qaWithLogs", html)
     self.assertNotIn("/api/employees", html)
     self.assertNotIn("/api/missions", html)
     self.assertNotIn("/api/tasks", html)
@@ -485,12 +481,20 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("Authorization", html)
     self.assertNotIn("AI_HIVE_", html)
 
-  def test_quick_action_handlers_append_to_chat_log_with_fallback(self):
+  def test_quick_action_handlers_append_static_current_status_to_chat_log(self):
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("qaAppendBoss", html)
     self.assertIn('document.querySelector("#log")', html)
     self.assertIn(
-        '"🐕 柴犬社長：作業ログを取得できませんでした。"', html
+        "🐕 柴犬社長：Pinterestは4件、noteは2本、公開済みだよ。", html
+    )
+    self.assertIn(
+        "🐕 柴犬社長：いま優先するのは、Pinterestの反応確認と、"
+        "次の手動投稿タイミングの判断だよ。",
+        html,
+    )
+    self.assertIn(
+        "🐕 柴犬社長：Pinterestは4件、noteは2本、公開まで完了しているよ。", html
     )
 
   # --- MISSION 028: デスク詳細と案内(クリック・キーボード操作対応) --------------
@@ -508,22 +512,32 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('aria-controls="desk-detail-panel"', html)
 
   def test_desk_detail_panel_has_required_fields_and_is_hidden_initially(self):
+    # MISSION 051: 「現在の状態/最新の作業内容/更新時刻」という実データ
+    # 由来のフィールドから、Pinterest・note・Threadsの現在状況を示す
+    # 静的なdl(desk-detail-facts)へ切り替えた。
     html = self.client.get("/office").get_data(as_text=True)
     self.assertIn('id="desk-detail-panel"', html)
     self.assertIn('id="desk-detail-panel" role="region"', html)
     self.assertIn("hidden>", html)  # 初期状態は非表示
     self.assertIn('id="desk-detail-title"', html)  # AI名
     self.assertIn('id="desk-detail-role"', html)  # 役割
-    self.assertIn('id="desk-detail-status"', html)  # 現在の状態
-    self.assertIn('id="desk-detail-task"', html)  # 最新の作業内容
-    self.assertIn('id="desk-detail-time"', html)  # 更新時刻
+    self.assertIn('class="desk-detail-facts"', html)
+    self.assertIn("<dt>Pinterest</dt>", html)
+    self.assertIn("<dt>note</dt>", html)
+    self.assertIn("<dt>Threads</dt>", html)
+    self.assertNotIn('id="desk-detail-status"', html)
+    self.assertNotIn('id="desk-detail-task"', html)
+    self.assertNotIn('id="desk-detail-time"', html)
 
   def test_desk_detail_disclaimer_is_honest_about_no_individual_assignment(self):
     # 実データにAI個別の担当情報が存在しないことを、断定せず誠実に示す。
+    # MISSION 051で、「既存の作業ログを順番に表示している演出」という
+    # 説明から、「柴犬社長が確認した現在の投稿運用状況を表示している」
+    # という説明へ更新した(表示内容自体が静的な現在状況に変わったため)。
     html = self.client.get("/office").get_data(as_text=True)
     self.assertIn('id="desk-detail-disclaimer"', html)
-    self.assertIn("個別の担当データは存在しない", html)
-    self.assertIn("既存の作業ログを順番に表示している演出", html)
+    self.assertIn("個別に紐づく担当データは存在しない", html)
+    self.assertIn("柴犬社長が確認した現在の投稿運用状況を表示しています", html)
     self.assertIn("実際にこのAIが個人で担当した", html)
 
   def test_desk_detail_close_and_escape_are_supported(self):
@@ -534,9 +548,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 閉じた後、直前にフォーカスしていたデスクへフォーカスを戻す。
     self.assertIn("lastFocusedDesk.focus()", html)
 
-  def test_desk_click_and_detail_scripts_use_only_existing_logs_api(self):
+  def test_desk_click_and_detail_scripts_never_call_any_api(self):
+    # MISSION 051: デスク詳細パネルの内容は静的になったため、クリック/
+    # キーボード操作のスクリプトはDB・APIへ一切アクセスしない。
     html = self.client.get("/office").get_data(as_text=True)
-    self.assertIn('fetch("/api/logs")', html)
+    self.assertNotIn('fetch("/api/logs")', html)
     self.assertNotIn("/api/employees", html)
     self.assertNotIn("/api/missions", html)
     self.assertNotIn("/api/tasks", html)
@@ -552,27 +568,25 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("openDeskDetail(targetKey)", html)
     self.assertIn("scrollIntoView", html)
 
-  def test_ceo_office_link_points_to_desk_hash_dynamically(self):
-    # 既定はプレーンな/officeへのリンクだが(JS未実行/フェッチ失敗時の
-    # フォールバック)、実データが取得できれば「いま優先すること」に
-    # 対応するデスクの#desk-<key>へ、通常のhref書き換えのみで更新される。
+  def test_ceo_office_link_is_a_plain_static_link_to_office(self):
+    # MISSION 051: 「いま優先すること」が固定の静的文言になったため、
+    # 対応するデスクへの動的なハッシュ書き換えは廃止し、常に/officeへの
+    # 通常のリンクとして扱う(location.href等のJS遷移は行わない)。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn('id="qa-office" href="/office"', html)
-    self.assertIn('setAttribute("href","/office#desk-"+targetKey)', html)
-    self.assertIn(
-        'const deskKeys=["misaki","umi","minato","ito","kotoe","aoi"];', html
-    )
+    self.assertNotIn('setAttribute("href","/office#desk-', html)
+    self.assertNotIn('const deskKeys=', html)
     self.assertNotIn("location.href", html)
 
-  def test_desk_order_is_identical_between_office_and_ceo_office(self):
-    # 社長室のdeskKeysとオフィスのdesksタプルの並び順が一致していることを
-    # 確認する(ログのローテーション割り当てが両画面で食い違わないため)。
+  def test_desk_keys_are_unchanged_and_consistent_on_office_page(self):
+    # MISSION 051で社長室側のdeskKeys(ログのローテーション割り当て用)は
+    # 不要になったため削除したが、オフィス側の6デスクの構成・並び順自体は
+    # 変更していないことを確認する。
     office_html = self.client.get("/office").get_data(as_text=True)
+    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+      self.assertIn(f'id="desk-{key}"', office_html)
     ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn(
-        'const keys=["misaki","umi","minato","ito","kotoe","aoi"];', office_html
-    )
-    self.assertIn(
+    self.assertNotIn(
         'const deskKeys=["misaki","umi","minato","ito","kotoe","aoi"];', ceo_html
     )
 
@@ -594,10 +608,17 @@ class DashboardDesignTestCase(unittest.TestCase):
     for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO", "運用チーム"):
       self.assertIn(role, html)
 
-  def test_break_room_reason_and_return_plan_marked_as_not_real_data(self):
+  def test_break_room_reflects_actual_posting_wait_and_review_state(self):
+    # MISSION 051: 架空スタッフ(琴衣・海・蒼・伊藤)の氏名・休憩理由・移動
+    # 予定を削除し、「投稿の反応を待ち、次の作業を整理する時間」という
+    # 実際の待機・振り返りの状態を表示するように更新した。
     html = self.client.get("/office/break-room").get_data(as_text=True)
-    self.assertIn("休憩理由・戻る予定はすべて画面演出であり", html)
-    self.assertIn("実データに基づくものではありません", html)
+    self.assertIn("Pinterest投稿の反応を待つ時間", html)
+    self.assertIn("次の投稿・記事の準備状況を整理中", html)
+    self.assertIn("48時間ほど反応を見ている段階です", html)
+    self.assertIn("勤怠・休憩予定・作業ログの実データは表示・記録していません", html)
+    for name in ("琴衣", "海", "蒼", "伊藤"):
+      self.assertNotIn(name, html)
 
   # --- MISSION 029: ローカル収益化ボード ---------------------------------------
 
@@ -3529,6 +3550,71 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
     self.assertEqual(html.count('class="wp-day-status status-published"'), 4)
     self.assertEqual(html.count('class="wp-day-status status-manual_candidate"'), 3)
+
+  # --- MISSION 051: オフィス・休憩室・社長室を現在の実際の運用状況へ更新 ---------
+
+  def test_office_break_room_ceo_office_have_no_stale_or_fabricated_content(self):
+    # A8.net提携確認・美容サロン向け素材・「公開済みラッシュアディクト
+    # 投稿」など、work_logsに残る現在と無関係な古いテスト用データが、
+    # どの部屋にも表示されていないことを確認する。DBは変更していないため、
+    # /api/api/logs自体は引き続きこれらの行を返すが、UI側で参照しない。
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for forbidden in ("A8.net", "ラッシュアディクト", "美容サロン", "提携申請"):
+          self.assertNotIn(forbidden, html)
+
+  def test_office_avatars_and_room_backgrounds_are_unchanged(self):
+    # MISSION 051は表示テキストの更新のみで、人物アバター・部屋の背景画像・
+    # 画像ファイルは変更しないことを確認する。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn("/static/images/office-avatars-v1.png", html)
+    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+      self.assertIn(f'avatar-{key}', html)
+    for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO", "運用チーム"):
+      self.assertIn(role, html)
+
+  def test_office_and_ceo_office_have_no_credentials_or_external_calls(self):
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for forbidden in (
+            "api_key", "API_KEY", "access_token", "ACCESS_TOKEN", "Bearer ",
+            "Authorization", "client_secret", "AI_HIVE_", "dify.ai", "fetch(",
+        ):
+          self.assertNotIn(forbidden, html)
+        self.assertNotIn("/api/", html)
+
+  def test_ceo_office_stats_reuse_existing_stat_box_markup(self):
+    # 「今日の作業/完了/進行中」の3枠だった構造を、そのまま3枠の
+    # Pinterest/note統計表示として再利用していることを確認する
+    # (新しいレイアウト要素を追加していない)。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertEqual(html.count('<div class="stat">'), 3)
+    self.assertIn('class="command-stats"', html)
+
+  def test_office_ceo_office_break_room_render_without_error(self):
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+
+  def test_break_room_walker_label_is_readable_against_dark_background(self):
+    # 画面確認中に発見した表示崩れの回帰テスト: .break-walker smallの文字色が
+    # 部屋の下部(暗い配色の領域)に対して読みにくい暗色のままだったため、
+    # 明るい色に修正した。
+    html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn(".break-walker small{display:block;text-align:center;color:#fff8e9", html)
+
+  def test_ceo_office_speech_bubble_renders_above_the_desk_graphic(self):
+    # 画面確認中に発見した表示崩れの回帰テスト: 吹き出し(.bubble)に
+    # z-indexが指定されておらず、モバイル表示でデスクのグラフィック
+    # (z-index:3/4)の下に隠れて読めなくなっていたため、デスクより高い
+    # z-indexを明示した。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn(".bubble{position:absolute", html)
+    bubble_rule = html.split(".bubble{position:absolute", 1)[1].split("}", 1)[0]
+    self.assertIn("z-index:5", bubble_rule)
 
 
 if __name__ == "__main__":
