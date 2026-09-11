@@ -646,6 +646,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("AI・ガジェット発信からの楽天ROOM収益化", html)
 
   def test_revenue_board_shows_all_required_content_cards(self):
+    # MISSION 052: Pinterest 4件公開・note 2本公開・楽天ROOM折りたたみ
+    # キーボード1件公開という現在の実際の運用状況に合わせて更新済み。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
     self.assertIn("投稿企画工場のテーマを軸に発信し", html)
@@ -653,22 +655,21 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("AI初心者、仕事の効率化に関心がある人", html)
     self.assertIn("収益化の柱（案）", html)
     self.assertIn("投稿企画工場のテーマに沿った発信", html)
-    self.assertIn("初回Pinterest投稿からの流入育成", html)
-    self.assertIn("楽天ROOMでの手動カテゴリ紹介", html)
+    self.assertIn("公開済みPinterest投稿（4件）・note記事（2本）からの流入育成", html)
+    self.assertIn("楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）", html)
     self.assertIn("ROOM登録までの段階", html)
     for stage in ("テーマ選定", "投稿確認", "ROOM準備", "手動登録"):
       self.assertIn(stage, html)
     self.assertIn("今週の優先行動", html)
-    self.assertIn("投稿企画工場のテーマ整理", html)
-    self.assertIn("初回Pinterest投稿の実績確認", html)
-    self.assertIn("ROOM投稿準備の下ごしらえ", html)
+    self.assertIn("Pinterest・noteの反応確認", html)
+    self.assertIn("次の手動投稿タイミングの判断", html)
+    self.assertIn("既存ROOM投稿（折りたたみキーボード）の内容・反応を確認", html)
 
   def test_revenue_board_price_is_an_explicit_draft_not_final(self):
     html = self.client.get("/revenue").get_data(as_text=True)
-    self.assertIn("収益の入り口候補（すべて未定・検討中）", html)
+    self.assertIn("収益の入り口候補（金額・成果はすべて未確定）", html)
     self.assertIn("未確定", html)
     self.assertIn("確定した収益・契約内容ではありません", html)
-    self.assertIn("検討中", html)
     # 具体的な金額(円記号)を捏造して確定価格のように見せていないこと。
     self.assertNotIn("円", html)
     self.assertNotIn("¥", html)
@@ -1625,6 +1626,9 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("ROOM投稿準備", html)
 
   def test_room_prep_shows_category_candidates_not_real_products(self):
+    # MISSION 052: 「デスク周り」(MISSION 040で対象から外れたテーマ)と、
+    # 実際の公開状況と合わない汎用的な周辺機器ジャンル候補の2カテゴリを
+    # 削除したため、残る2カテゴリのジャンル候補のみを確認する。
     html = self.client.get("/revenue").get_data(as_text=True)
     section = html.split('id="room-prep"', 1)[1]
     for genre in (
@@ -1632,6 +1636,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         "音声入力対応キーボード",
         "音声文字起こしデバイス",
         "ノートPC用外付けマイク",
+    ):
+      self.assertIn(genre, section)
+    for genre in (
         "モニターアーム",
         "デスクライト",
         "ケーブル収納グッズ",
@@ -1639,7 +1646,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         "ワイヤレス充電スタンド",
         "ノートPCスタンド",
     ):
-      self.assertIn(genre, section)
+      self.assertNotIn(genre, section)
     self.assertIn("実在の商品名・価格・ランキング・在庫・成果予測は表示しません", section)
     # 実在の商品名・価格・ランキング・在庫数量・成果予測を捏造していないこと。
     self.assertNotIn("円", section)
@@ -1647,6 +1654,25 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("位獲得", section)
     self.assertNotIn("http://", section)
     self.assertNotIn("https://", section)
+
+  def test_room_prep_shows_published_folding_keyboard_post_as_plain_fact(self):
+    # MISSION 052: 既に手動投稿済みの折りたたみキーボード投稿を、金額・
+    # 在庫・ランキング・未確認レビューなしの事実のみで表示することを確認する。
+    html = self.client.get("/revenue").get_data(as_text=True)
+    published_block = html.split('class="room-prep-published"', 1)[1].split(
+        "</div>", 1
+    )[0]
+    self.assertIn("公開済みの楽天ROOM投稿", published_block)
+    self.assertIn("折りたたみキーボード", published_block)
+    self.assertIn("楽天ROOMへ手動投稿済み（1件）", published_block)
+    self.assertIn(
+        "商品候補を増やす前に、この投稿の内容と反応を手動で確認する段階です。",
+        published_block,
+    )
+    self.assertNotIn("円", published_block)
+    self.assertNotIn("¥", published_block)
+    self.assertNotIn("位獲得", published_block)
+    self.assertNotIn("在庫", published_block)
 
   def test_room_prep_shows_required_fields_for_each_category(self):
     html = self.client.get("/revenue").get_data(as_text=True)
@@ -1718,14 +1744,25 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("AI_HIVE_", section)
 
   def test_room_prep_content_is_data_driven_for_future_edits(self):
+    # MISSION 052: 「デスク周り」等の古いカテゴリ2件を削除し、2カテゴリに
+    # 整理した。公開済み投稿の事実はROOM_PUBLISHED_POSTSという独立した
+    # データ構造から組み立てられる。
     import office_views
-    self.assertEqual(len(office_views.ROOM_PREP_CATEGORIES), 4)
+    self.assertEqual(len(office_views.ROOM_PREP_CATEGORIES), 2)
     for category in office_views.ROOM_PREP_CATEGORIES:
       self.assertIn(category["status"], office_views.ROOM_PREP_STATUS_LABELS)
+    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 1)
+    for post in office_views.ROOM_PUBLISHED_POSTS:
+      self.assertIn("item_label", post)
+      self.assertIn("status_text", post)
+      self.assertIn("next_step", post)
     rendered = office_views._render_room_prep_section(
-        office_views.ROOM_PREP_CATEGORIES, office_views.ROOM_PREP_STATUS_LABELS
+        office_views.ROOM_PREP_CATEGORIES,
+        office_views.ROOM_PREP_STATUS_LABELS,
+        office_views.ROOM_PUBLISHED_POSTS,
     )
     self.assertIn("room-prep-section", rendered)
+    self.assertIn("公開済みの楽天ROOM投稿", rendered)
 
   def test_content_studio_links_to_room_prep(self):
     html = self.client.get("/content-studio").get_data(as_text=True)

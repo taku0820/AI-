@@ -88,6 +88,12 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .room-prep-notice ul{margin:6px 0 0;padding-left:18px}
 .room-prep-pr-note{background:#3d3106;border:1px solid #fbbf24;color:#fde68a;padding:10px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
 .room-prep-pr-note b{color:#fde68a}
+.room-prep-published{background:#063d2c;border:1px solid var(--green);color:var(--ink);padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.room-prep-published h3{margin:0 0 8px;font-size:13px;color:var(--green)}
+.room-prep-published ul{list-style:none;margin:0;padding:0}
+.room-published-item{margin-bottom:8px}
+.room-published-item:last-child{margin-bottom:0}
+.room-published-next{display:block;color:var(--sub);margin-top:2px}
 .room-prep-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:12px}
 .room-prep-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .room-prep-head h3{margin:0;font-size:14px}
@@ -252,21 +258,27 @@ REVENUE_FOCUS = {
                         "スマホ・PC周辺機器を探している人",
     "service_ideas": [
         "投稿企画工場のテーマに沿った発信",
-        "初回Pinterest投稿からの流入育成",
-        "楽天ROOMでの手動カテゴリ紹介",
+        "公開済みPinterest投稿（4件）・note記事（2本）からの流入育成",
+        "楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）",
     ],
+    # MISSION 052: Pinterest・note・楽天ROOMの投稿活動自体は手動ですでに
+    # 進行しているため、「すべて未定・検討中」という当初の見出しから、
+    # 「金額・成果」(収益そのもの)がまだ未定であることに絞った見出しへ
+    # 整理した。各行の値も「検討中」(まだ着手していない)から、実際の
+    # 公開・運用状況を示す表現へ更新したが、具体的な金額・成果予測は
+    # 一切追加していない。
     "price_note": "楽天ROOMでの紹介はすべて手動登録の想定であり、金額・成果はすべて未確定の"
                   "「たたき台」です。確定した収益・契約内容ではありません。",
     "price_tiers": [
-        ("Pinterest経由の流入", "検討中"),
-        ("楽天ROOMでの手動紹介", "検討中"),
-        ("noteでの信頼構築", "検討中"),
+        ("Pinterest経由の流入", "4件公開・手動運用中"),
+        ("楽天ROOMでの手動紹介", "1件公開・次の登録は確認後に判断"),
+        ("noteでの信頼構築", "2本公開・手動運用中"),
     ],
     "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
-        "投稿企画工場のテーマ整理",
-        "初回Pinterest投稿の実績確認",
-        "ROOM投稿準備の下ごしらえ",
+        "Pinterest・noteの反応確認",
+        "次の手動投稿タイミングの判断",
+        "既存ROOM投稿（折りたたみキーボード）の内容・反応を確認",
     ],
 }
 
@@ -304,7 +316,7 @@ def _render_revenue_scene(focus):
       f'<p>{focus["target_customer"]}</p></div>'
       '<div class="revenue-card"><h3>収益化の柱（案）</h3>'
       f'<ul>{service_items}</ul></div>'
-      '<div class="revenue-card"><h3>収益の入り口候補（すべて未定・検討中）</h3>'
+      '<div class="revenue-card"><h3>収益の入り口候補（金額・成果はすべて未確定）</h3>'
       f'<p class="revenue-price-note">{focus["price_note"]}</p>'
       f'<ul class="revenue-price-tiers">{price_items}</ul></div>'
       '<div class="revenue-card"><h3>ROOM登録までの段階</h3>'
@@ -312,7 +324,9 @@ def _render_revenue_scene(focus):
       '<div class="revenue-card"><h3>今週の優先行動</h3>'
       f'<ol class="revenue-priorities">{priority_items}</ol></div>'
       '</div>'
-      + _render_room_prep_section(ROOM_PREP_CATEGORIES, ROOM_PREP_STATUS_LABELS) +
+      + _render_room_prep_section(
+          ROOM_PREP_CATEGORIES, ROOM_PREP_STATUS_LABELS, ROOM_PUBLISHED_POSTS
+      ) +
       '<p class="revenue-footnote">この画面はlocalhost限定で表示される'
       '社内検討用の資料です。送信・公開・自動実行は行われません。</p>'
       '</section>'
@@ -1229,46 +1243,49 @@ ROOM_PREP_CATEGORIES = [
         ],
         "status": "planning",
     },
+]
+
+# MISSION 052: 「デスク周り」テーマ（旧カテゴリ3）はMISSION 040で投稿企画工場の
+# 対象から外れ、「スマホ・PC周辺機器ジャンルまとめ」（旧カテゴリ4）も未確認の
+# 商品候補の列挙にとどまり実際の運用と合わなくなったため、両カテゴリは削除した。
+# 代わりに、実際に手動投稿済みの折りたたみキーボード投稿を事実のみで示す
+# ROOM_PUBLISHED_POSTS を新設する。ここには金額・在庫・ランキング・未確認の
+# レビューは一切含めない。
+
+ROOM_PUBLISHED_POSTS = [
     {
-        "audience_problem": "デスク周りが散らかりがちで集中しづらい人向け",
-        "pinterest_theme_idea": "作業がはかどるデスク周りグッズまとめ",
-        "genre_ideas": ["モニターアーム", "デスクライト", "ケーブル収納グッズ"],
-        "room_manual_checks": [
-            "紹介する商品ジャンルの選定基準が整理されているか確認する（要確認事項）",
-            "掲載できる画像がROOM上に用意されているか確認する（画像の保存・加工はしない）",
-        ],
-        "pre_write_checks": [
-            "実際に試用していない前提で、断定的な効果を書いていないか",
-            "誇大表現・未確認の実績を書いていないか",
-            "商品提供・クーポン・広告主とのやり取りがある場合、PR表記が必要か確認したか",
-        ],
-        "status": "planning",
-    },
-    {
-        "audience_problem": "外出先でもスマホ・PC作業を快適にしたい人向け",
-        "pinterest_theme_idea": "スマホ・PC作業がはかどる周辺機器ジャンルまとめ",
-        "genre_ideas": ["USB-Cハブ", "ワイヤレス充電スタンド", "ノートPCスタンド"],
-        "room_manual_checks": [
-            "対象ガジェットの切り口が絞り込まれているか確認する（要確認事項）",
-            "掲載できる画像がROOM上に用意されているか確認する（画像の保存・加工はしない）",
-        ],
-        "pre_write_checks": [
-            "実際に試用していない前提で、断定的な効果を書いていないか",
-            "誇大表現・未確認の実績を書いていないか",
-            "商品提供・クーポン・広告主とのやり取りがある場合、PR表記が必要か確認したか",
-        ],
-        "status": "planning",
+        "item_label": "折りたたみキーボード",
+        "status_text": "楽天ROOMへ手動投稿済み（1件）",
+        "next_step": "商品候補を増やす前に、この投稿の内容と反応を手動で確認する段階です。",
     },
 ]
 
 
-def _render_room_prep_section(categories, status_labels):
+def _render_room_prep_section(categories, status_labels, published_posts=None):
   """楽天ROOM投稿準備のカード群を、ROOM_PREP_CATEGORIESのデータから組み立てる。
+
+  published_posts（ROOM_PUBLISHED_POSTS）が渡された場合は、既に手動投稿
+  済みの事実のみを先頭に表示する。金額・在庫・ランキング・未確認の
+  レビューは一切表示しない。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・楽天API・
   外部通信へのアクセスは一切行わない。楽天市場の商品画像は保存・加工・
   表示せず、使用する画像は既存のローカル素材のみである。
   """
+  published_posts = published_posts or []
+  published_items = "".join(
+      '<li class="room-published-item">'
+      f'<b>{post["item_label"]}</b>：{post["status_text"]}'
+      f'<br><span class="room-published-next">次のステップ：{post["next_step"]}</span>'
+      '</li>'
+      for post in published_posts
+  )
+  published_block = (
+      '<div class="room-prep-published">'
+      '<h3>公開済みの楽天ROOM投稿</h3>'
+      f'<ul>{published_items}</ul>'
+      '</div>'
+  ) if published_posts else ""
   category_cards = []
   for category in categories:
     status_key = category["status"]
@@ -1316,6 +1333,7 @@ def _render_room_prep_section(categories, status_labels):
       '商品提供・クーポン・広告主とのやり取りがある場合は、投稿前にPR表記が'
       '必要かどうかを確認してください。'
       '</div>'
+      + published_block
       + "".join(category_cards) +
       '</section>'
   )
