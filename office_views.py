@@ -388,6 +388,166 @@ CONTENT_STUDIO_IMAGE_STANDARDS = [
     "画像は縦横比・用途・altテキストを先に決めてから作る",
 ]
 
+# MISSION 048: 既存のPinterest投稿4本(メール下書き・デスク配線・周辺機器
+# 選び・スマホでのAI下書き)とnote記事2本(AI初心者の最初の3つの使い方・
+# スマホでのAI下書き)の内容を踏まえ、次に作る「AI初心者向け」記事・投稿の
+# 候補を3つ整理した企画メモ。表示専用の静的コンテンツであり、記事・画像・
+# 投稿はまだ作成していない(検討段階)。将来候補を差し替える場合は、この
+# データ構造(CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES)を編集するだけでよい。
+CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_HEADING = (
+    "次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）"
+)
+CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_INTRO = (
+    "公開済みのPinterest投稿4本・note記事2本の内容を踏まえ、次に作る候補を3つ整理した"
+    "企画メモです。ここに書いた内容は下書き作成前の検討段階であり、記事・画像・投稿は"
+    "まだ作成していません。メール下書き・スマホでのAI下書き・デスク配線・一般的なAIの"
+    "使い方（メール・要約・壁打ち）とは重複しないテーマだけを選んでいます。"
+)
+CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES = [
+    {
+        "theme": "候補1：AIに調べ物を頼む前に確認する3つ",
+        "pain_point": (
+            "分からないことをAIに聞いて出てきた答えを、そのまま信じてよいのか、どう"
+            "扱えばよいのか分からず不安に感じている。"
+        ),
+        "note_title_candidates": [
+            "AIに調べ物を頼むとき、答えを鵜呑みにしないために確認する3つ",
+            "AIの答えをどこまで信じていいか分からない人へ、調べ物を頼む前の3つの習慣",
+            "AIに聞いた答えが本当か不安なときに見直したい3つのポイント",
+        ],
+        "pinterest_title": "AIに調べ物を頼む前に確認する3つ",
+        "opening_hook": (
+            "仕事の合間に、ちょっとした疑問をAIに聞いてみたら、思っていたよりずっと"
+            "自然な答えが返ってきた——そんな経験はないでしょうか。ただ、その答えを見"
+            "ながら「これ、本当に合っているのかな」と、少し不安になったことはありませ"
+            "んか。AIの返事はいつも自信ありげに見えるため、間違っていても気づきにくい"
+            "ことがあります。周りに聞ける人がいない場面ほど、その答えをそのまま信じて"
+            "しまいがちです。この記事では、AIに調べ物を頼む前に、あらかじめ決めておく"
+            "と答えとの付き合い方が変わる3つのポイントを紹介します。"
+        ),
+        "heading_outline": [
+            "はじめに（AIの答えをそのまま信じそうになった経験）",
+            "1. 聞く前に「答え合わせができるか」を考える",
+            "2. 断定口調でも、根拠がある内容かどうかを見分ける",
+            "3. 重要な判断には、必ず別の情報源で確認する",
+            "まとめ",
+        ],
+        "image_subject_and_composition": (
+            "画像の作成基準の「AIの使い方記事」に沿い、答えを見直す場面を主役にする。"
+            "スマホやタブレットの画面を覗き込みながら、手元のノートやメモと照らし合わ"
+            "せている様子を中心に置き、デスク全体は写さない。"
+        ),
+        "pinterest_vs_note_image_difference": (
+            "Pinterest用画像には、タイトル「AIに調べ物を頼む前に確認する3つ」と3項目"
+            "を画像本体に焼き込む。note用見出し画像は文字を重ねず、確認している空気感"
+            "が写真だけで伝わる構図にする。"
+        ),
+        "reason": (
+            "メール下書き・スマホでのAI下書き・デスク配線・一般的なAIの使い方（メール・"
+            "要約・壁打ち）のいずれとも異なり、AIの回答をどう受け止めるかという、AI"
+            "初心者が早い段階でつまずきやすい「情報の扱い方」に焦点を当てているため。"
+        ),
+    },
+    {
+        "theme": "候補2：AIとの会話がかみ合わないときに見直す3つ",
+        "pain_point": (
+            "AIに質問しても期待した答えが返ってこず、「AIって思ったより使えない」と"
+            "感じて、それ以上使うのをやめてしまう。"
+        ),
+        "note_title_candidates": [
+            "AIとの会話がかみ合わないと感じたときに見直したい3つ",
+            "思った答えが返ってこないときに試したい、AIへの伝え方3つの工夫",
+            "AIが「なんか違う」と感じたら見直したい3つのポイント",
+        ],
+        "pinterest_title": "AIとの会話がかみ合わないときに見直す3つ",
+        "opening_hook": (
+            "AIに質問してみたものの、返ってきた答えが求めていたものと違って、なんとな"
+            "くガッカリした——そんな経験がある人は少なくないはずです。ここで「AIはこん"
+            "なものか」と使うのをやめてしまうのは、少しもったいないかもしれません。実は"
+            "、伝え方を少し変えるだけで、返ってくる答えが大きく変わることがあります。"
+            "何度もやり取りしているうちに、かえって話がずれていくと感じることもあるか"
+            "もしれません。この記事では、AIとの会話がかみ合わないと感じたときに見直し"
+            "たい3つのポイントを紹介します。"
+        ),
+        "heading_outline": [
+            "はじめに（「思った答えが返ってこない」というよくある感覚）",
+            "1. 一度に多くを求めすぎていないか見直す",
+            "2. 前提条件を伝えられているか見直す",
+            "3. 一往復で終わらせず、返ってきた答えに重ねて聞き返す",
+            "まとめ",
+        ],
+        "image_subject_and_composition": (
+            "画像の作成基準の「AIの使い方記事」に沿い、考える・入力する場面を主役に"
+            "する。画面に向かって指先で文字を打ち直している手元を中心に置き、デスク"
+            "全体は写さない。デスク配線・スマホ下書きの既存画像と同じ構図の使い回しは"
+            "避ける。"
+        ),
+        "pinterest_vs_note_image_difference": (
+            "Pinterest用画像には、タイトルと3項目を画像本体に焼き込む。note用見出し"
+            "画像は文字を重ねず、考え直している空気感が伝わる写真のみにする。"
+        ),
+        "reason": (
+            "既存のメール下書き・スマホでのAI下書きは「何を頼むか決める前」の準備に"
+            "焦点を当てているのに対し、この候補は「頼んだあと、答えが期待と違ったとき"
+            "にどうするか」という、初心者が挫折しやすい別の場面を扱っているため、内容が"
+            "重複しない。"
+        ),
+    },
+    {
+        "theme": "候補3：AIに1日の優先順位を整理してもらう前の3つ",
+        "pain_point": (
+            "在宅ワークでやることが多く優先順位がつけられず、AIに整理を手伝ってもら"
+            "いたいが、何をどう伝えればよいか分からない。"
+        ),
+        "note_title_candidates": [
+            "在宅ワーク中、AIに1日の優先順位を整理してもらう前に決めておきたい3つ",
+            "やることが多すぎる日に、AIと一緒に優先順位を整理する3つのコツ",
+            "AIに「今日何からやるか」を相談する前に準備したい3つ",
+        ],
+        "pinterest_title": "AIに1日の優先順位を整理してもらう前の3つ",
+        "opening_hook": (
+            "在宅ワークをしていると、やらなければいけないことが次々に頭に浮かび、結局"
+            "どれから手をつけていいか分からなくなる——そんな日はないでしょうか。そんな"
+            "とき、AIに1日のタスクを相談してみるという方法があります。ただし、思いつく"
+            "ままに伝えてしまうと、AIも整理しきれず、かえって頭の中がごちゃついたまま"
+            "になることがあります。整理してもらった結果を見て、逆に迷ってしまうことも"
+            "あるかもしれません。この記事では、AIに優先順位の整理を頼む前に、決めて"
+            "おきたい3つのポイントを紹介します。"
+        ),
+        "heading_outline": [
+            "はじめに（やることが多すぎて優先順位がつけられない日）",
+            "1. その日の「絶対に外せない予定」を先に洗い出す",
+            "2. タスクを頼む前に、ざっくりでも締め切りを添える",
+            "3. 整理してもらった順番を、そのまま鵜呑みにせず自分の体調と照らし合わせる",
+            "まとめ",
+        ],
+        "image_subject_and_composition": (
+            "「デスク記事」ではなく「AIの使い方記事」に近い性格のため、考える・入力"
+            "する場面を主役にする。ノートに書き出したタスクリストと、スマホやタブレッ"
+            "トの画面を見比べている手元を中心に置く。既存のデスク配線投稿とは異なる"
+            "構図・時間帯（例えば日中の明るい光）にして、同じ夜の木目デスクの連続使用"
+            "を避ける。"
+        ),
+        "pinterest_vs_note_image_difference": (
+            "Pinterest用画像には、タイトルと3項目を画像本体に焼き込む。note用見出し"
+            "画像は文字を重ねず、タスク整理をしている空気感が伝わる写真のみにする。"
+        ),
+        "reason": (
+            "既存4本・note記事2本はいずれも「AIに文章の下書きを頼む」場面が中心だが、"
+            "この候補は「AIにタスク・優先順位の整理を頼む」という、文章作成以外の"
+            "使い方を扱っており、テーマが重複しない。在宅ワーカーという想定読者にも"
+            "刺さりやすい。"
+        ),
+    },
+]
+CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION = (
+    "候補1「AIに調べ物を頼む前に確認する3つ」をおすすめします。仕事・在宅ワークに限らず"
+    "誰にでも当てはまる場面であり、既存投稿と同じ「頼む前に確認する3つ」という型を"
+    "踏襲できるため、読者にとって見慣れた形で試しやすいこと、AIの回答をどう受け止める"
+    "かという、初心者が早い段階で感じやすい不安に応えられることが理由です。候補2・"
+    "候補3も重複のない有力なテーマのため、続けて検討する価値があります。"
+)
+
 # 現在公開済みのnote記事(note初回記事)に合う2テーマだけを残した。他の
 # テーマ(デスク周り・スマホPC周辺機器・買う前に確認したいガジェット選び)
 # は、現在の運用(Pinterest・note・楽天ROOM)に対応する準備がまだできて
@@ -421,6 +581,8 @@ def _render_content_studio_scene(
     theme, plans, room_link_policy,
     writing_standards_heading, writing_standards_intro, writing_standards,
     image_standards_heading, image_standards_intro, image_standards,
+    next_candidates_heading, next_candidates_intro, next_candidates,
+    next_candidates_recommendation,
 ):
   """投稿企画工場のカード群を、CONTENT_STUDIO_PLANSのデータから組み立てる。
 
@@ -437,6 +599,12 @@ def _render_content_studio_scene(
   MISSION 047: image_standards_heading/image_standards_intro/
   image_standards(リスト)は、今後の画像作成基準を表示するための参照情報。
   同様に、既存の画像を書き換えるものではない。
+
+  MISSION 048: next_candidates_heading/next_candidates_intro/
+  next_candidates(候補の辞書のリスト)/next_candidates_recommendation は、
+  次に作るnote記事・Pinterest投稿の候補3つを示す企画メモ。記事・画像・
+  投稿はまだ作成しておらず、既存のnote記事・Pinterest投稿・投稿キューを
+  書き換えるものではない。
   """
   plan_cards = "".join(
       '<div class="cs-plan-card">'
@@ -470,6 +638,40 @@ def _render_content_studio_scene(
       f'<p class="cs-theme">{image_standards_intro}</p>'
       f'<ul class="fp-checklist">{image_standard_items}</ul>'
   )
+  # MISSION 048: 次に作る記事・投稿の候補3つを、既存のplan_cardsと同じ
+  # cs-plan-cardのカードスタイルで表示する。候補ごとに項目数が多いため、
+  # note記事タイトル案・見出し構成はカード内の<dd>に<ul>/<ol>で並べる
+  # (新規CSSは追加せず、ブラウザ標準のリスト表示にまかせる)。
+  candidate_cards = "".join(
+      '<div class="cs-plan-card">'
+      f'<h3>{c["theme"]}</h3>'
+      '<dl class="cs-plan-fields">'
+      '<dt>読者の困りごと</dt>'
+      f'<dd>{c["pain_point"]}</dd>'
+      '<dt>note記事タイトル案（3つ）</dt>'
+      '<dd><ul>' + "".join(f'<li>{t}</li>' for t in c["note_title_candidates"]) + '</ul></dd>'
+      '<dt>Pinterest用タイトル案</dt>'
+      f'<dd>{c["pinterest_title"]}</dd>'
+      '<dt>記事冒頭のつかみ案</dt>'
+      f'<dd>{c["opening_hook"]}</dd>'
+      '<dt>5,000字記事にする場合の見出し構成</dt>'
+      '<dd><ol>' + "".join(f'<li>{h}</li>' for h in c["heading_outline"]) + '</ol></dd>'
+      '<dt>画像の主役と構図案</dt>'
+      f'<dd>{c["image_subject_and_composition"]}</dd>'
+      '<dt>Pinterest用画像とnote用見出し画像の違い</dt>'
+      f'<dd>{c["pinterest_vs_note_image_difference"]}</dd>'
+      '<dt>今回このテーマを候補にする理由</dt>'
+      f'<dd>{c["reason"]}</dd>'
+      '</dl>'
+      '</div>'
+      for c in next_candidates
+  )
+  next_candidates_html = (
+      f'<h3 class="fp-section-title">{next_candidates_heading}</h3>'
+      f'<p class="cs-theme">{next_candidates_intro}</p>'
+      + candidate_cards +
+      f'<div class="cs-room-policy"><b>次に作るなら。</b>{next_candidates_recommendation}</div>'
+  )
   return (
       '<section class="content-studio" aria-label="投稿企画工場">'
       '<div class="revenue-notice">'
@@ -493,7 +695,8 @@ def _render_content_studio_scene(
       '→ note初回記事を見る</a> '
       '<a class="cs-first-post-link" href="/revenue#room-prep">'
       '→ 楽天ROOM投稿準備を見る</a>'
-      + plan_cards +
+      + plan_cards
+      + next_candidates_html +
       '<p class="cs-footnote">この画面はlocalhost限定で表示される社内検討用の'
       '資料です。SNS投稿・note投稿・広告出稿・営業送信は行われません。</p>'
       '</section>'
@@ -1586,6 +1789,54 @@ PUBLISH_QUEUE_POSTS = [
             "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
         ],
     },
+    {
+        # MISSION 049: 「AIに聞いても『なんか違う』と感じる人へ」note記事下書きと
+        # 対応するPinterest投稿。楽天ROOMの商品紹介は行わないため、リンク欄は
+        # 汎用の空欄注記(PUBLISH_QUEUE_ROOM_LINK_NOTE)のままにする。
+        "id": "ai-mismatch-3points",
+        "status": "社長承認待ち",
+        "pin": {
+            "title": "AIが「なんか違う」ときに見直す3つ",
+            "description": (
+                "AIに聞いても「なんか違う」と感じたときに見直したい3つのポイントを"
+                "まとめました。目的を先に伝える・前提や条件を足す・一度で終わらせず"
+                "聞き返す、を先に意識しておくだけで、やり取りがスムーズになることが"
+                "あります。特定の商品の紹介やレビューではありません。"
+            ),
+            # MISSION 049.2: 画像を図形中心のイラストから、支給された写真風
+            # ビジュアル(スマホとメモ帳・書き直しを感じる手元)へ差し替えた。
+            # 焼き込む文字もタイトルのみに変更した(3項目は焼き込まない)ため、
+            # altテキストを実際の画像内容に合わせて更新した。
+            "alt_text": (
+                "AIが「なんか違う」ときに見直す3つ、というテーマのイメージビジュアル。"
+                "明るい昼間の室内で、スマートフォンを片手に持ちながら、もう片方の手で"
+                "ノートに書き直している様子。上部の明るい余白にタイトルを焼き込んで"
+                "いる。ロゴ・読める商品名・実在サービスの画面・人物の顔は写っていません。"
+            ),
+        },
+        "hero_image_relative_path": "images/publish-queue-ai-mismatch-2x3.png",
+        "hero_image_download_filename": "pinterest-publish-queue-ai-mismatch.png",
+        "hero_title_lines": ["AIが「なんか違う」ときに", "見直す3つ"],
+        "hero_item_lines": [
+            "1. 目的を先に伝える",
+            "2. 前提や条件を足す",
+            "3. 一度で終わらせず聞き返す",
+        ],
+        "pinterest_topic_candidates": ["AI活用術", "AIとの対話術", "仕事効率化"],
+        "checklist": [
+            "タイトル・説明文に「自分で使った」「おすすめ」「効率が上がる」"
+            "「成果が出る」等の断定表現がないか確認した",
+            "価格・在庫・性能・ランキング・レビュー・成果を記載していないか確認した",
+            "画像内の文字（タイトル・3項目）が読みやすいか（誤字・はみ出しがないか）"
+            "確認した",
+            "altテキストが画像の内容を正しく説明しているか確認した",
+            "楽天ROOMリンク欄が空欄のままであることを確認した（社長がPinterestへ"
+            "投稿する際に手動で貼り付ける）",
+            "この画像がAIで生成・加工した画像であり、Pinterest側で必要な「AIで"
+            "修正済み」等の画像ラベル設定が必要であることを確認した",
+            "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
+        ],
+    },
 ]
 
 PUBLISH_QUEUE_ROOM_LINK_NOTE = (
@@ -1833,6 +2084,21 @@ PUBLISH_QUEUE_SMARTPHONE_AI_DRAFT_RELATIVE_PATH = (
     "images/publish-queue-smartphone-ai-draft-2x3.png"
 )
 
+# MISSION 049: 「AIが『なんか違う』ときに見直す3つ」投稿用の縦長
+# (1024x1536, 2:3)画像。
+# MISSION 049.2: 図形中心のPillowイラストは一覧で目を引かないとの指摘を
+# 受け、社長支給の高品質な写真風ビジュアル(publish-queue-ai-mismatch-
+# photo-base.png。明るい昼間の室内で、スマホとメモ帳・書き直しを感じる
+# 手元が主役。ロゴ・読める商品名・実在サービスの画面・人物の顔は写って
+# いないことを目視確認済み)を土台に切り替えた。タイトル(2行)のみを画像
+# 上部の明るい余白へ直接焼き込む(HTML側では重ねない。MISSION 049時点とは
+# 異なり、画像内の3項目は焼き込まない)。noteの見出し画像(スマホの画面を
+# 見直す手元)とは構図を変えている。元写真ファイル自体は削除・上書きしない。
+PUBLISH_QUEUE_AI_MISMATCH_PHOTO_BASE_RELATIVE_PATH = (
+    "images/publish-queue-ai-mismatch-photo-base.png"
+)
+PUBLISH_QUEUE_AI_MISMATCH_RELATIVE_PATH = "images/publish-queue-ai-mismatch-2x3.png"
+
 
 def generate_publish_queue_email_draft_v3_png(out_path=None):
   """v2.pngにタイトル文字を焼き込んだv3.pngを生成し、ファイルへ保存する
@@ -1962,6 +2228,76 @@ def generate_publish_queue_smartphone_ai_draft_png(out_path=None):
   out_path = out_path or os.path.join(
       os.path.dirname(os.path.abspath(__file__)), "static",
       PUBLISH_QUEUE_SMARTPHONE_AI_DRAFT_RELATIVE_PATH,
+  )
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
+def generate_publish_queue_ai_mismatch_png(out_path=None):
+  """「AIが『なんか違う』ときに見直す3つ」投稿用の縦長画像
+
+  (1024x1536, 2:3)を生成し、ファイルへ保存する(開発時専用)。
+
+  MISSION 049.2: 図形中心のPillowイラストは一覧で目を引かないとの指摘を
+  受け、社長から支給された高品質な写真風ビジュアル(元写真、
+  PUBLISH_QUEUE_AI_MISMATCH_PHOTO_BASE_RELATIVE_PATH。明るい昼間の室内で、
+  スマホとメモ帳・書き直しを感じる手元が主役の構図。ロゴ・読める商品名・
+  実在サービスの画面・人物の顔は写っていないことを目視確認済み)を土台に、
+  タイトル(2行)だけをこの画像自体へ直接焼き込む(HTML側では重ねない。
+  MISSION 049時点とは異なり、画像内の3項目は焼き込まない)。元写真の上部
+  には明るい空・窓の余白があるため、そこに半透明の白いスクリム帯を敷き、
+  文字は白い縁取り+濃紺の塗り(疑似太字+アウトライン)で、背景の明るさに
+  左右されず確実に読める状態にする。元写真ファイル自体は削除・上書きしない。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。文言を
+  差し替えたい場合、この関数を手動で再実行してPNGを作り直すこと。実行には
+  Pillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; o.generate_publish_queue_ai_mismatch_png()"
+  """
+  from PIL import Image, ImageDraw, ImageFont  # 遅延import(開発時専用)
+
+  base_path = os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      PUBLISH_QUEUE_AI_MISMATCH_PHOTO_BASE_RELATIVE_PATH,
+  )
+  img = Image.open(base_path).convert("RGB")
+  width, height = img.size
+
+  # 元写真の上部(明るい空・窓の余白)に、念のため半透明の白いスクリム帯を
+  # 敷いて可読性を確実にする(元写真の明るさに文字の可読性を左右されない
+  # ため)。
+  scrim = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+  scrim_draw = ImageDraw.Draw(scrim)
+  scrim_draw.rounded_rectangle([28, 28, width - 28, 300], radius=28, fill=(255, 255, 255, 150))
+  img = Image.alpha_composite(img.convert("RGBA"), scrim).convert("RGB")
+  draw = ImageDraw.Draw(img)
+
+  # タイトル(2行・大)を、元写真上部の明るい余白へ焼き込む。太字フォントを
+  # 別途用意していないため、疑似太字(白い縁取りを複数方向にずらして描画)+
+  # 濃紺の塗りで、写真の上でも確実なコントラストを確保する。
+  title_font = ImageFont.truetype(_PUBLISH_QUEUE_EMAIL_DRAFT_FONT_PATH, 66)
+  ink = (17, 24, 39)
+  white = (255, 255, 255)
+
+  def _draw_baked_text(text, xy, font):
+    x, y = xy
+    for dx, dy in ((2, 2), (-2, 2), (2, -2), (-2, -2), (0, 2), (0, -2), (2, 0), (-2, 0)):
+      draw.text((x + dx, y + dy), text, font=font, fill=white)
+    draw.text((x, y), text, font=font, fill=ink)
+
+  title_lines = ["AIが「なんか違う」ときに", "見直す3つ"]
+  x, y = 56, 78
+  for line in title_lines:
+    _draw_baked_text(line, (x, y), title_font)
+    y += 84
+
+  out_path = out_path or os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      PUBLISH_QUEUE_AI_MISMATCH_RELATIVE_PATH,
   )
   os.makedirs(os.path.dirname(out_path), exist_ok=True)
   img.save(out_path)
@@ -2583,6 +2919,113 @@ def generate_note_hero_image_png(out_path=None):
   return out_path
 
 
+def generate_note_ai_mismatch_hero_image_png(out_path=None):
+  """「AIに聞いても『なんか違う』と感じる人へ」note記事下書き用の横長
+
+  ヒーロービジュアル(NOTE_THIRD_ARTICLE_DRAFT_COVER_WIDTH x
+  NOTE_THIRD_ARTICLE_DRAFT_COVER_HEIGHT、1672x941)を生成し、ファイルへ
+  保存する(開発時専用)。既存のnote初回記事・スマホAI下書き記事の見出し
+  画像はどちらも夜の暗い配色のため、この画像は明確に区別できる明るい昼間の
+  配色(やわらかい水色→暖かいクリーム色の縦グラデーション)にする。木目の
+  デスク・デスクライト・観葉植物は使わず、スマートフォンを斜めに持ち直して
+  いる手元(指先だけの簡略化した図形)を主役にした構図にする。ロゴ・文字・
+  実在サービスの画面・人物の顔は一切描画しない。見出し文字はHTML側でも
+  画像側でも一切重ねない・焼き込まない(タイトルなしの写真的な構図のみ)。
+
+  Flaskアプリの起動・リクエスト処理からは一切呼び出さない。構図を差し替え
+  たい場合、この関数を手動で再実行してPNGを作り直すこと。実行には
+  Pillowが必要(pip install Pillow)。
+
+  実行例:
+      source venv/bin/activate && pip install Pillow
+      python -c "import office_views as o; o.generate_note_ai_mismatch_hero_image_png()"
+  """
+  from PIL import Image, ImageDraw, ImageFilter  # 遅延import(開発時専用)
+
+  width, height = NOTE_THIRD_ARTICLE_DRAFT_COVER_WIDTH, NOTE_THIRD_ARTICLE_DRAFT_COVER_HEIGHT
+
+  # 背景: 明るい昼間を思わせる、上がやわらかい水色・下が暖かいクリーム色の
+  # 縦グラデーション(既存の夜の配色の見出し画像とは明確に区別する)。
+  top_color, bottom_color = (219, 234, 254), (255, 247, 230)
+  base = Image.new("RGB", (width, height), top_color)
+  draw = ImageDraw.Draw(base)
+  for y in range(height):
+    t = y / (height - 1)
+    draw.line(
+        [(0, y), (width, y)],
+        fill=tuple(int(top_color[i] + (bottom_color[i] - top_color[i]) * t) for i in range(3)),
+    )
+  img = base.convert("RGBA")
+
+  # 窓から差し込む日差しを思わせる、やわらかい光だまりを2箇所ぼかして重ねる。
+  for cx_ratio, cy_ratio, radius, color in (
+      (0.16, 0.22, 260, (255, 250, 230, 150)),
+      (0.86, 0.78, 220, (191, 219, 254, 110)),
+  ):
+    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    gx, gy = int(width * cx_ratio), int(height * cy_ratio)
+    glow_draw.ellipse([gx - radius, gy - radius, gx + radius, gy + radius], fill=color)
+    glow = glow.filter(ImageFilter.GaussianBlur(95))
+    img = Image.alpha_composite(img, glow)
+
+  draw = ImageDraw.Draw(img)
+
+  # スマートフォンを斜めに持ち直している手元。フォンは中央やや右寄りに
+  # 傾けて配置し、下側から2本の指先(簡略化した図形)が画面に触れている
+  # 様子を表現する。人物の顔・腕全体は描かず、指先だけの抽象的な表現に
+  # とどめる。
+  phone_layer = Image.new("RGBA", (520, 900), (0, 0, 0, 0))
+  phone_draw = ImageDraw.Draw(phone_layer)
+  # 本体の影(ほんのり)。
+  phone_draw.rounded_rectangle([50, 60, 470, 860], radius=52, fill=(20, 20, 24, 40))
+  # 本体。
+  phone_draw.rounded_rectangle([40, 40, 460, 840], radius=52, fill=(28, 28, 33, 255))
+  # 画面(空白・無地、文字やアイコンは描かない)。
+  phone_draw.rounded_rectangle([64, 70, 436, 810], radius=34, fill=(214, 226, 242, 255))
+  # 画面にごくわずかな上下の明暗差を付け、フラットになりすぎないようにする。
+  shade = Image.new("RGBA", (520, 900), (0, 0, 0, 0))
+  shade_draw = ImageDraw.Draw(shade)
+  shade_draw.rounded_rectangle([64, 70, 436, 460], radius=34, fill=(255, 255, 255, 40))
+  phone_layer = Image.alpha_composite(phone_layer, shade)
+  phone_draw = ImageDraw.Draw(phone_layer)
+
+  # 指先(親指2本を簡略化した、丸みを帯びた図形)を画面下部に配置する。
+  finger_color = (233, 195, 165, 255)
+  phone_draw.ellipse([120, 700, 230, 900], fill=finger_color)
+  phone_draw.ellipse([300, 680, 410, 900], fill=finger_color)
+  # 指先のハイライト(立体感を少しだけ加える)。
+  phone_draw.ellipse([140, 715, 190, 780], fill=(245, 214, 188, 160))
+  phone_draw.ellipse([320, 695, 370, 760], fill=(245, 214, 188, 160))
+
+  phone_layer = phone_layer.rotate(-13, resample=Image.BICUBIC, expand=True)
+  paste_x = int(width * 0.52)
+  paste_y = int(height * 0.06)
+  img.alpha_composite(phone_layer, (paste_x, paste_y))
+
+  # 周辺をごくわずかに落として、被写体(スマホと指先)に視線が集まるように
+  # する。明るい配色を保つため、暗く落としすぎない。
+  vignette_mask = Image.new("L", (width, height), 0)
+  vm_draw = ImageDraw.Draw(vignette_mask)
+  vm_draw.ellipse(
+      [-int(width * 0.25), -int(height * 0.25), int(width * 1.25), int(height * 1.25)], fill=255
+  )
+  vignette_mask = vignette_mask.filter(ImageFilter.GaussianBlur(220))
+  vignette_mask = vignette_mask.point(lambda p: 255 - p)
+  vignette_mask = vignette_mask.point(lambda p: int(p * 0.16))
+  dark_overlay = Image.new("RGBA", (width, height), (40, 30, 20, 255))
+  img = Image.composite(dark_overlay, img, vignette_mask)
+
+  img = img.convert("RGB")
+  out_path = out_path or os.path.join(
+      os.path.dirname(os.path.abspath(__file__)), "static",
+      NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH,
+  )
+  os.makedirs(os.path.dirname(out_path), exist_ok=True)
+  img.save(out_path)
+  return out_path
+
+
 def _render_note_article_scene(article):
   """note初回記事の手動投稿パッケージのHTMLを組み立てる。
 
@@ -3038,6 +3481,333 @@ def _render_note_second_article_draft_scene(article):
   )
 
 
+# MISSION 049: 「AIに聞いても『なんか違う』と感じる人へ」note記事下書き。
+# Pinterest投稿キューのai-mismatch-3points投稿と内容が一致する。公開済みの
+# NOTE_FIRST_ARTICLE(パソコンでのメール下書き・要約・壁打ち)・
+# NOTE_SECOND_ARTICLE_DRAFT(スマホでのAI下書き)とは異なり、AIに質問した後、
+# 答えが期待と違ったときに会話そのものを見直す視点に焦点を当てる。note・
+# SNSへの投稿・自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切
+# 行わない(下書き表示のみ)。将来文面を差し替える場合は、このデータ構造
+# (NOTE_THIRD_ARTICLE_DRAFT)を編集するだけでよい。
+# MISSION 049.2: 見出し画像を、MISSION 049時点のPillow製イラスト
+# (note-ai-mismatch-hero.png。図形中心で一覧性に欠けるとの指摘を受けた)から、
+# 社長支給の高品質な写真風ビジュアル(note-ai-mismatch-hero-photo.png。
+# 明るい昼間の室内で、スマホを持ち入力内容を見直す手元が主役。木目デスク・
+# 白・淡い青を基調とし、夜のデスク・ランプ・観葉植物・顔・ロゴ・読める
+# 画面文字は写っていないことを目視確認済み)へ差し替えた。旧イラストファイル
+# 自体は削除・上書きしていない(参照しなくなっただけ)。1672x941の横長・
+# 文字なしのまま。
+NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH = "images/note-ai-mismatch-hero-photo.png"
+NOTE_THIRD_ARTICLE_DRAFT_COVER_WIDTH = 1672
+NOTE_THIRD_ARTICLE_DRAFT_COVER_HEIGHT = 941
+
+NOTE_THIRD_ARTICLE_DRAFT = {
+    "theme": "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないときの3つの見直し",
+    "title": "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないときの3つの見直し",
+    "hero_image_alt": (
+        "明るい昼間の室内で、スマートフォンの画面に文字を入力し直している手元のイメージ。"
+        "柔らかい光がやわらかく差し込む様子を表現しており、ロゴ・読める文字・人物の顔・"
+        "実在サービスの画面は写っていません。"
+    ),
+    "overview": (
+        "AIに質問しても「なんか違う」と感じる場面を想定し、会話がかみ合わないときに見直したい"
+        "3つのポイント（目的を先に伝える・前提や条件を足す・一度で終わらせず聞き返す）を、具体例"
+        "を交えて紹介する記事の下書きです。既存のメール下書き・スマホでのAI下書き・デスク環境・"
+        "AI初心者向け3つの使い方の記事とは内容を重複させず、AIとの対話そのものの質を見直す視点に"
+        "焦点を当てています。"
+    ),
+    "intro": (
+        "仕事の合間に、ちょっとした疑問をAIに投げかけてみた。ところが、返ってきた答えを読んで、"
+        "思わず「あれ、なんか違うな」とつぶやいてしまった——そんな経験はないでしょうか。\n\n"
+        "たとえば、明日の会議で使う資料の構成案が欲しくてAIに相談したのに、返ってきたのは当たり前"
+        "のことをふんわりと並べただけの一般論だった。あるいは、一言で答えてほしかっただけなのに、"
+        "聞いてもいない背景説明まで長々と続いて、結局欲しかった答えにたどり着くまで時間がかかって"
+        "しまった。そんなとき、「AIってこんなものなのか」「自分の聞き方が悪いのかもしれないけれど、"
+        "どう直せばいいか分からない」と、モヤモヤした気持ちになった人は少なくないはずです。\n\n"
+        "この記事は、そんな「なんか違う」を何度も味わってきた人に向けて書いています。AIとの会話が"
+        "かみ合わないと感じたときに見直したい3つのポイント——目的を先に伝える、前提や条件を足す、"
+        "一度で終わらせず聞き返す——を、具体例を交えながら紹介します。どれも難しい知識は必要なく、"
+        "次にAIに話しかけるときからすぐに試せることばかりです。\n\n"
+        "こうしたモヤモヤは、AIの使い方に慣れていない人だけが感じるものではありません。ある程度"
+        "使い慣れてきたつもりでも、忙しいときほど指示が雑になり、結果として「なんか違う」を繰り"
+        "返してしまうことは珍しくないのです。自分の聞き方を一つひとつ振り返る余裕がないときこそ、"
+        "この3つのポイントをチェックリストのように思い出してもらえたらと思います。"
+    ),
+    "sections": [
+        {
+            "heading": "1. 目的を先に伝える",
+            "body": (
+                "AIに何かを頼むとき、多くの人はまず「やってほしいこと」だけを伝えます。たとえば"
+                "「この文章を短くして」「このデータをまとめて」といった具合です。ところが、AIに"
+                "とっては「何のために短くするのか」「まとめた結果を誰がどう使うのか」が分からない"
+                "まま作業することになり、こちらが期待していた仕上がりと違う結果が返ってきやすく"
+                "なります。\n\n"
+                "たとえば、「このメモを短くまとめてください」とだけ頼むと、AIはどの情報を残すべき"
+                "か自分で判断するしかありません。結果として、あなたが重要だと思っていた部分が削ら"
+                "れてしまうことがあります。ここに「上司への報告用に、決定事項だけ分かるように短く"
+                "してください」と目的を添えるだけで、AIは残すべき情報の優先順位を理解しやすくなり、"
+                "仕上がりがぐっと変わってきます。\n\n"
+                "目的を伝えるときは、難しく考える必要はありません。「誰に」「何のために」「どんな"
+                "場面で使うのか」を、ひとこと添えるだけで十分です。たとえば「取引先に送るので、"
+                "丁寧な言い回しにしてください」「自分用のメモなので、要点だけ簡潔にまとめてくださ"
+                "い」のように、使う相手や場面を一言加えるだけで、AIが選ぶ言葉づかいや情報の取捨"
+                "選択が大きく変わります。「なんか違う」と感じたときほど、実は目的を伝え忘れている"
+                "ことが多いものです。\n\n"
+                "目的を伝える習慣がついてくると、頼み方そのものが少しずつ変わってきます。「これを"
+                "やって」ではなく、「これを、こういう理由でやってほしい」という形が自然に口から出る"
+                "ようになると、AIに限らず、人に何かを頼むときの伝え方も整理されやすくなるという"
+                "副次的な効果を感じる人もいます。最初は面倒に感じても、決まり文句のように「これは"
+                "何のために使うか」を一言添える癖をつけてみると、次第に苦にならなくなっていきます。"
+                "\n\n"
+                "もう一つの例を挙げると、企画のアイデア出しを頼むときにも、目的を伝える効果は大きく"
+                "現れます。「新商品のアイデアを5つ考えて」とだけ頼むと、AIはごく一般的な案を並べる"
+                "だけになりがちです。一方で「20代の一人暮らし向けに、忙しい平日でも続けやすい商品の"
+                "アイデアを5つ考えて」のように、想定する相手や状況まで伝えると、案の方向性がぐっと"
+                "絞り込まれ、そのまま使える案が増えていきます。"
+            ),
+        },
+        {
+            "heading": "2. 前提や条件を足す",
+            "body": (
+                "目的を伝えても、まだ「なんか違う」と感じることがあります。その場合、次に見直し"
+                "たいのが、前提や条件が足りているかどうかです。AIは、あなたの頭の中にある状況や"
+                "制約を、勝手に読み取ってくれるわけではありません。伝えていない情報は、存在しない"
+                "ものとして扱われてしまいます。\n\n"
+                "たとえば、「来週の打ち合わせの案内メールを書いてください」とだけ頼むと、AIはごく"
+                "一般的な案内文を作ります。しかし実際には、「オンラインなのか対面なのか」「参加者は"
+                "社内だけなのか取引先も含むのか」「すでに一度延期している打ち合わせなのか」といった"
+                "条件によって、書くべき文章は大きく変わるはずです。こうした条件を伝えないまま「なん"
+                "か違う」と感じてしまうのは、ある意味当然のことなのです。\n\n"
+                "コツは、自分が当たり前だと思っている前提こそ、あえて言葉にしてみることです。「オン"
+                "ライン開催で、取引先の方も含めて5名が参加します」「前回一度延期しているので、その旨"
+                "も一言添えてください」のように、状況を具体的に伝えるほど、AIの返答はあなたが本当に"
+                "欲しかった内容に近づいていきます。最初の指示が短すぎたと感じたら、まずは前提条件を"
+                "1つか2つ足してみることから始めてみてください。\n\n"
+                "どこまで前提を伝えればよいか迷ったときは、「自分が初めて会う人にこの作業を頼むとし"
+                "たら、何を説明しておくか」を想像してみると考えやすくなります。相手の名前も知らない"
+                "新人アルバイトの方に仕事を頼むときには、状況や背景をある程度説明するはずです。AIに"
+                "対しても、同じくらいの気持ちで前提を添えてみると、抜け漏れに気づきやすくなります。"
+                "\n\n"
+                "前提を足しすぎて、指示が長くなりすぎるのではと心配になる人もいるかもしれません。"
+                "ただ、実際には箇条書きのように短い言葉を並べるだけでも十分です。「オンライン」"
+                "「取引先含む5名」「一度延期済み」のように、単語を並べるだけでも、AIはそこから必要な"
+                "情報を読み取ってくれます。文章として整える必要はなく、思いついた条件をそのまま"
+                "並べるくらいの気軽さで構いません。"
+            ),
+        },
+        {
+            "heading": "3. 一度で終わらせず聞き返す",
+            "body": (
+                "目的も前提も伝えたのに、それでも「なんか違う」と感じることはあります。ここで大切"
+                "なのは、一度の返答で会話を終わらせないことです。AIとのやり取りは、一往復で完成さ"
+                "せるものではなく、返ってきた答えを見ながら「ここをもう少し」と伝え直す、対話に近い"
+                "使い方をすると、結果が安定しやすくなります。\n\n"
+                "たとえば、AIが作った文章の言い回しが硬すぎると感じたら、「もう少し柔らかい言い方に"
+                "してください」と伝え直すだけで、印象はかなり変わります。情報が足りないと感じたら、"
+                "「◯◯についても触れてください」と付け加えるだけで、必要な内容を補ってもらえます。"
+                "一度目の答えを「正解」か「不正解」かで判断するのではなく、「たたき台」として受け"
+                "取り、そこから育てていくという感覚を持つと、AIとのやり取りがぐっと楽になります。"
+                "\n\n"
+                "聞き返すときは、何が違うのかをできるだけ具体的に伝えることがポイントです。「なんか"
+                "違う」とだけ伝えても、AIはどこを直せばよいか判断できません。「もっと短くしてほし"
+                "い」「もっと具体的な例がほしい」「この部分は不要」のように、直してほしい点を一言"
+                "添えるだけで、次の返答は驚くほど近づいてきます。かみ合わないと感じたときほど、一度"
+                "で諦めず、もう一往復だけ会話を重ねてみてください。\n\n"
+                "聞き返すことに、遠慮はいりません。AIは同じ質問を何度言い直しても、面倒くさがった"
+                "り、態度を変えたりすることはありません。人に何度も聞き返すのは気が引けても、AIが"
+                "相手であれば、納得がいくまで気兼ねなくやり取りを重ねられます。この気軽さこそ、AIと"
+                "の会話ならではの強みだと捉えると、聞き返す一往復が、それほど大きな負担には感じられ"
+                "なくなるはずです。\n\n"
+                "たとえば要約を頼んだときに、思っていたより大事な部分が抜け落ちていたとします。その"
+                "場合も、最初からやり直す必要はありません。「さきほどの要約に、◯◯についての一文を"
+                "足してください」と伝えるだけで、AIはそれまでのやり取りを踏まえて調整してくれます。"
+                "ゼロから頼み直すのではなく、直前の答えを土台にして少しずつ整えていく、という感覚を"
+                "持つと、聞き返すことへの抵抗感も薄れていきます。"
+            ),
+        },
+        {
+            "heading": "3つを試しても違うと感じたら",
+            "body": (
+                "目的を伝え、前提を足し、聞き返しても、それでも「なんか違う」が解消しないことは"
+                "あります。そんなときは、無理にAIとのやり取りだけで解決しようとしなくてもかまいませ"
+                "ん。専門性が高すぎる話題や、最新の状況が絡む話題、答えが一つに定まらない相談ごとで"
+                "は、AIよりも、詳しい人に直接聞いたほうが早いこともあります。\n\n"
+                "また、時間を置いてから聞き直すだけで、意外とすんなり欲しい答えにたどり着くこともあ"
+                "ります。一度目のやり取りで頭の中が整理されて、二度目に聞くときには、自分でも気づか"
+                "ないうちに目的や前提がはっきりしていることがあるからです。「なんか違う」と感じても"
+                "焦らず、少し時間を置いてから、もう一度話しかけてみるのも一つの手です。\n\n"
+                "大切なのは、「AIとの会話がかみ合わない=自分の使い方が全部間違っている」と思い込ま"
+                "ないことです。目的・前提・聞き返しの3つを意識したうえでも解決しない場合は、それは"
+                "単にその話題がAIに向いていなかっただけかもしれません。3つの見直しは、うまくいく"
+                "確率を上げるための工夫であって、絶対に解決する魔法ではない、という前提で気楽に使って"
+                "みてください。\n\n"
+                "それでも、多くの場合は目的・前提・聞き返しの3つを一つずつ確認していくだけで、"
+                "「なんか違う」と感じる回数はかなり減っていきます。うまくいかない例外があることを"
+                "頭の片隅に置いておきつつ、まずはこの3つを日々のやり取りの中で試してみることから"
+                "始めてみてください。試しているうちに、自分なりの「これを聞くときはここまで伝える"
+                "とうまくいく」という感覚が、少しずつ身についてくるはずです。その感覚さえつかめれば、"
+                "毎回3つすべてを意識しなくても、自然と「なんか違う」に出会う回数そのものが減って"
+                "いきます。"
+            ),
+        },
+    ],
+    "closing_heading": "まとめ",
+    "closing_body": (
+        "この記事では、AIとの会話がかみ合わないと感じたときに見直したい3つのポイントとして、目的"
+        "を先に伝える・前提や条件を足す・一度で終わらせず聞き返す、を紹介しました。どれも、AIに"
+        "完璧な指示を出すためのテクニックというより、人に何かを頼むときと同じように、相手が判断"
+        "しやすい材料を渡してあげる、という考え方に近いものです。\n\n"
+        "次にAIに何かを聞いて「なんか違う」と感じたときは、AIの性能を疑う前に、この3つのうちどれ"
+        "か1つでも見直してみてください。ほんの一言を加えるだけで、それまでモヤモヤしていたやり"
+        "取りが、驚くほどスムーズになることがあります。\n\n"
+        "最初からすべてを完璧にこなそうとしなくても大丈夫です。まずは次に「なんか違う」と感じた"
+        "瞬間に、この記事のどれか一つを思い出してみてください。その積み重ねが、AIとの会話を少し"
+        "ずつ、自分にとって使いやすいものに変えていってくれるはずです。"
+    ),
+    "pinterest_description": (
+        "AIに聞いても「なんか違う」と感じたときに見直したい3つのポイントをnote記事でまとめました。"
+        "目的を先に伝える・前提や条件を足す・一度で終わらせず聞き返す、について具体例を交えて紹介"
+        "しています。特定の商品の紹介やレビューは含みません。"
+    ),
+    "alt_text_draft": (
+        "AIに聞いても「なんか違う」と感じる人へ、というテーマのnote記事用altテキスト案。会話が"
+        "かみ合わないときに見直したい3項目（目的を先に伝える・前提や条件を足す・一度で終わらせず"
+        "聞き返す）を要約した説明文。note記事本体の見出し画像は明るい昼間の雰囲気でスマホに入力し"
+        "直す手元を主役にしており、Pinterest投稿キューには別途、縦長でタイトルを焼き込んだ画像を"
+        "用意しています。"
+    ),
+    "manual_post_note": (
+        "この記事はまだ下書きであり、noteへは投稿していません。柴犬社長が内容を確認し、必要に応じて"
+        "手動でnoteへ貼り付けて公開する場合に備えた下書きです。note・SNSへの自動投稿・予約投稿・"
+        "ログイン操作・API連携・外部通信は一切行いません。"
+    ),
+    "checklist": [
+        "本文が4,500〜5,500字の目安に収まっているか確認した",
+        "「必ず」「絶対」等の断定表現や、成果を保証する表現が含まれていないか確認した",
+        "実体験でないことを実体験のように書いていないか確認した",
+        "実在サービス画面・商品名・価格・在庫・ランキング・成果数値・レビューを記載していないか"
+        "確認した",
+        "楽天ROOMの商品紹介・リンクを含めていないか確認した",
+        "公開済みのメール下書き・スマホAI下書き・デスク環境・AI初心者3選の記事と内容が重複して"
+        "いないか確認した",
+        "Pinterest用説明文案が500字以内に収まっているか確認した",
+        "見出し画像に日本語文字・ロゴ・実在サービスの画面・人物の顔が写っていないか確認した",
+        "noteアカウントにログインした状態で、手動で貼り付けて公開できる準備ができている",
+    ],
+}
+
+
+def _note_third_article_draft_body_plain_text(article):
+  """NOTE_THIRD_ARTICLE_DRAFTの本文(導入〜まとめ)のプレーンテキストを組み立てる。
+
+  概要・Pinterest説明文案・altテキスト案・チェックリストは含めない。段落の
+  区切りは実際の改行(\\n\\n)で表現し、表示用マークアップと文字数検証の両方で
+  同じテキストを共有する(NOTE_SECOND_ARTICLE_DRAFT用の
+  _note_second_article_draft_body_plain_textと同じ方式)。
+  """
+  parts = [article["intro"]]
+  for section in article["sections"]:
+    parts.append(f'{section["heading"]}\n{section["body"]}')
+  parts.append(f'{article["closing_heading"]}\n{article["closing_body"]}')
+  return "\n\n".join(parts)
+
+
+def _render_note_third_article_draft_scene(article):
+  """MISSION 049: AIとの会話の見直しテーマのnote記事下書きのHTMLを組み立てる。
+
+  純粋な表示用マークアップの生成のみを行う。DB・API・SNS・note・外部通信への
+  アクセスは一切行わない。見出し画像は、あらかじめ生成された既存ファイル
+  (NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH)をそのまま<img>で表示する
+  だけで、タイトル文字はHTML側で重ねない(画像そのものにも文字は焼き込まれて
+  いない)。コピー用ボタンはクライアント側JSのみで完結し、クリップボード操作
+  が失敗しても例外を伝播させず、安全なフォールバック表示にする。
+  """
+  visible_parts = [_paragraphs_html(article["intro"])]
+  for section in article["sections"]:
+    visible_parts.append(f'<h4 class="note-subheading">{section["heading"]}</h4>')
+    visible_parts.append(_paragraphs_html(section["body"]))
+  visible_parts.append(f'<h4 class="note-subheading">{article["closing_heading"]}</h4>')
+  visible_parts.append(_paragraphs_html(article["closing_body"]))
+  visible_body = "".join(visible_parts)
+
+  body_copy_text = _note_third_article_draft_body_plain_text(article)
+  checklist_items = "".join(
+      f'<li><input type="checkbox" id="note3-check-{i}">'
+      f'<label for="note3-check-{i}">{item}</label></li>'
+      for i, item in enumerate(article["checklist"])
+  )
+
+  return (
+      '<section class="note-article-board" aria-label="AIとの会話の見直しテーマのnote記事下書き">'
+      '<div class="fp-notice"><b>社内向けの下書き確認画面です。</b>'
+      'noteへの投稿・送信・連携は一切行われません。柴犬社長が内容を確認するための'
+      '下書き表示です。</div>'
+      f'<p class="fp-theme">対象テーマ：<b>{article["theme"]}</b>'
+      '（Pinterest投稿キューの「AIが「なんか違う」ときに見直す3つ」と対応）</p>'
+      f'<div class="fp-note fp-note-warn"><b>下書きについて。</b>{article["manual_post_note"]}</div>'
+      '<h3 class="fp-section-title">見出し画像</h3>'
+      '<div class="note-hero">'
+      f'<img class="note-hero-img" src="/static/{NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH}" '
+      f'alt="{article["hero_image_alt"]}">'
+      '</div>'
+      f'<p class="fp-svg-ratio">横長 {NOTE_THIRD_ARTICLE_DRAFT_COVER_WIDTH}×'
+      f'{NOTE_THIRD_ARTICLE_DRAFT_COVER_HEIGHT}'
+      '（あらかじめ用意した画像・見出し文字はHTML側で重ねていません）</p>'
+      f'<a class="fp-png-download" href="/static/{NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH}" '
+      'download="note-ai-mismatch-hero-photo.png">見出し画像PNGを保存</a>'
+      '<p class="fp-png-hint">保存したPNGをnoteの見出し画像として手動アップロードしてください。'
+      'このボタンからの投稿・送信・連携は行われません。</p>'
+      '<div class="fp-field"><div class="fp-field-head"><h4>タイトル</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="note3-title">'
+      'コピー</button></div>'
+      f'<p id="note3-title">{article["title"]}</p></div>'
+      '<div class="fp-field"><div class="fp-field-head"><h4>概要</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="note3-overview">'
+      'コピー</button></div>'
+      f'<p id="note3-overview">{article["overview"]}</p></div>'
+      '<h3 class="fp-section-title">記事本文</h3>'
+      '<div class="fp-field">'
+      '<div class="fp-field-head"><h4>本文</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="note3-body-copy">'
+      'コピー</button></div>'
+      f'<div class="note-article-visible">{visible_body}</div>'
+      f'<pre id="note3-body-copy" class="note-article-copy-source">{body_copy_text}</pre>'
+      '</div>'
+      '<h3 class="fp-section-title">Pinterest用説明文案・altテキスト案</h3>'
+      '<div class="fp-field"><div class="fp-field-head"><h4>Pinterest用説明文案</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="note3-pinterest-description">'
+      'コピー</button></div>'
+      f'<p id="note3-pinterest-description">{article["pinterest_description"]}</p></div>'
+      '<div class="fp-field"><div class="fp-field-head"><h4>altテキスト案</h4>'
+      '<button type="button" class="fp-copy-btn" data-copy-target="note3-alt-text">'
+      'コピー</button></div>'
+      f'<p id="note3-alt-text">{article["alt_text_draft"]}</p></div>'
+      '<h3 class="fp-section-title">投稿前チェックリスト</h3>'
+      f'<ul class="fp-checklist">{checklist_items}</ul>'
+      # MISSION 049: コピー操作はクライアント側JSのみで完結し、外部通信は行わない。
+      # navigator.clipboardが使えない/失敗する環境でも、例外を投げずに安全な
+      # 文言へフォールバックする(既存の投稿パッケージ画面と同じ方式)。
+      '<script>document.querySelectorAll(".fp-copy-btn").forEach(btn=>{'
+      'btn.addEventListener("click",()=>{'
+      'const el=document.getElementById(btn.dataset.copyTarget);'
+      'if(!el)return;'
+      'const original=btn.textContent;'
+      'const showResult=ok=>{btn.textContent=ok?"コピーしました":"コピーできませんでした";'
+      'setTimeout(()=>{btn.textContent=original;},1800);};'
+      'try{'
+      'if(navigator.clipboard&&navigator.clipboard.writeText){'
+      'navigator.clipboard.writeText(el.textContent).then(()=>showResult(true))'
+      '.catch(()=>showResult(false));'
+      '}else{showResult(false);}'
+      '}catch(e){showResult(false);}'
+      '});'
+      '});</script>'
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の資料です。'
+      'note・SNS・楽天ROOMへの投稿・送信・連携は行われません。</p>'
+      '</section>'
+  )
+
+
 def register_office_views(app):
   """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
@@ -3356,6 +4126,10 @@ def register_office_views(app):
         CONTENT_STUDIO_WRITING_STANDARDS,
         CONTENT_STUDIO_IMAGE_STANDARDS_HEADING, CONTENT_STUDIO_IMAGE_STANDARDS_INTRO,
         CONTENT_STUDIO_IMAGE_STANDARDS,
+        CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_HEADING,
+        CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_INTRO,
+        CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES,
+        CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION,
     )
     return _page(
         "content", "投稿企画工場",
@@ -3416,11 +4190,16 @@ def register_office_views(app):
     # テーマ「スマホでAIに下書きを頼む前に確認する3つ」と対応するnote記事
     # 下書きを追加する。既存の初回記事セクションの内容・構成は変更しない。
     second_draft_scene = _render_note_second_article_draft_scene(NOTE_SECOND_ARTICLE_DRAFT)
+    # MISSION 049: さらにその下へ、「AIに聞いても『なんか違う』と感じる人へ」
+    # note記事下書きを追加する。既存の2件のセクションの内容・構成は変更しない。
+    third_draft_scene = _render_note_third_article_draft_scene(NOTE_THIRD_ARTICLE_DRAFT)
     return _page(
         "content", "note初回記事",
         "柴犬社長がnoteへ手動で貼り付けて公開するための、初回記事および"
-        "スマホAI下書きテーマの記事下書きの見出し・本文・見出し画像・"
-        "タグ候補を確認する画面です。",
+        "記事下書き(スマホAI下書き・AIとの会話の見直し)の見出し・本文・"
+        "見出し画像・タグ候補を確認する画面です。",
         f'{scene}<h2 class="fp-section-title">次のnote記事下書き</h2>'
-        f'{second_draft_scene}',
+        f'{second_draft_scene}'
+        '<h2 class="fp-section-title">さらに次のnote記事下書き</h2>'
+        f'{third_draft_scene}',
     )

@@ -717,7 +717,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         "買う前に確認したいAI対応ガジェットの選び方",
     ):
       self.assertNotIn(removed_title, html)
-    self.assertEqual(html.count('class="cs-plan-card"'), 2)
+    # MISSION 048で、次に作る記事・投稿の候補3件を同じcs-plan-cardスタイルで
+    # 追加したため、2件(既存の稼働中テーマ)+3件(候補)=5件になった。
+    self.assertEqual(html.count('class="cs-plan-card"'), 5)
 
   def test_content_studio_removes_instagram_and_threads_everywhere(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
@@ -817,6 +819,10 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.CONTENT_STUDIO_IMAGE_STANDARDS_HEADING,
         office_views.CONTENT_STUDIO_IMAGE_STANDARDS_INTRO,
         office_views.CONTENT_STUDIO_IMAGE_STANDARDS,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_HEADING,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_INTRO,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION,
     )
     self.assertIn(office_views.CONTENT_STUDIO_THEME, rendered)
 
@@ -855,10 +861,11 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_content_studio_writing_standards_do_not_alter_existing_note_pinterest_queue(self):
     # MISSION 046は今後の下書き作成基準を追加するのみで、既存のnote記事・
-    # Pinterest投稿・投稿キュー4本・既存画像・既存の本文には一切影響しない
-    # ことを確認する。
+    # Pinterest投稿・投稿キュー・既存画像・既存の本文には一切影響しない
+    # ことを確認する(投稿キューの件数はMISSION 042で4件、MISSION 049で
+    # 5件になっているが、その増減はこのミッションによるものではない)。
     import office_views
-    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
     self.assertEqual(len(office_views.CONTENT_STUDIO_PLANS), 2)
     note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     self.assertIn(
@@ -870,7 +877,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         note_html,
     )
     queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(queue_html.count('class="pq-status-badge"'), 4)
+    self.assertEqual(queue_html.count('class="pq-status-badge"'), 5)
     # 作成基準セクション自体は投稿企画工場だけに追加し、note記事・投稿キュー
     # ページには表示しない。
     self.assertNotIn("文章の作成基準", note_html)
@@ -952,9 +959,10 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_content_studio_image_standards_do_not_alter_existing_note_pinterest_queue(self):
     # MISSION 047は今後の画像作成基準を追加するのみで、既存のnote記事・
     # Pinterest投稿・投稿キュー・既存画像・既存本文には一切影響しないことを
-    # 確認する。
+    # 確認する(投稿キューの件数はMISSION 042で4件、MISSION 049で5件に
+    # なっているが、その増減はこのミッションによるものではない)。
     import office_views
-    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
     self.assertEqual(len(office_views.CONTENT_STUDIO_PLANS), 2)
     note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     self.assertIn(
@@ -974,7 +982,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         note_html,
     )
     queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(queue_html.count('class="pq-status-badge"'), 4)
+    self.assertEqual(queue_html.count('class="pq-status-badge"'), 5)
     # 作成基準セクション自体は投稿企画工場だけに追加し、note記事・投稿キュー
     # ページには表示しない。
     self.assertNotIn("画像の作成基準", note_html)
@@ -998,6 +1006,155 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(source.count('class="fp-checklist"'), 2)
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn('name="viewport"', html)
+
+  # --- MISSION 048: 次のnote記事・Pinterest投稿候補(AI初心者向け・企画メモ) -----
+
+  def test_content_studio_shows_next_candidates_heading_and_intro(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）", html)
+    self.assertIn(
+        "公開済みのPinterest投稿4本・note記事2本の内容を踏まえ、次に作る候補を3つ整理した"
+        "企画メモです。",
+        html,
+    )
+    self.assertIn("記事・画像・投稿はまだ作成していません。", html)
+    # 画像の作成基準(MISSION 047)より後、既存のplanカードより後ろに表示される
+    # (文章→画像→既存企画案→次の候補、の順で並んでいること)ことを確認する。
+    self.assertLess(
+        html.index("画像の作成基準（テーマが一目で伝わり、同じ構図が続かない画像）"),
+        html.index("次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）"),
+    )
+    self.assertLess(
+        html.index("AI初心者が最初に試す便利な使い方"),
+        html.index("次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）"),
+    )
+
+  def test_content_studio_shows_three_candidates_with_all_required_fields(self):
+    import office_views
+    candidates = office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES
+    self.assertEqual(len(candidates), 3)
+    required_keys = {
+        "theme", "pain_point", "note_title_candidates", "pinterest_title",
+        "opening_hook", "heading_outline", "image_subject_and_composition",
+        "pinterest_vs_note_image_difference", "reason",
+    }
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for c in candidates:
+      self.assertEqual(set(c.keys()), required_keys)
+      self.assertEqual(len(c["note_title_candidates"]), 3)
+      self.assertIn(c["theme"], html)
+      self.assertIn(c["pain_point"], html)
+      for t in c["note_title_candidates"]:
+        self.assertIn(t, html)
+      self.assertIn(c["pinterest_title"], html)
+      self.assertIn(c["opening_hook"], html)
+      for h in c["heading_outline"]:
+        self.assertIn(h, html)
+      self.assertIn(c["image_subject_and_composition"], html)
+      self.assertIn(c["pinterest_vs_note_image_difference"], html)
+      self.assertIn(c["reason"], html)
+
+  def test_content_studio_candidate_opening_hooks_are_roughly_200_to_300_chars(self):
+    import office_views
+    for c in office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES:
+      with self.subTest(theme=c["theme"]):
+        char_count = len(c["opening_hook"])
+        self.assertGreaterEqual(char_count, 180)
+        self.assertLessEqual(char_count, 320)
+
+  def test_content_studio_candidates_do_not_duplicate_existing_post_themes(self):
+    # 既存4本(メール下書き・デスク配線・周辺機器選び・スマホでのAI下書き)や、
+    # note記事2本(一般的なAIの使い方・スマホでのAI下書き)と同じテーマ文言を
+    # 候補のタイトル案に使っていないことを確認する。
+    import office_views
+    existing_titles = (
+        "AIにメールの下書きを頼む前に決める3つ",
+        "デスクが狭いときに配線を見直す3つのポイント",
+        "スマホ・PC作業をラクにする周辺機器の選び方",
+        "スマホでAIに下書きを頼む前に確認する3つ",
+        "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+    )
+    for c in office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES:
+      self.assertNotIn(c["pinterest_title"], existing_titles)
+      for t in c["note_title_candidates"]:
+        self.assertNotIn(t, existing_titles)
+
+  def test_content_studio_shows_next_candidates_recommendation(self):
+    import office_views
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('<b>次に作るなら。</b>', html)
+    self.assertIn(office_views.CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION, html)
+    # 3候補のうちどれか1つだけを明確に推薦していることを確認する。
+    recommendation = office_views.CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION
+    mentioned = [
+        c for c in office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES
+        if c["pinterest_title"] in recommendation or c["theme"] in recommendation
+    ]
+    self.assertEqual(len(mentioned), 1)
+
+  def test_content_studio_candidates_have_no_business_data_or_definitive_claims(self):
+    # 「必ず別の情報源で確認する」のような注意喚起としての「必ず」は許容し
+    # (MISSION 046の基準が禁じているのは、成果を断定する誇大表現としての
+    # 「必ず」「絶対」であり、確認を促す慎重な助言ではない)、タイトル・
+    # Pinterestタイトルといったクリック誘導になりやすい箇所に誇大表現の
+    # 決まり文句が入っていないかを確認する。
+    import office_views
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    candidates_section = html.split(
+        "次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）", 1
+    )[1].split('<p class="cs-footnote">', 1)[0]
+    for forbidden in ("円", "¥", "位獲得", "在庫あり", "在庫切れ", "ランキング", "レビュー"):
+      self.assertNotIn(forbidden, candidates_section)
+    self.assertNotIn("https://", candidates_section)
+    self.assertNotIn("fetch(", candidates_section)
+    self.assertNotIn("/api/", candidates_section)
+    self.assertNotIn("<script", candidates_section)
+    for c in office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES:
+      for forbidden in ("必ず稼げ", "絶対に成功", "これだけで成功"):
+        self.assertNotIn(forbidden, c["theme"])
+        self.assertNotIn(forbidden, c["pinterest_title"])
+        for t in c["note_title_candidates"]:
+          self.assertNotIn(forbidden, t)
+
+  def test_content_studio_candidates_do_not_alter_existing_note_pinterest_queue(self):
+    # 投稿キューの件数はMISSION 042で4件、MISSION 049で5件になっているが、
+    # その増減はこのミッション(048)によるものではない。
+    import office_views
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_PLANS), 2)
+    note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn(
+        "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+        note_html,
+    )
+    self.assertIn(
+        "スマホでAIに下書きを頼む前に確認する3つ──端末・入力・読み返しを先に決める",
+        note_html,
+    )
+    queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(queue_html.count('class="pq-status-badge"'), 5)
+    self.assertNotIn("次のnote記事・Pinterest投稿の候補", note_html)
+    self.assertNotIn("次のnote記事・Pinterest投稿の候補", queue_html)
+
+  def test_content_studio_candidates_content_is_data_driven_for_future_edits(self):
+    import office_views
+    rendered = office_views._render_content_studio_scene(
+        office_views.CONTENT_STUDIO_THEME,
+        office_views.CONTENT_STUDIO_PLANS,
+        office_views.CONTENT_STUDIO_ROOM_LINK_POLICY,
+        office_views.CONTENT_STUDIO_WRITING_STANDARDS_HEADING,
+        office_views.CONTENT_STUDIO_WRITING_STANDARDS_INTRO,
+        office_views.CONTENT_STUDIO_WRITING_STANDARDS,
+        office_views.CONTENT_STUDIO_IMAGE_STANDARDS_HEADING,
+        office_views.CONTENT_STUDIO_IMAGE_STANDARDS_INTRO,
+        office_views.CONTENT_STUDIO_IMAGE_STANDARDS,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_HEADING,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_INTRO,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES,
+        office_views.CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION,
+    )
+    self.assertIn("次のnote記事・Pinterest投稿の候補", rendered)
+    self.assertEqual(rendered.count('class="cs-plan-card"'), 5)
 
   # --- MISSION 032: 初回手動投稿パッケージ(Pinterest向け) ----------------------
 
@@ -1695,11 +1852,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     # v3画像)になった。MISSION 042.1でスマホAI下書き投稿用の画像焼き込み
     # (generate_publish_queue_smartphone_ai_draft_png)も、支給された写真の
     # 上に文字を焼き込む同じ手法(ImageFontを使う版)に切り替えたため、5件に
-    # なった。MISSION 037.1のnoteヒーロー画像は文字を画像に焼き込まない
-    # ためImageFontを使わず、ImageDraw+ImageFilterのみの遅延importになって
-    # いる(別テストで検証)。
+    # なった。MISSION 049.2でAIとの会話見直しテーマのPinterest画像焼き込み
+    # (generate_publish_queue_ai_mismatch_png)も、支給された写真の上に文字を
+    # 焼き込む同じ手法(ImageFontを使う版)に切り替えたため、6件になった。
+    # MISSION 037.1のnoteヒーロー画像は文字を画像に焼き込まないためImageFont
+    # を使わず、ImageDraw+ImageFilterのみの遅延importになっている(別テスト
+    # で検証)。
     self.assertEqual(
-        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 5
+        module_source.count("from PIL import Image, ImageDraw, ImageFont"), 6
     )
     self.assertIn("  from PIL import Image, ImageDraw, ImageFilter", module_source)
     self.assertNotIn("def generate_note_eyecatch_png", module_source)
@@ -1733,21 +1893,23 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("投稿キュー（社長承認待ち）", html)
     self.assertIn("<title>投稿キュー（社長承認待ち） | AI Hive</title>", html)
 
-  def test_publish_queue_shows_four_posts_as_awaiting_approval(self):
+  def test_publish_queue_shows_five_posts_as_awaiting_approval(self):
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    # MISSION 042で「スマホでAIに下書きを頼む前に確認する3つ」を追加し、3件→4件になった。
-    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    # MISSION 042で4件目(スマホでのAI下書き)、MISSION 049で5件目(AIが
+    # 「なんか違う」ときに見直す3つ)を追加した。
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
     for post in office_views.PUBLISH_QUEUE_POSTS:
       self.assertIn(post["pin"]["title"], html)
       self.assertEqual(post["status"], "社長承認待ち")
-    self.assertEqual(html.count('class="pq-status-badge"'), 4)
+    self.assertEqual(html.count('class="pq-status-badge"'), 5)
     for title in (
         # MISSION 039でメール下書き用の投稿タイトルを更新した。
         "AIにメールの下書きを頼む前に決める3つ",
         "デスクが狭いときに配線を見直す3つのポイント",
         "スマホ・PC作業をラクにする周辺機器の選び方",
         "スマホでAIに下書きを頼む前に確認する3つ",
+        "AIが「なんか違う」ときに見直す3つ",
     ):
       self.assertIn(title, html)
 
@@ -1755,14 +1917,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
     # MISSION 039で「AIにメールの下書きを頼む前に決める3つ」だけ、SVG生成
     # ではなく高精細画像(<img>)を使うようになったため、SVG件数は3→2件になった
-    # (デスク配線・周辺機器選びの2件は引き続きSVG生成のまま)。MISSION 042の
+    # (デスク配線・周辺機器選びの2件は引き続きSVG生成のまま)。MISSION 042・049の
     # 新規追加分も高精細画像(<img>)方式のため、SVG件数は引き続き2件のまま。
     self.assertEqual(html.count('<svg viewBox="0 0 1000 1500"'), 2)
-    self.assertEqual(html.count("Pinterestのトピック候補"), 4)
-    self.assertEqual(html.count("投稿前チェックリスト"), 4)
+    self.assertEqual(html.count("Pinterestのトピック候補"), 5)
+    self.assertEqual(html.count("投稿前チェックリスト"), 5)
     for post_id in (
         "email-draft-3points", "desk-wiring-3points", "peripheral-choice-3points",
-        "smartphone-ai-draft-3points",
+        "smartphone-ai-draft-3points", "ai-mismatch-3points",
     ):
       self.assertIn(f'id="pq-title-{post_id}"', html)
       self.assertIn(f'id="pq-description-{post_id}"', html)
@@ -1771,6 +1933,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         "AI活用術", "仕事効率化", "ビジネスメール",
         "デスク環境", "配線収納", "在宅ワーク",
         "周辺機器", "ガジェット選び", "スマホ活用",
+        "AIとの対話術",
     ):
       self.assertIn(topic, html)
 
@@ -1795,9 +1958,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     # ため表示しない。
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    # MISSION 042で追加した「スマホでAIに下書きを頼む前に確認する3つ」も
-    # hero_image方式(<img>1枚)のため、<img>件数は1→2件になった。
-    self.assertEqual(html.count("<img"), 2)
+    # MISSION 042で追加した「スマホでAIに下書きを頼む前に確認する3つ」、
+    # MISSION 049で追加した「AIが『なんか違う』ときに見直す3つ」もどちらも
+    # hero_image方式(<img>1枚)のため、<img>件数は1→3件になった。
+    self.assertEqual(html.count("<img"), 3)
     self.assertIn(
         '<img class="note-hero-img" src="/static/images/publish-queue-email-draft-v3.png"',
         html,
@@ -1917,15 +2081,17 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 残る2件(デスク配線・周辺機器選び)は引き続き空欄のまま。MISSION 042の
     # 新規追加分も空欄のままだが、汎用文言ではなく専用の注記(折りたたみ
     # キーボード投稿URLを手動で貼る旨)を表示するため、「楽天ROOMリンク：
-    # （空欄）」自体の出現数は3件(共通の書き出し部分)になる。
+    # （空欄）」自体の出現数は3件(共通の書き出し部分)になる。MISSION 049の
+    # 新規追加分(ai-mismatch-3points)は汎用文言のまま空欄にしているため、
+    # 出現数はさらに1件増えて4件になる。
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 3)
+    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 4)
     self.assertEqual(
         html.count(
             "社長がPinterestへ投稿する際に手動で貼り付けてください。"
             "URLの取得・保存・外部連携は、この画面では一切行いません。"
         ),
-        2,
+        3,
     )
     self.assertIn(
         "楽天ROOMリンク：（空欄）公開済みの折りたたみキーボード投稿URLを、"
@@ -1954,12 +2120,12 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_publish_queue_states_manual_publish_by_president_on_every_card(self):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    # MISSION 042でカードが3件→4件になった。
-    self.assertEqual(html.count("公開について"), 4)
-    # ページ冒頭のリード文でも同じ文言を明記しているため、カード4件+リード文1件
-    # の合計5件が期待値。
+    # MISSION 042でカードが3件→4件、MISSION 049で4件→5件になった。
+    self.assertEqual(html.count("公開について"), 5)
+    # ページ冒頭のリード文でも同じ文言を明記しているため、カード5件+リード文1件
+    # の合計6件が期待値。
     self.assertEqual(
-        html.count("公開は社長がPinterestで手動実行します"), 5
+        html.count("公開は社長がPinterestで手動実行します"), 6
     )
     # MISSION 041: いまはPinterest・楽天ROOM・noteだけを手動運用しているため、
     # 使っていないThreads・Instagramへの言及を削除した。
@@ -1979,11 +2145,12 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("fp-copy-btn", html)
     self.assertIn("showResult(false)", html)
     self.assertIn("catch(e)", html)
-    # コピー用ボタンは、デスク配線・周辺機器選び・スマホAI下書きの3件が
-    # タイトル・説明文・altテキストの3フィールド×3件=9個、メール下書きが
-    # タイトル・説明文・altテキスト・リンク先の4フィールド=4個で、合計13個
-    # (MISSION 042でスマホAI下書きカードの3フィールドが追加された)。
-    self.assertEqual(html.count('class="fp-copy-btn"'), 13)
+    # コピー用ボタンは、デスク配線・周辺機器選び・スマホAI下書き・AIとの
+    # 会話見直しの4件がタイトル・説明文・altテキストの3フィールド×4件=12個、
+    # メール下書きがタイトル・説明文・altテキスト・リンク先の4フィールド=
+    # 4個で、合計16個(MISSION 049でAIとの会話見直しカードの3フィールドが
+    # 追加された)。
+    self.assertEqual(html.count('class="fp-copy-btn"'), 16)
 
   def test_publish_queue_has_no_external_resources_or_network_calls(self):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
@@ -2064,8 +2231,8 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_publish_queue_has_png_download_buttons_as_plain_links(self):
     import office_views
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    # MISSION 042でカードが3件→4件になった。
-    self.assertEqual(html.count("Pinterest用PNGを保存"), 4)
+    # MISSION 042でカードが3件→4件、MISSION 049で4件→5件になった。
+    self.assertEqual(html.count("Pinterest用PNGを保存"), 5)
     for post in office_views.PUBLISH_QUEUE_POSTS:
       asset_path = post.get("png_relative_path") or post.get("hero_image_relative_path")
       filename = post.get("png_download_filename") or post.get("hero_image_download_filename")
@@ -2493,8 +2660,9 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 043で、同じページにスマホAI下書きテーマのnote記事下書き
     # (チェックリスト7項目)を追加し、既存の初回記事分(7項目)と合わせて
     # 14個になった。MISSION 044でその下書きに見出し画像用のチェック項目が
-    # 1件追加され、合計15個になった。
-    self.assertEqual(html.count('type="checkbox"'), 15)
+    # 1件追加され、合計15個になった。MISSION 049でさらにAIとの会話見直し
+    # テーマのnote記事下書き(チェックリスト9項目)を追加し、合計24個になった。
+    self.assertEqual(html.count('type="checkbox"'), 24)
     self.assertIn("本文が4,500〜5,500字の目安に収まっているか確認した", html)
 
   def test_note_first_article_has_no_external_resources_or_network_calls(self):
@@ -2726,9 +2894,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     ):
       path = os.path.join(os.path.dirname(office_views.__file__), "static", relative_path)
       self.assertTrue(os.path.isfile(path), f"{relative_path} should still exist")
-    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    # 投稿キューの件数はMISSION 042で4件、MISSION 049で5件になっているが、
+    # その増減はこのミッション(044)によるものではない。
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count('class="pq-status-badge"'), 4)
+    self.assertEqual(html.count('class="pq-status-badge"'), 5)
 
   def test_note_second_article_draft_checklist_and_copy_buttons(self):
     import office_views
@@ -2767,7 +2937,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(title, res.get_data(as_text=True))
     import office_views
-    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    # 投稿キューの件数はMISSION 042で4件、MISSION 049で5件になっているが、
+    # その増減はこのミッション(043)によるものではない。
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
 
   def test_note_hero_png_file_exists_with_correct_landscape_dimensions(self):
     import office_views
@@ -2930,6 +3102,320 @@ class DashboardDesignTestCase(unittest.TestCase):
       with self.subTest(href=href):
         res = self.client.get(href)
         self.assertEqual(res.status_code, 200)
+
+  # --- MISSION 049: 「AIが『なんか違う』ときに見直す3つ」note記事・Pinterest投稿 ---
+
+  def test_note_third_article_draft_appears_on_note_first_article_page(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("さらに次のnote記事下書き", html)
+    self.assertIn(
+        "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないときの3つの見直し", html
+    )
+    # 既存2件のタイトルも引き続き表示されていることを確認する
+    # (既存記事・下書きは変更・削除していない)。
+    self.assertIn(
+        "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+        html,
+    )
+    self.assertIn(
+        "スマホでAIに下書きを頼む前に確認する3つ──端末・入力・読み返しを先に決める", html
+    )
+
+  def test_note_third_article_draft_body_char_count_is_within_4500_to_5500(self):
+    import office_views
+    body_text = office_views._note_third_article_draft_body_plain_text(
+        office_views.NOTE_THIRD_ARTICLE_DRAFT
+    )
+    char_count = len(body_text)
+    self.assertGreaterEqual(char_count, 4500)
+    self.assertLessEqual(char_count, 5500)
+
+  def test_note_third_article_draft_intro_starts_with_concrete_disappointment_scene(self):
+    # 冒頭が解説からではなく、AIに聞いたのに期待と違う答えが返ってきて
+    # 少しがっかりする具体的な場面から始まることを確認する。
+    import office_views
+    intro = office_views.NOTE_THIRD_ARTICLE_DRAFT["intro"]
+    first_paragraph = intro.split("\n\n", 1)[0]
+    self.assertIn("なんか違う", first_paragraph)
+    self.assertTrue(
+        first_paragraph.startswith("仕事の合間に、ちょっとした疑問をAIに投げかけてみた。")
+    )
+
+  def test_note_third_article_draft_covers_required_3_points_in_order(self):
+    import office_views
+    article = office_views.NOTE_THIRD_ARTICLE_DRAFT
+    headings = [s["heading"] for s in article["sections"]]
+    for required in ("1. 目的を先に伝える", "2. 前提や条件を足す", "3. 一度で終わらせず聞き返す"):
+      self.assertIn(required, headings)
+    self.assertEqual(headings.index("1. 目的を先に伝える"), 0)
+    self.assertEqual(headings.index("2. 前提や条件を足す"), 1)
+    self.assertEqual(headings.index("3. 一度で終わらせず聞き返す"), 2)
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    for required in ("1. 目的を先に伝える", "2. 前提や条件を足す", "3. 一度で終わらせず聞き返す"):
+      self.assertIn(required, html)
+
+  def test_note_third_article_draft_has_no_definitive_or_guaranteed_result_claims(self):
+    import office_views
+    article = office_views.NOTE_THIRD_ARTICLE_DRAFT
+    body_text = office_views._note_third_article_draft_body_plain_text(article)
+    for forbidden in (
+        "必ず解決", "絶対に解決できます", "必ず効果", "確実に成果", "私が実際に試した",
+        "私は実際に", "筆者が試したところ",
+    ):
+      self.assertNotIn(forbidden, body_text)
+    for forbidden in ("円", "¥", "位獲得", "在庫あり", "在庫切れ", "ランキング"):
+      self.assertNotIn(forbidden, body_text)
+
+  def test_note_third_article_draft_does_not_duplicate_other_articles(self):
+    # 公開済みのメール下書き記事・スマホでのAI下書き記事下書きと文章が
+    # 重複しないことを、本文プレーンテキストが完全一致しないことで確認する。
+    import office_views
+    first_body = office_views._note_article_body_plain_text(office_views.NOTE_FIRST_ARTICLE)
+    second_body = office_views._note_second_article_draft_body_plain_text(
+        office_views.NOTE_SECOND_ARTICLE_DRAFT
+    )
+    third_body = office_views._note_third_article_draft_body_plain_text(
+        office_views.NOTE_THIRD_ARTICLE_DRAFT
+    )
+    self.assertNotEqual(third_body, first_body)
+    self.assertNotEqual(third_body, second_body)
+    self.assertNotIn(third_body, first_body)
+    self.assertNotIn(third_body, second_body)
+
+  def test_note_third_article_draft_shows_overview_pinterest_description_and_alt_text(self):
+    import office_views
+    article = office_views.NOTE_THIRD_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn('id="note3-title"', html)
+    self.assertIn('id="note3-overview"', html)
+    self.assertIn('id="note3-pinterest-description"', html)
+    self.assertIn('id="note3-alt-text"', html)
+    self.assertIn(article["overview"], html)
+    self.assertIn(article["pinterest_description"], html)
+    self.assertIn(article["alt_text_draft"], html)
+    self.assertLessEqual(len(article["pinterest_description"]), 500)
+
+  def test_note_third_article_draft_states_draft_only_not_posted_to_note(self):
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    third_section_html = html.split(
+        'aria-label="AIとの会話の見直しテーマのnote記事下書き"', 1
+    )[1]
+    self.assertIn("この記事はまだ下書きであり、noteへは投稿していません", third_section_html)
+    self.assertIn(
+        "note・SNSへの自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切行いません",
+        third_section_html,
+    )
+
+  def test_note_third_article_draft_shows_hero_image_without_html_title_overlay(self):
+    import office_views
+    article = office_views.NOTE_THIRD_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    third_section_html = html.split(
+        'aria-label="AIとの会話の見直しテーマのnote記事下書き"', 1
+    )[1].split("</section>", 1)[0]
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/note-ai-mismatch-hero-photo.png" '
+        f'alt="{article["hero_image_alt"]}">',
+        third_section_html,
+    )
+    self.assertNotIn('class="note-hero-overlay"', third_section_html)
+    self.assertNotIn('class="note-hero-title"', third_section_html)
+    self.assertNotIn('class="note-hero-scrim"', third_section_html)
+    self.assertEqual(third_section_html.count("<img"), 1)
+    self.assertIn("横長 1672×941", third_section_html)
+    self.assertIn("見出し文字はHTML側で重ねていません", third_section_html)
+
+  def test_note_third_article_draft_cover_image_has_correct_dimensions_and_is_served(self):
+    import office_views
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH,
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1672, 941))
+    res = self.client.get(f"/static/{office_views.NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH}")
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_note_third_article_draft_generator_has_no_top_level_pil_import(self):
+    import office_views
+    import inspect
+    source = inspect.getsource(office_views)
+    lines = source.splitlines()
+    top_level_import_lines = [
+        line for line in lines
+        if line.startswith("from PIL") or line.startswith("import PIL")
+    ]
+    self.assertEqual(top_level_import_lines, [])
+    func_source = inspect.getsource(office_views.generate_note_ai_mismatch_hero_image_png)
+    self.assertIn("from PIL import", func_source)
+
+  def test_note_third_article_draft_checklist_and_copy_buttons(self):
+    import office_views
+    article = office_views.NOTE_THIRD_ARTICLE_DRAFT
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    for item in article["checklist"]:
+      self.assertIn(item, html)
+    for target in (
+        "note3-title", "note3-overview", "note3-body-copy",
+        "note3-pinterest-description", "note3-alt-text",
+    ):
+      self.assertIn(f'data-copy-target="{target}"', html)
+
+  def test_publish_queue_ai_mismatch_card_added_with_required_content(self):
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"][0]
+    self.assertEqual(post["pin"]["title"], "AIが「なんか違う」ときに見直す3つ")
+    self.assertEqual(post["status"], "社長承認待ち")
+    self.assertIn('id="pq-title-ai-mismatch-3points"', html)
+    self.assertIn('id="pq-description-ai-mismatch-3points"', html)
+    self.assertIn('id="pq-alt-ai-mismatch-3points"', html)
+    self.assertEqual(
+        post["hero_item_lines"],
+        ["1. 目的を先に伝える", "2. 前提や条件を足す", "3. 一度で終わらせず聞き返す"],
+    )
+    self.assertEqual("".join(post["hero_title_lines"]), post["pin"]["title"])
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/publish-queue-ai-mismatch-2x3.png"',
+        html,
+    )
+    self.assertIn(
+        'href="/static/images/publish-queue-ai-mismatch-2x3.png" '
+        'download="pinterest-publish-queue-ai-mismatch.png"',
+        html,
+    )
+    self.assertNotIn("custom_room_link_note", post)
+    self.assertNotIn('id="pq-link-ai-mismatch-3points"', html)
+
+  def test_publish_queue_ai_mismatch_checklist_includes_ai_label_requirement(self):
+    import office_views
+    post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"][0]
+    checklist_text = "".join(post["checklist"])
+    self.assertIn("AIで修正済み", checklist_text)
+    self.assertIn("画像ラベル", checklist_text)
+
+  def test_publish_queue_ai_mismatch_has_no_definitive_claims_or_business_data(self):
+    import office_views
+    post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"][0]
+    combined_text = post["pin"]["title"] + post["pin"]["description"] + post["pin"]["alt_text"]
+    for forbidden in ("自分で使った", "おすすめ", "効率が上がる", "成果が出る"):
+      self.assertNotIn(forbidden, combined_text)
+    for forbidden in ("円", "¥", "位獲得", "在庫あり", "在庫切れ", "ランキング"):
+      self.assertNotIn(forbidden, combined_text)
+
+  def test_publish_queue_ai_mismatch_png_has_correct_2_3_dimensions_and_is_served(self):
+    import office_views
+    post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"][0]
+    png_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static", post["hero_image_relative_path"],
+    )
+    self.assertTrue(os.path.isfile(png_path))
+    with open(png_path, "rb") as f:
+      header = f.read(33)
+    self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    self.assertEqual((width, height), (1024, 1536))
+    res = self.client.get(f'/static/{post["hero_image_relative_path"]}')
+    self.assertEqual(res.status_code, 200)
+    self.assertEqual(res.content_type, "image/png")
+
+  def test_publish_queue_ai_mismatch_generator_has_no_top_level_pil_import(self):
+    import office_views
+    import inspect
+    func_source = inspect.getsource(office_views.generate_publish_queue_ai_mismatch_png)
+    self.assertIn("from PIL import", func_source)
+
+  def test_note_and_pinterest_ai_mismatch_titles_and_items_are_consistent(self):
+    # note記事の3つの見直し軸と、Pinterest投稿データ上のhero_item_lines
+    # (データとしては保持しているが、MISSION 049.2以降は画像には焼き込んで
+    # いない)が、内容として一致していることを確認する。タイトルは、note
+    # 記事のテーマ・Pinterestのpin.title・画像に焼き込んだhero_title_lines
+    # の3箇所で一致していることも確認する。
+    import office_views
+    note_article = office_views.NOTE_THIRD_ARTICLE_DRAFT
+    pin_post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"
+    ][0]
+    note_headings = {s["heading"].split(". ", 1)[-1] for s in note_article["sections"][:3]}
+    pin_items = {line.split(". ", 1)[-1] for line in pin_post["hero_item_lines"]}
+    self.assertEqual(note_headings, pin_items)
+    self.assertEqual("".join(pin_post["hero_title_lines"]), pin_post["pin"]["title"])
+    # note記事のテーマとPinterestのpin.titleは文言こそ異なるが(記事は長め
+    # のタイトル、Pinterestは短い形)、どちらも同じ「なんか違う」というキー
+    # ワードを共有し、同じテーマを指していることを確認する。
+    self.assertIn("なんか違う", note_article["theme"])
+    self.assertIn("なんか違う", pin_post["pin"]["title"])
+    # MISSION 049.2: 画像にはタイトルのみを焼き込み、3項目は焼き込まなく
+    # なったため、altテキストは項目の列挙ではなく実際の写真の内容(スマホと
+    # ノートを持つ手元)を説明していることを確認する。
+    self.assertNotIn("目的を先に伝える」「2.", pin_post["pin"]["alt_text"])
+    self.assertIn("スマートフォン", pin_post["pin"]["alt_text"])
+    self.assertIn("ノート", pin_post["pin"]["alt_text"])
+
+  def test_ai_mismatch_note_and_pinterest_images_differ_in_subject_and_composition(self):
+    # note用見出し画像(文字なし・明るい昼間)とPinterest用画像
+    # (タイトル焼き込み・別配色)が、別ファイルであり、内容も異なることを
+    # 確認する(単なる複製ではないことの最小限の検証)。
+    import office_views
+    note_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static",
+        office_views.NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH,
+    )
+    pin_post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"
+    ][0]
+    pin_path = os.path.join(
+        os.path.dirname(office_views.__file__), "static", pin_post["hero_image_relative_path"],
+    )
+    with open(note_path, "rb") as f:
+      note_bytes = f.read()
+    with open(pin_path, "rb") as f:
+      pin_bytes = f.read()
+    self.assertNotEqual(note_bytes, pin_bytes)
+    # 縦横比も明確に異なる(noteは横長2:3の逆、Pinterestは縦長2:3)。
+    with open(note_path, "rb") as f:
+      note_header = f.read(33)
+    with open(pin_path, "rb") as f:
+      pin_header = f.read(33)
+    note_w = int.from_bytes(note_header[16:20], "big")
+    note_h = int.from_bytes(note_header[20:24], "big")
+    pin_w = int.from_bytes(pin_header[16:20], "big")
+    pin_h = int.from_bytes(pin_header[20:24], "big")
+    self.assertGreater(note_w, note_h)
+    self.assertGreater(pin_h, pin_w)
+
+  def test_existing_pages_unaffected_by_ai_mismatch_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/content-studio/first-post", "初回手動投稿パッケージ"),
+        ("/content-studio/weekly-plan", "7日間コンテンツ計画"),
+        ("/content-studio/desk-setup-post", "デスク環境投稿パッケージ"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    for post_id, title in (
+        ("email-draft-3points", "AIにメールの下書きを頼む前に決める3つ"),
+        ("desk-wiring-3points", "デスクが狭いときに配線を見直す3つのポイント"),
+        ("peripheral-choice-3points", "スマホ・PC作業をラクにする周辺機器の選び方"),
+        ("smartphone-ai-draft-3points", "スマホでAIに下書きを頼む前に確認する3つ"),
+    ):
+      self.assertIn(title, html)
+      self.assertIn(f'id="pq-title-{post_id}"', html)
 
 
 if __name__ == "__main__":
