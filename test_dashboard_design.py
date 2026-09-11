@@ -814,6 +814,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.CONTENT_STUDIO_WRITING_STANDARDS_HEADING,
         office_views.CONTENT_STUDIO_WRITING_STANDARDS_INTRO,
         office_views.CONTENT_STUDIO_WRITING_STANDARDS,
+        office_views.CONTENT_STUDIO_IMAGE_STANDARDS_HEADING,
+        office_views.CONTENT_STUDIO_IMAGE_STANDARDS_INTRO,
+        office_views.CONTENT_STUDIO_IMAGE_STANDARDS,
     )
     self.assertIn(office_views.CONTENT_STUDIO_THEME, rendered)
 
@@ -891,6 +894,108 @@ class DashboardDesignTestCase(unittest.TestCase):
     import inspect
     source = inspect.getsource(office_views._render_content_studio_scene)
     self.assertIn('class="fp-checklist"', source)
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('name="viewport"', html)
+
+  # --- MISSION 047: 今後の画像作成基準(テーマが一目で伝わる画像づくりの参照情報) ---
+
+  def test_content_studio_shows_image_standards_heading_and_intro(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("画像の作成基準（テーマが一目で伝わり、同じ構図が続かない画像）", html)
+    self.assertIn(
+        "今後作成するPinterest投稿画像・note見出し画像は、次の基準を満たすように"
+        "作成します。",
+        html,
+    )
+    self.assertIn(
+        "公開済みのnote記事・既存のPinterest投稿・投稿キューの既存画像をさかのぼって"
+        "作り直すものではありません。",
+        html,
+    )
+    # 文章の作成基準(MISSION 046)より後、既存のplanカードより前に表示される
+    # (文章→画像→既存企画案、の順で並んでいること)ことを確認する。
+    self.assertLess(
+        html.index("文章の作成基準（読者が続きを読みたくなる、人間味のある文章）"),
+        html.index("画像の作成基準（テーマが一目で伝わり、同じ構図が続かない画像）"),
+    )
+    self.assertLess(
+        html.index("画像の作成基準（テーマが一目で伝わり、同じ構図が続かない画像）"),
+        html.index("AI初心者が最初に試す便利な使い方"),
+    )
+
+  def test_content_studio_shows_all_nine_image_standard_items(self):
+    import office_views
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_IMAGE_STANDARDS), 9)
+    for item in office_views.CONTENT_STUDIO_IMAGE_STANDARDS:
+      self.assertIn(f"<li>{item}</li>", html)
+    for required in (
+        "画像は装飾を増やすことより、最初に目が行く主役を1つ決める",
+        "同じ夜の木目デスク・同じ構図を連続使用しない",
+        "Pinterest用画像は、テーマが一目で分かるタイトルを画像本体に焼き込む",
+        "note用見出し画像は、タイトルを重ねず、写真だけでも記事テーマが感じられる構図にする",
+        "ロゴ、読める商品名、実在サービス画面、楽天市場の商品画像は入れない",
+        "商品紹介でない画像に商品タグを付けない",
+        "画像内の文字はスマホでも読みやすい大きさにする",
+        "画像は縦横比・用途・altテキストを先に決めてから作る",
+    ):
+      self.assertIn(required, html)
+    # 「テーマごとに主役を変える」の3つのサブ基準(スマホ・AI・デスク)が
+    # 1項目の中にすべて含まれていることを確認する。
+    theme_item = next(
+        i for i in office_views.CONTENT_STUDIO_IMAGE_STANDARDS if i.startswith("テーマごとに主役を変える")
+    )
+    self.assertIn("スマホ記事：スマートフォンを主役にする", theme_item)
+    self.assertIn("AIの使い方記事：考える・入力する・見直す場面が伝わる構図にする", theme_item)
+    self.assertIn("デスク記事：机全体ではなく、困りごとや改善点が伝わる部分を主役にする", theme_item)
+
+  def test_content_studio_image_standards_do_not_alter_existing_note_pinterest_queue(self):
+    # MISSION 047は今後の画像作成基準を追加するのみで、既存のnote記事・
+    # Pinterest投稿・投稿キュー・既存画像・既存本文には一切影響しないことを
+    # 確認する。
+    import office_views
+    self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 4)
+    self.assertEqual(len(office_views.CONTENT_STUDIO_PLANS), 2)
+    note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn(
+        "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+        note_html,
+    )
+    self.assertIn(
+        "スマホでAIに下書きを頼む前に確認する3つ──端末・入力・読み返しを先に決める",
+        note_html,
+    )
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/note-first-article-hero.png"',
+        note_html,
+    )
+    self.assertIn(
+        '<img class="note-hero-img" src="/static/images/note-smartphone-ai-draft-cover.png"',
+        note_html,
+    )
+    queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    self.assertEqual(queue_html.count('class="pq-status-badge"'), 4)
+    # 作成基準セクション自体は投稿企画工場だけに追加し、note記事・投稿キュー
+    # ページには表示しない。
+    self.assertNotIn("画像の作成基準", note_html)
+    self.assertNotIn("画像の作成基準", queue_html)
+
+  def test_content_studio_image_standards_has_no_external_resources_or_network_calls(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    standards_section = html.split(
+        "画像の作成基準（テーマが一目で伝わり、同じ構図が続かない画像）", 1
+    )[1].split('<a class="cs-first-post-link"', 1)[0]
+    self.assertNotIn("https://", standards_section)
+    self.assertNotIn("fetch(", standards_section)
+    self.assertNotIn("/api/", standards_section)
+    self.assertNotIn("<script", standards_section)
+    self.assertNotIn("<img", standards_section)
+
+  def test_content_studio_image_standards_has_responsive_layout(self):
+    import office_views
+    import inspect
+    source = inspect.getsource(office_views._render_content_studio_scene)
+    self.assertEqual(source.count('class="fp-checklist"'), 2)
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn('name="viewport"', html)
 

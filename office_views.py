@@ -360,6 +360,34 @@ CONTENT_STUDIO_WRITING_STANDARDS = [
     "Pinterestのタイトルは画像内の文字と矛盾させない",
 ]
 
+# MISSION 047: 今後作成するPinterest投稿画像・note見出し画像の作りをそろえる
+# ための作成基準。テーマが一目で伝わり、同じような「おしゃれな机」の画像が
+# 連続しないようにするための参照情報。表示専用の静的コンテンツであり、この
+# 基準に沿って過去の記事・投稿キューの既存画像を差し替えるものではない。
+# 将来基準を差し替える場合は、このデータ構造(CONTENT_STUDIO_IMAGE_STANDARDS)
+# を編集するだけでよい。
+CONTENT_STUDIO_IMAGE_STANDARDS_HEADING = (
+    "画像の作成基準（テーマが一目で伝わり、同じ構図が続かない画像）"
+)
+CONTENT_STUDIO_IMAGE_STANDARDS_INTRO = (
+    "今後作成するPinterest投稿画像・note見出し画像は、次の基準を満たすように作成します。"
+    "公開済みのnote記事・既存のPinterest投稿・投稿キューの既存画像をさかのぼって"
+    "作り直すものではありません。"
+)
+CONTENT_STUDIO_IMAGE_STANDARDS = [
+    "画像は装飾を増やすことより、最初に目が行く主役を1つ決める",
+    "テーマごとに主役を変える（スマホ記事：スマートフォンを主役にする／AIの使い方記事："
+    "考える・入力する・見直す場面が伝わる構図にする／デスク記事：机全体ではなく、"
+    "困りごとや改善点が伝わる部分を主役にする）",
+    "同じ夜の木目デスク・同じ構図を連続使用しない",
+    "Pinterest用画像は、テーマが一目で分かるタイトルを画像本体に焼き込む",
+    "note用見出し画像は、タイトルを重ねず、写真だけでも記事テーマが感じられる構図にする",
+    "ロゴ、読める商品名、実在サービス画面、楽天市場の商品画像は入れない",
+    "商品紹介でない画像に商品タグを付けない",
+    "画像内の文字はスマホでも読みやすい大きさにする",
+    "画像は縦横比・用途・altテキストを先に決めてから作る",
+]
+
 # 現在公開済みのnote記事(note初回記事)に合う2テーマだけを残した。他の
 # テーマ(デスク周り・スマホPC周辺機器・買う前に確認したいガジェット選び)
 # は、現在の運用(Pinterest・note・楽天ROOM)に対応する準備がまだできて
@@ -392,6 +420,7 @@ CONTENT_STUDIO_PLANS = [
 def _render_content_studio_scene(
     theme, plans, room_link_policy,
     writing_standards_heading, writing_standards_intro, writing_standards,
+    image_standards_heading, image_standards_intro, image_standards,
 ):
   """投稿企画工場のカード群を、CONTENT_STUDIO_PLANSのデータから組み立てる。
 
@@ -404,6 +433,10 @@ def _render_content_studio_scene(
   writing_standards(リスト)は、今後の下書き作成基準を表示するための
   参照情報。公開済みのnote記事・既存のPinterest投稿・投稿キューの内容を
   書き換えるものではない。
+
+  MISSION 047: image_standards_heading/image_standards_intro/
+  image_standards(リスト)は、今後の画像作成基準を表示するための参照情報。
+  同様に、既存の画像を書き換えるものではない。
   """
   plan_cards = "".join(
       '<div class="cs-plan-card">'
@@ -429,6 +462,14 @@ def _render_content_studio_scene(
       f'<p class="cs-theme">{writing_standards_intro}</p>'
       f'<ul class="fp-checklist">{writing_standard_items}</ul>'
   )
+  # MISSION 047: 画像の作成基準を、文章の作成基準と同じ見せ方(見出し+一覧)で
+  # 追加する。同じくfp-checklistのカードスタイルだけを再利用する。
+  image_standard_items = "".join(f'<li>{item}</li>' for item in image_standards)
+  image_standards_html = (
+      f'<h3 class="fp-section-title">{image_standards_heading}</h3>'
+      f'<p class="cs-theme">{image_standards_intro}</p>'
+      f'<ul class="fp-checklist">{image_standard_items}</ul>'
+  )
   return (
       '<section class="content-studio" aria-label="投稿企画工場">'
       '<div class="revenue-notice">'
@@ -438,7 +479,8 @@ def _render_content_studio_scene(
       '</div>'
       f'<p class="cs-theme">対象テーマ：<b>{theme}</b></p>'
       f'<div class="cs-room-policy"><b>楽天ROOMリンクについて。</b>{room_link_policy}</div>'
-      + writing_standards_html +
+      + writing_standards_html
+      + image_standards_html +
       '<a class="cs-first-post-link" href="/content-studio/first-post">'
       '→ 初回手動投稿パッケージを見る（Pinterest向け）</a> '
       '<a class="cs-first-post-link" href="/content-studio/weekly-plan">'
@@ -3312,6 +3354,8 @@ def register_office_views(app):
         CONTENT_STUDIO_THEME, CONTENT_STUDIO_PLANS, CONTENT_STUDIO_ROOM_LINK_POLICY,
         CONTENT_STUDIO_WRITING_STANDARDS_HEADING, CONTENT_STUDIO_WRITING_STANDARDS_INTRO,
         CONTENT_STUDIO_WRITING_STANDARDS,
+        CONTENT_STUDIO_IMAGE_STANDARDS_HEADING, CONTENT_STUDIO_IMAGE_STANDARDS_INTRO,
+        CONTENT_STUDIO_IMAGE_STANDARDS,
     )
     return _page(
         "content", "投稿企画工場",
