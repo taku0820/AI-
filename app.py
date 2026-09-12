@@ -179,6 +179,13 @@ def index():
   # 済みであり、最新のPinterest投稿「AIが「なんか違う」ときに見直す3つ」は
   # 最新note記事へリンク済み)に合わせて件数・次の行動を更新した。次に
   # 確認することは、48時間後のPinterest反応確認である。
+  #
+  # MISSION 055: noteアカウントには、AI Hive OSで制作・公開した記事3本の
+  # ほかに既存の記事・フォロワー・有料記事があるため、「note 3件公開済み」
+  # だけの表示だとアカウント全体の記事数のように誤解されうる。件数は
+  # 「AI Hive関連の記事」であることを明記し、既存記事があることも数値を
+  # 出さずに一文で示した(既存記事数・売上・フォロワー数は未確認のため、
+  # 新たに表示・推測しない)。
   html_content = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -285,6 +292,7 @@ def index():
             .channel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
             .channel-role, .channel-next { font-size: 12px; color: var(--text-sub); line-height: 1.6; margin: 0 0 6px; }
             .channel-next b { color: var(--text-main); }
+            .channel-note { font-size: 11px; color: var(--text-sub); opacity: .8; line-height: 1.5; margin: 0 0 6px; }
             .channel-link { display: inline-block; margin-top: 8px; background: #1a2338; color: var(--text-main); border: 1px solid #2c3856; padding: 6px 12px; border-radius: 8px; font-size: 11px; text-decoration: none; }
             .channel-link:hover, .channel-link:focus-visible { background: #263655; border-color: var(--accent-blue); outline: none; }
 
@@ -360,8 +368,9 @@ def index():
                     <span>note</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：3件公開済み。次の記事の下書き・見出し画像・Pinterest投稿案まで準備済み。</p>
+                <p class="channel-role">現在の役割：AI Hive関連の記事3件が公開済み。次の記事の下書き・見出し画像・Pinterest投稿案まで準備済み。</p>
                 <p class="channel-next">次の行動：<b>準備済みの下書きを確認し、社長が手動でnoteへ貼り付けて公開する。</b></p>
+                <p class="channel-note">※このnoteアカウントには、AI Hive関連以外の既存記事もあります。件数はAI Hive関連のみを示しています。</p>
                 <a class="channel-link" href="/content-studio/note-first-article">note記事を見る →</a>
             </div>
 

@@ -240,6 +240,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 054: 2026年9月12日時点の実態(Pinterest5件・note3件公開済み、
     # 最新Pinterest投稿は公開済みで、次に確認することは48時間後の反応確認)
     # に合わせて更新した。
+    # MISSION 055: noteの「3件」はAI Hive関連の記事数であり、noteアカウント
+    # 全体の記事数ではないことを明記した。
     for role, next_action in (
         (
             "現在の役割：5件公開済み。最新投稿は48時間後を目安に"
@@ -252,7 +254,7 @@ class DashboardDesignTestCase(unittest.TestCase):
             "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
         ),
         (
-            "現在の役割：3件公開済み。次の記事の下書き・見出し画像・"
+            "現在の役割：AI Hive関連の記事3件が公開済み。次の記事の下書き・見出し画像・"
             "Pinterest投稿案まで準備済み。",
             "次の行動：<b>準備済みの下書きを確認し、社長が手動でnoteへ"
             "貼り付けて公開する。</b>",
@@ -341,7 +343,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('id="office-live-status"', html)
     self.assertIn("現在の投稿運用状況", html)
     self.assertIn("Pinterest：5件公開済み", html)
-    self.assertIn("note：3件公開済み", html)
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
+    self.assertIn("note：AI Hive関連の記事3件公開済み", html)
     self.assertIn("Threads：Difyで別管理の自動投稿を運用中", html)
     self.assertNotIn('fetch("/api/logs")', html)
     self.assertNotIn('fetch("/api/employees")', html)
@@ -394,9 +397,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 054: Pinterest5件・note3件が公開済みとなり、「AIが「なんか
     # 違う」ときに見直す3つ」も公開済みになったため、3枠目は「次の投稿案」
     # ではなく「48時間後を目安にした反応確認」に更新した。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("<b>5件</b><span>Pinterest公開済み</span>", html)
-    self.assertIn("<b>3件</b><span>note公開済み</span>", html)
+    self.assertIn("<b>3件</b><span>今回のnote公開済み</span>", html)
     self.assertIn("<b>48時間</b><span>Pinterest反応確認の目安</span>", html)
     self.assertNotIn('id="ceo-today-count"', html)
     self.assertNotIn('fetch("/api/logs")', html)
@@ -493,11 +497,13 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_quick_action_handlers_append_static_current_status_to_chat_log(self):
     # MISSION 054: Pinterest5件・note3件公開済み、次に確認することは
     # 48時間後のPinterest反応確認、という実態に合わせて更新した。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("qaAppendBoss", html)
     self.assertIn('document.querySelector("#log")', html)
     self.assertIn(
-        "🐕 柴犬社長：Pinterestは5件、noteは3件、公開済みだよ。", html
+        "🐕 柴犬社長：Pinterestは5件、noteはAI Hive関連の記事が3件、公開済みだよ。",
+        html,
     )
     self.assertIn(
         "🐕 柴犬社長：いま優先するのは、48時間後を目安にした"
@@ -505,7 +511,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         html,
     )
     self.assertIn(
-        "🐕 柴犬社長：Pinterestは5件、noteは3件、公開まで完了しているよ。", html
+        "🐕 柴犬社長：Pinterestは5件、noteはAI Hive関連の記事が3件、"
+        "公開まで完了しているよ。",
+        html,
     )
 
   # --- MISSION 028: デスク詳細と案内(クリック・キーボード操作対応) --------------
@@ -668,6 +676,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 054: Pinterest 5件公開・note 3件公開という2026年9月12日
     # 時点の実態、および48時間後のPinterest反応確認という次の行動に
     # 合わせて更新した。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であり、noteアカウント
+    # 全体の記事数ではないことを明記した。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
     self.assertIn("投稿企画工場のテーマを軸に発信し", html)
@@ -675,7 +685,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("AI初心者、仕事の効率化に関心がある人", html)
     self.assertIn("収益化の柱（案）", html)
     self.assertIn("投稿企画工場のテーマに沿った発信", html)
-    self.assertIn("公開済みPinterest投稿（5件）・note記事（3件）からの流入育成", html)
+    self.assertIn(
+        "公開済みPinterest投稿（5件）・AI Hive関連のnote記事（3本）からの流入育成", html
+    )
+    self.assertIn("noteアカウントには、この他にも既存記事があります", html)
     self.assertIn("楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）", html)
     self.assertIn("ROOM登録までの段階", html)
     for stage in ("テーマ選定", "投稿確認", "ROOM準備", "手動登録"):
@@ -1080,11 +1093,12 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_content_studio_shows_next_candidates_heading_and_intro(self):
     # MISSION 054: 候補「AIとの会話がかみ合わないときに見直す3つ」が実際に
     # 公開済みとなり企画メモから削除されたため、件数・候補数を更新した。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn("次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）", html)
     self.assertIn(
-        "公開済みのPinterest投稿5件・note記事3件の内容を踏まえ、次に作る候補を2つ整理した"
-        "企画メモです。",
+        "公開済みのPinterest投稿5件・AI Hive関連のnote記事3件の内容を踏まえ、"
+        "次に作る候補を2つ整理した企画メモです。",
         html,
     )
     self.assertIn("記事・画像・投稿はまだ作成していません。", html)
@@ -3835,12 +3849,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 053: 柴犬社長を主役として見せるためのスポットライトと、
     # Pinterest・note・Threadsの状況を確認している体裁のモニター。
     # 数値はcommand-statsと同じ既存の事実のみで、新しい数値は追加しない。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn('class="ceo-spotlight" aria-hidden="true"', html)
     self.assertIn('class="ceo-monitor" aria-hidden="true"', html)
     self.assertIn("いま確認している状況", html)
     self.assertIn("<span>Pinterest</span><span>5件公開</span>", html)
-    self.assertIn("<span>note</span><span>3件公開</span>", html)
+    self.assertIn("<span>note(今回)</span><span>3件公開</span>", html)
     self.assertIn("<span>Threads</span><span>Dify運用</span>", html)
     self.assertIn(".ceo-desk{--s:", html)
     self.assertNotIn("円", html)
@@ -3921,18 +3936,19 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_mission_054_five_pinterest_and_three_note_counts_are_consistent(self):
     # Pinterest5件・note3件という実際の公開件数が、ダッシュボード・
     # オフィス・社長室・収益化ボードのすべてで一致していることを確認する。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
     root_html = self.html
     office_html = self.client.get("/office").get_data(as_text=True)
     ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
     revenue_html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("5件公開済み", root_html)
-    self.assertIn("3件公開済み", root_html)
+    self.assertIn("AI Hive関連の記事3件", root_html)
     self.assertIn("Pinterest：5件公開済み", office_html)
-    self.assertIn("note：3件公開済み", office_html)
+    self.assertIn("note：AI Hive関連の記事3件公開済み", office_html)
     self.assertIn("<b>5件</b><span>Pinterest公開済み</span>", ceo_html)
-    self.assertIn("<b>3件</b><span>note公開済み</span>", ceo_html)
+    self.assertIn("<b>3件</b><span>今回のnote公開済み</span>", ceo_html)
     self.assertIn("（5件）", revenue_html)
-    self.assertIn("（3件）", revenue_html)
+    self.assertIn("（3本）", revenue_html)
 
   def test_mission_054_ai_mismatch_post_is_published_not_pending_anywhere(self):
     # 「AIが「なんか違う」ときに見直す3つ」が、社長室・投稿キューのどちらでも
@@ -4025,12 +4041,79 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_mission_054_fix_pinterest_and_note_totals_are_unchanged(self):
     # 修正後も、Pinterest5件・note3件という合計数、最新note記事URL、
     # 48時間後の反応確認方針は変わらないことを確認する。
+    # MISSION 055: noteの件数はAI Hive関連の記事数であることを明記した。
     ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("<b>5件</b><span>Pinterest公開済み</span>", ceo_html)
-    self.assertIn("<b>3件</b><span>note公開済み</span>", ceo_html)
+    self.assertIn("<b>3件</b><span>今回のnote公開済み</span>", ceo_html)
     self.assertIn("<b>48時間</b><span>Pinterest反応確認の目安</span>", ceo_html)
     note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     self.assertIn("https://note.com/legal_crow9879/n/nb2a21a842387", note_html)
+
+  # --- MISSION 055: noteの既存実績を含めても誤解のない表記へ整える -------------
+
+  def test_mission_055_note_counts_are_scoped_to_ai_hive_not_whole_account(self):
+    # 「note 3件」のような表現が、noteアカウント全体の記事数のように
+    # 誤解されないよう、AI Hive関連の件数であることが、ダッシュボード・
+    # オフィス・社長室・収益化ボード・投稿企画工場のすべてで明記されている
+    # ことを確認する。
+    root_html = self.html
+    office_html = self.client.get("/office").get_data(as_text=True)
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    content_studio_html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("AI Hive関連の記事3件", root_html)
+    self.assertIn("note：AI Hive関連の記事3件公開済み", office_html)
+    self.assertIn("note(今回)", ceo_html)
+    self.assertIn("今回のnote公開済み", ceo_html)
+    self.assertIn("AI Hive関連のnote記事（3本）", revenue_html)
+    self.assertIn("AI Hive関連のnote記事3件", content_studio_html)
+
+  def test_mission_055_dashboard_and_rooms_mention_existing_note_account_history(self):
+    # noteアカウントには、AI Hive関連以外の既存記事もあることを、数値を
+    # 出さずに一文で示していることを確認する。既存記事の総数・フォロワー数
+    # ・PV数は未確認のため、新たに表示・推測していないことも確認する
+    # (ダッシュボードには既存の「フォロワー数・PV・クリック数・売上額は
+    # 表示していません」という否定形の案内文が別途あるため、ここでは
+    # それと衝突しない、より具体的な語だけを禁止語とする)。
+    for path, has_html_attr in (
+        ("/", True), ("/office", False), ("/office/ceo-office", False),
+        ("/revenue", False),
+    ):
+      with self.subTest(path=path):
+        html = self.html if has_html_attr else self.client.get(path).get_data(as_text=True)
+        self.assertIn("既存記事", html)
+        for forbidden in ("PV数", "総記事数", "フォロワー数：", "既存記事数："):
+          self.assertNotIn(forbidden, html)
+
+  def test_mission_055_quick_action_chat_scopes_note_count_to_ai_hive(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn(
+        "🐕 柴犬社長：Pinterestは5件、noteはAI Hive関連の記事が3件、公開済みだよ。",
+        html,
+    )
+    self.assertIn(
+        "🐕 柴犬社長：Pinterestは5件、noteはAI Hive関連の記事が3件、公開まで完了しているよ。",
+        html,
+    )
+
+  def test_mission_055_does_not_touch_existing_note_article_content_or_urls(self):
+    # 既存のnote記事・有料記事・プロフィール・外部サービス上のデータは
+    # 変更しないため、note記事URLは引き続き社長から渡された2件だけで
+    # あり、新しいURL・プロフィールURL・フォロワー数などを追加していない
+    # ことを確認する。
+    import re
+    for path in (
+        "/", "/office", "/office/ceo-office", "/revenue", "/content-studio",
+        "/content-studio/publish-queue", "/content-studio/note-first-article",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True) if path != "/" else self.html
+        urls = set(re.findall(r"https://[^\s\"'<]+", html))
+        allowed = {
+            "https://note.com/legal_crow9879/n/nf7af35ac8c28",
+            "https://note.com/legal_crow9879/n/nb2a21a842387",
+        }
+        self.assertTrue(urls <= allowed, f"unexpected URLs on {path}: {urls - allowed}")
 
 
 if __name__ == "__main__":

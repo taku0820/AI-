@@ -318,7 +318,8 @@ REVENUE_FOCUS = {
                         "スマホ・PC周辺機器を探している人",
     "service_ideas": [
         "投稿企画工場のテーマに沿った発信",
-        "公開済みPinterest投稿（5件）・note記事（3件）からの流入育成",
+        "公開済みPinterest投稿（5件）・AI Hive関連のnote記事（3本）からの流入育成"
+        "（noteアカウントには、この他にも既存記事があります）",
         "楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）",
     ],
     # MISSION 052: Pinterest・note・楽天ROOMの投稿活動自体は手動ですでに
@@ -327,12 +328,15 @@ REVENUE_FOCUS = {
     # 整理した。各行の値も「検討中」(まだ着手していない)から、実際の
     # 公開・運用状況を示す表現へ更新したが、具体的な金額・成果予測は
     # 一切追加していない。
+    # MISSION 055: 「note 3件」だけの表示だとnoteアカウント全体の記事数の
+    # ように誤解されるため、「AI Hive関連」であることを明記した。既存記事の
+    # 総数・売上・フォロワー数は未確認のため表示・推測しない。
     "price_note": "楽天ROOMでの紹介はすべて手動登録の想定であり、金額・成果はすべて未確定の"
                   "「たたき台」です。確定した収益・契約内容ではありません。",
     "price_tiers": [
         ("Pinterest経由の流入", "5件公開・手動運用中"),
         ("楽天ROOMでの手動紹介", "1件公開・次の登録は確認後に判断"),
-        ("noteでの信頼構築", "3件公開・手動運用中"),
+        ("noteでの信頼構築", "AI Hive関連3本公開・手動運用中"),
     ],
     "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
@@ -477,11 +481,11 @@ CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_HEADING = (
     "次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）"
 )
 CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_INTRO = (
-    "公開済みのPinterest投稿5件・note記事3件の内容を踏まえ、次に作る候補を2つ整理した"
-    "企画メモです。ここに書いた内容は下書き作成前の検討段階であり、記事・画像・投稿は"
-    "まだ作成していません。メール下書き・スマホでのAI下書き・デスク配線・一般的なAIの"
-    "使い方（メール・要約・壁打ち）・AIとの会話がかみ合わないときの見直しとは重複しない"
-    "テーマだけを選んでいます。"
+    "公開済みのPinterest投稿5件・AI Hive関連のnote記事3件の内容を踏まえ、次に作る候補を"
+    "2つ整理した企画メモです。ここに書いた内容は下書き作成前の検討段階であり、記事・"
+    "画像・投稿はまだ作成していません。メール下書き・スマホでのAI下書き・デスク配線・"
+    "一般的なAIの使い方（メール・要約・壁打ち）・AIとの会話がかみ合わないときの見直しとは"
+    "重複しないテーマだけを選んでいます。"
 )
 CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES = [
     {
@@ -568,9 +572,9 @@ CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES = [
             "画像は文字を重ねず、タスク整理をしている空気感が伝わる写真のみにする。"
         ),
         "reason": (
-            "既存のPinterest投稿5件・note記事3件はいずれも「AIに文章の下書きを頼む」"
-            "「AIとの会話を見直す」といった場面が中心だが、この候補は「AIにタスク・"
-            "優先順位の整理を頼む」という、文章作成・対話の見直し以外の使い方を扱って"
+            "既存のPinterest投稿5件・AI Hive関連のnote記事3件はいずれも「AIに文章の"
+            "下書きを頼む」「AIとの会話を見直す」といった場面が中心だが、この候補は"
+            "「AIにタスク・優先順位の整理を頼む」という、文章作成・対話の見直し以外の使い方を扱って"
             "おり、テーマが重複しない。在宅ワーカーという想定読者にも刺さりやすい。"
         ),
     },
@@ -3963,7 +3967,8 @@ def register_office_views(app):
         '<div class="live-board" id="office-live-status"><b>現在の投稿運用状況</b>'
         '<ul>'
         '<li>Pinterest：5件公開済み・48時間後を目安に最新投稿の反応を確認予定</li>'
-        '<li>note：3件公開済み・次の記事下書きを準備済み</li>'
+        '<li>note：AI Hive関連の記事3件公開済み・次の記事下書きを準備済み'
+        '（このnoteアカウントには、この他にも既存記事があります）</li>'
         '<li>Threads：Difyで別管理の自動投稿を運用中（このアプリからは投稿・ログイン・連携しません）</li>'
         '</ul></div>'
         '<div class="windows" aria-hidden="true"><i></i><i></i><i></i></div><div class="plant" aria-hidden="true">🪴</div>'
@@ -3985,7 +3990,9 @@ def register_office_views(app):
         '<p class="desk-detail-role" id="desk-detail-role">-</p>'
         '<dl class="desk-detail-facts">'
         '<div><dt>Pinterest</dt><dd>5件公開済み。最新投稿は48時間後を目安に反応を確認予定。</dd></div>'
-        '<div><dt>note</dt><dd>3件公開済み。次の記事の下書き・見出し画像・Pinterest用画像まで準備済み。</dd></div>'
+        '<div><dt>note</dt><dd>AI Hive関連の記事3件公開済み（既存のnoteアカウントには、'
+        'この他にも既存記事があります）。次の記事の下書き・見出し画像・Pinterest用画像まで'
+        '準備済み。</dd></div>'
         '<div><dt>Threads</dt><dd>Difyを使った別管理の自動投稿を運用中（このアプリでは扱いません）。</dd></div>'
         '</dl>'
         '<p class="desk-detail-disclaimer" id="desk-detail-disclaimer">'
@@ -4117,7 +4124,7 @@ def register_office_views(app):
         '<div class="ceo-spotlight" aria-hidden="true"></div>'
         '<div class="ceo-monitor" aria-hidden="true"><b>いま確認している状況</b>'
         '<div><span>Pinterest</span><span>5件公開</span></div>'
-        '<div><span>note</span><span>3件公開</span></div>'
+        '<div><span>note(今回)</span><span>3件公開</span></div>'
         '<div><span>Threads</span><span>Dify運用</span></div>'
         '</div>'
         f'<div class="ceo-desk">{figure("president", "柴犬社長")}'
@@ -4126,12 +4133,14 @@ def register_office_views(app):
         '<section class="command" aria-label="業務司令室"><h2 class="sr-only">業務司令室</h2>'
         '<div class="command-stats">'
         '<div class="stat"><b>5件</b><span>Pinterest公開済み</span></div>'
-        '<div class="stat"><b>3件</b><span>note公開済み</span></div>'
+        '<div class="stat"><b>3件</b><span>今回のnote公開済み</span></div>'
         '<div class="stat"><b>48時間</b><span>Pinterest反応確認の目安</span></div>'
         '</div>'
         '<p class="command-note">note次の記事の下書き・見出し画像・Pinterest用画像も準備済みです。'
         'Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、'
-        'この画面（このダッシュボード）からの投稿・ログイン・連携は一切行いません。</p>'
+        'この画面（このダッシュボード）からの投稿・ログイン・連携は一切行いません。'
+        '<br>※noteの件数はAI Hive関連の記事のみを示しています。このnoteアカウントには、'
+        'この他にも既存記事があります。</p>'
         '<div class="command-block"><h3>最新の仕事（最大3件）</h3>'
         '<ul>'
         '<li>Pinterest：「AIが「なんか違う」ときに見直す3つ」を公開済み</li>'
@@ -4167,15 +4176,16 @@ def register_office_views(app):
         'l.scrollTop=l.scrollHeight;'
         '}'
         'document.querySelector("#qa-today").addEventListener("click",()=>{'
-        'qaAppendBoss("🐕 柴犬社長：Pinterestは5件、noteは3件、公開済みだよ。'
-        '次の記事下書きも準備できているよ。");'
+        'qaAppendBoss("🐕 柴犬社長：Pinterestは5件、noteはAI Hive関連の記事が3件、'
+        '公開済みだよ。次の記事下書きも準備できているよ。");'
         '});'
         'document.querySelector("#qa-priority").addEventListener("click",()=>{'
         'qaAppendBoss("🐕 柴犬社長：いま優先するのは、48時間後を目安にした'
         'Pinterestの反応確認だよ。");'
         '});'
         'document.querySelector("#qa-done").addEventListener("click",()=>{'
-        'qaAppendBoss("🐕 柴犬社長：Pinterestは5件、noteは3件、公開まで完了しているよ。");'
+        'qaAppendBoss("🐕 柴犬社長：Pinterestは5件、noteはAI Hive関連の記事が3件、'
+        '公開まで完了しているよ。");'
         '});'
         '</script>'
     )
