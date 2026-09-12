@@ -236,22 +236,23 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 038.1: 4カードの現状表示を実際の運用状況へ合わせる更新 -----------
 
   def test_root_dashboard_cards_reflect_current_actual_status(self):
-    # MISSION 050: Pinterestは4件公開済み+次の投稿案1件、noteは2本公開済み
-    # +次の記事下書き準備済み、という実際の運用状況に合わせて更新した。
-    # Threadsカード(Dify別管理の自動投稿)も新たに追加した。
+    # MISSION 050: Threadsカード(Dify別管理の自動投稿)を新たに追加した。
+    # MISSION 054: 2026年9月12日時点の実態(Pinterest5件・note3件公開済み、
+    # 最新Pinterest投稿は公開済みで、次に確認することは48時間後の反応確認)
+    # に合わせて更新した。
     for role, next_action in (
         (
-            "現在の役割：4件公開済み。反応を手動で確認しつつ、"
-            "次の投稿案（1件）を準備済み。",
-            "次の行動：<b>投稿キューの準備済み案を確認し、社長が手動で"
-            "Pinterestへ投稿・分析確認を行う。</b>",
+            "現在の役割：5件公開済み。最新投稿は48時間後を目安に"
+            "反応を手動で確認予定。",
+            "次の行動：<b>48時間後を目安に最新投稿の反応を手動で確認し、"
+            "準備済みの案も引き続き確認する。</b>",
         ),
         (
             "現在の役割：公開済みの商品投稿を確認し、次に紹介する候補を整理する。",
             "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
         ),
         (
-            "現在の役割：2本公開済み。次の記事の下書き・見出し画像・"
+            "現在の役割：3件公開済み。次の記事の下書き・見出し画像・"
             "Pinterest投稿案まで準備済み。",
             "次の行動：<b>準備済みの下書きを確認し、社長が手動でnoteへ"
             "貼り付けて公開する。</b>",
@@ -339,8 +340,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/office").get_data(as_text=True)
     self.assertIn('id="office-live-status"', html)
     self.assertIn("現在の投稿運用状況", html)
-    self.assertIn("Pinterest：4件公開済み", html)
-    self.assertIn("note：2本公開済み", html)
+    self.assertIn("Pinterest：5件公開済み", html)
+    self.assertIn("note：3件公開済み", html)
     self.assertIn("Threads：Difyで別管理の自動投稿を運用中", html)
     self.assertNotIn('fetch("/api/logs")', html)
     self.assertNotIn('fetch("/api/employees")', html)
@@ -388,12 +389,15 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ceo_office_shows_static_pinterest_and_note_publish_counts(self):
     # MISSION 051: 社長室の「今日の作業/完了/進行中」という実データ由来の
     # カウント(work_logsが古いテスト用データしかなく、常に実態と食い違う)
-    # をやめ、柴犬社長が確認したPinterest・noteの公開件数・次の投稿案の
-    # 準備状況を静的に表示する。書き込みは一切行わない。
+    # をやめ、柴犬社長が確認したPinterest・noteの公開件数を静的に表示する。
+    # 書き込みは一切行わない。
+    # MISSION 054: Pinterest5件・note3件が公開済みとなり、「AIが「なんか
+    # 違う」ときに見直す3つ」も公開済みになったため、3枠目は「次の投稿案」
+    # ではなく「48時間後を目安にした反応確認」に更新した。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
-    self.assertIn("<b>4件</b><span>Pinterest公開済み</span>", html)
-    self.assertIn("<b>2本</b><span>note公開済み</span>", html)
-    self.assertIn("<b>1件</b><span>Pinterest次の投稿案</span>", html)
+    self.assertIn("<b>5件</b><span>Pinterest公開済み</span>", html)
+    self.assertIn("<b>3件</b><span>note公開済み</span>", html)
+    self.assertIn("<b>48時間</b><span>Pinterest反応確認の目安</span>", html)
     self.assertNotIn('id="ceo-today-count"', html)
     self.assertNotIn('fetch("/api/logs")', html)
     self.assertNotIn('method="POST"', html)
@@ -412,23 +416,28 @@ class DashboardDesignTestCase(unittest.TestCase):
   # 確認した現在の実際の運用状況を示す静的な表示へ切り替えた。
 
   def test_ceo_office_shows_recent_items_matching_current_reality(self):
+    # MISSION 054: 「AIが「なんか違う」ときに見直す3つ」とその対応note記事は
+    # 2026年9月12日までに公開済みとなったため、「準備（社長承認待ち）」
+    # 「下書きを準備」という表現をやめ、公開済みであることを示す表現へ
+    # 更新した。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("最新の仕事", html)
     self.assertIn(
-        "Pinterest：「AIが「なんか違う」ときに見直す3つ」を準備（社長承認待ち）", html
+        "Pinterest：「AIが「なんか違う」ときに見直す3つ」を公開済み", html
     )
     self.assertIn(
-        "note：「AIに聞いても「なんか違う」と感じる人へ」の下書きを準備", html
+        "note：「AIに聞いても「なんか違う」と感じる人へ」を公開済み", html
     )
-    self.assertIn("前回Pinterest投稿の反応を確認中（48時間ほど様子を見る段階）", html)
+    self.assertIn("公開済みのPinterest投稿の反応を確認中（48時間ほど様子を見る段階）", html)
     self.assertNotIn("logs.slice(0,3)", html)
 
   def test_ceo_office_shows_fixed_priority_text(self):
-    # 優先事項は「Pinterestの反応確認と、次の手動投稿タイミングの判断」の
-    # 固定文言で表示する(社長からの明示的な指定内容)。
+    # MISSION 054: 「AIが「なんか違う」ときに見直す3つ」が公開済みとなり、
+    # 次に確認することは48時間後のPinterest反応確認になったため、優先事項の
+    # 固定文言を更新した(社長からの明示的な指定内容)。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("いま優先すること", html)
-    self.assertIn("<p>Pinterestの反応確認と、次の手動投稿タイミングの判断</p>", html)
+    self.assertIn("<p>48時間後を目安にPinterestの反応を確認すること</p>", html)
     self.assertNotIn("logs.find(l=>!isDone(l))", html)
 
   def test_ceo_office_command_center_never_writes_or_calls_hive_api(self):
@@ -482,19 +491,21 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("AI_HIVE_", html)
 
   def test_quick_action_handlers_append_static_current_status_to_chat_log(self):
+    # MISSION 054: Pinterest5件・note3件公開済み、次に確認することは
+    # 48時間後のPinterest反応確認、という実態に合わせて更新した。
     html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertIn("qaAppendBoss", html)
     self.assertIn('document.querySelector("#log")', html)
     self.assertIn(
-        "🐕 柴犬社長：Pinterestは4件、noteは2本、公開済みだよ。", html
+        "🐕 柴犬社長：Pinterestは5件、noteは3件、公開済みだよ。", html
     )
     self.assertIn(
-        "🐕 柴犬社長：いま優先するのは、Pinterestの反応確認と、"
-        "次の手動投稿タイミングの判断だよ。",
+        "🐕 柴犬社長：いま優先するのは、48時間後を目安にした"
+        "Pinterestの反応確認だよ。",
         html,
     )
     self.assertIn(
-        "🐕 柴犬社長：Pinterestは4件、noteは2本、公開まで完了しているよ。", html
+        "🐕 柴犬社長：Pinterestは5件、noteは3件、公開まで完了しているよ。", html
     )
 
   # --- MISSION 028: デスク詳細と案内(クリック・キーボード操作対応) --------------
@@ -652,8 +663,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("AI・ガジェット発信からの楽天ROOM収益化", html)
 
   def test_revenue_board_shows_all_required_content_cards(self):
-    # MISSION 052: Pinterest 4件公開・note 2本公開・楽天ROOM折りたたみ
-    # キーボード1件公開という現在の実際の運用状況に合わせて更新済み。
+    # MISSION 052: 楽天ROOM折りたたみキーボード1件公開という実際の運用
+    # 状況に合わせて更新済み。
+    # MISSION 054: Pinterest 5件公開・note 3件公開という2026年9月12日
+    # 時点の実態、および48時間後のPinterest反応確認という次の行動に
+    # 合わせて更新した。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
     self.assertIn("投稿企画工場のテーマを軸に発信し", html)
@@ -661,14 +675,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("AI初心者、仕事の効率化に関心がある人", html)
     self.assertIn("収益化の柱（案）", html)
     self.assertIn("投稿企画工場のテーマに沿った発信", html)
-    self.assertIn("公開済みPinterest投稿（4件）・note記事（2本）からの流入育成", html)
+    self.assertIn("公開済みPinterest投稿（5件）・note記事（3件）からの流入育成", html)
     self.assertIn("楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）", html)
     self.assertIn("ROOM登録までの段階", html)
     for stage in ("テーマ選定", "投稿確認", "ROOM準備", "手動登録"):
       self.assertIn(stage, html)
     self.assertIn("今週の優先行動", html)
-    self.assertIn("Pinterest・noteの反応確認", html)
-    self.assertIn("次の手動投稿タイミングの判断", html)
+    self.assertIn("48時間後を目安にPinterestの反応を確認", html)
+    self.assertIn("noteの反応確認", html)
     self.assertIn("既存ROOM投稿（折りたたみキーボード）の内容・反応を確認", html)
 
   def test_revenue_board_price_is_an_explicit_draft_not_final(self):
@@ -770,7 +784,10 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertNotIn(removed_title, html)
     # MISSION 048で、次に作る記事・投稿の候補3件を同じcs-plan-cardスタイルで
     # 追加したため、2件(既存の稼働中テーマ)+3件(候補)=5件になった。
-    self.assertEqual(html.count('class="cs-plan-card"'), 5)
+    # MISSION 054: 候補のうち1件(AIとの会話がかみ合わないときの見直し)が
+    # 公開済みとなり企画メモから削除したため、2件(既存の稼働中テーマ)+
+    # 2件(候補)=4件になった。
+    self.assertEqual(html.count('class="cs-plan-card"'), 4)
 
   def test_content_studio_removes_instagram_and_threads_everywhere(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
@@ -928,7 +945,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         note_html,
     )
     queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(queue_html.count('class="pq-status-badge"'), 5)
+    self.assertEqual(queue_html.count('class="pq-status-badge'), 5)
     # 作成基準セクション自体は投稿企画工場だけに追加し、note記事・投稿キュー
     # ページには表示しない。
     self.assertNotIn("文章の作成基準", note_html)
@@ -1033,7 +1050,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         note_html,
     )
     queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(queue_html.count('class="pq-status-badge"'), 5)
+    self.assertEqual(queue_html.count('class="pq-status-badge'), 5)
     # 作成基準セクション自体は投稿企画工場だけに追加し、note記事・投稿キュー
     # ページには表示しない。
     self.assertNotIn("画像の作成基準", note_html)
@@ -1061,10 +1078,12 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 048: 次のnote記事・Pinterest投稿候補(AI初心者向け・企画メモ) -----
 
   def test_content_studio_shows_next_candidates_heading_and_intro(self):
+    # MISSION 054: 候補「AIとの会話がかみ合わないときに見直す3つ」が実際に
+    # 公開済みとなり企画メモから削除されたため、件数・候補数を更新した。
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn("次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）", html)
     self.assertIn(
-        "公開済みのPinterest投稿4本・note記事2本の内容を踏まえ、次に作る候補を3つ整理した"
+        "公開済みのPinterest投稿5件・note記事3件の内容を踏まえ、次に作る候補を2つ整理した"
         "企画メモです。",
         html,
     )
@@ -1080,10 +1099,12 @@ class DashboardDesignTestCase(unittest.TestCase):
         html.index("次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）"),
     )
 
-  def test_content_studio_shows_three_candidates_with_all_required_fields(self):
+  def test_content_studio_shows_two_candidates_with_all_required_fields(self):
+    # MISSION 054: 候補「AIとの会話がかみ合わないときに見直す3つ」を、
+    # 実際に公開済みとなったため企画メモから削除し、2候補に整理した。
     import office_views
     candidates = office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES
-    self.assertEqual(len(candidates), 3)
+    self.assertEqual(len(candidates), 2)
     required_keys = {
         "theme", "pain_point", "note_title_candidates", "pinterest_title",
         "opening_hook", "heading_outline", "image_subject_and_composition",
@@ -1114,9 +1135,11 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertLessEqual(char_count, 320)
 
   def test_content_studio_candidates_do_not_duplicate_existing_post_themes(self):
-    # 既存4本(メール下書き・デスク配線・周辺機器選び・スマホでのAI下書き)や、
-    # note記事2本(一般的なAIの使い方・スマホでのAI下書き)と同じテーマ文言を
-    # 候補のタイトル案に使っていないことを確認する。
+    # 既存5件(メール下書き・デスク配線・周辺機器選び・スマホでのAI下書き・
+    # AIとの会話の見直し)や、note記事3件(一般的なAIの使い方・スマホでの
+    # AI下書き・AIとの会話の見直し)と同じテーマ文言を候補のタイトル案に
+    # 使っていないことを確認する(MISSION 054でAIとの会話の見直しは公開済み
+    # になったため、既存テーマとして追加した)。
     import office_views
     existing_titles = (
         "AIにメールの下書きを頼む前に決める3つ",
@@ -1124,6 +1147,8 @@ class DashboardDesignTestCase(unittest.TestCase):
         "スマホ・PC作業をラクにする周辺機器の選び方",
         "スマホでAIに下書きを頼む前に確認する3つ",
         "AI初心者が仕事で最初に試す3つの使い方──メール・要約・壁打ちを失敗しない形で始める",
+        "AIが「なんか違う」ときに見直す3つ",
+        "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないとき、まず見直す3つ",
     )
     for c in office_views.CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES:
       self.assertNotIn(c["pinterest_title"], existing_titles)
@@ -1183,7 +1208,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         note_html,
     )
     queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(queue_html.count('class="pq-status-badge"'), 5)
+    self.assertEqual(queue_html.count('class="pq-status-badge'), 5)
     self.assertNotIn("次のnote記事・Pinterest投稿の候補", note_html)
     self.assertNotIn("次のnote記事・Pinterest投稿の候補", queue_html)
 
@@ -1205,7 +1230,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION,
     )
     self.assertIn("次のnote記事・Pinterest投稿の候補", rendered)
-    self.assertEqual(rendered.count('class="cs-plan-card"'), 5)
+    self.assertEqual(rendered.count('class="cs-plan-card"'), 4)
 
   # --- MISSION 032: 初回手動投稿パッケージ(Pinterest向け) ----------------------
 
@@ -2002,16 +2027,31 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("投稿キュー（社長承認待ち）", html)
     self.assertIn("<title>投稿キュー（社長承認待ち） | AI Hive</title>", html)
 
-  def test_publish_queue_shows_five_posts_as_awaiting_approval(self):
-    import office_views
-    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+  def test_publish_queue_shows_five_posts_with_accurate_status(self):
     # MISSION 042で4件目(スマホでのAI下書き)、MISSION 049で5件目(AIが
     # 「なんか違う」ときに見直す3つ)を追加した。
+    # MISSION 054修正: 実際にはメール下書き・スマホでのAI下書き・AIが
+    # 「なんか違う」の3件はすでに柴犬社長が手動でPinterestへ投稿済みで
+    # あり、社長承認待ちのまま残っているのはデスク配線・周辺機器選びの
+    # 2件であることを確認する(公開済みPinterest5件の残り2件は、投稿
+    # キューとは別のFIRST_POST_PACKAGE・DESK_SETUP_POST_PACKAGE)。
+    import office_views
+    html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
     self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
+    published_ids = {
+        "email-draft-3points", "smartphone-ai-draft-3points", "ai-mismatch-3points",
+    }
     for post in office_views.PUBLISH_QUEUE_POSTS:
       self.assertIn(post["pin"]["title"], html)
-      self.assertEqual(post["status"], "社長承認待ち")
-    self.assertEqual(html.count('class="pq-status-badge"'), 5)
+      expected_status = (
+          "published" if post["id"] in published_ids else "awaiting_president"
+      )
+      self.assertEqual(post["status"], expected_status)
+    self.assertEqual(html.count('class="pq-status-badge'), 5)
+    self.assertEqual(html.count('status-published">公開済み</span>'), 3)
+    self.assertEqual(
+        html.count('status-awaiting_president">社長承認待ち</span>'), 2
+    )
     for title in (
         # MISSION 039でメール下書き用の投稿タイトルを更新した。
         "AIにメールの下書きを頼む前に決める3つ",
@@ -2188,19 +2228,20 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 確定したため、汎用の「楽天ROOMリンク：空欄」注記は表示しなくなった
     # (代わりに専用の「リンク先」フィールドを表示する。別テストで検証)。
     # 残る2件(デスク配線・周辺機器選び)は引き続き空欄のまま。MISSION 042の
-    # 新規追加分も空欄のままだが、汎用文言ではなく専用の注記(折りたたみ
+    # 新規追加分は空欄のままだが、汎用文言ではなく専用の注記(折りたたみ
     # キーボード投稿URLを手動で貼る旨)を表示するため、「楽天ROOMリンク：
-    # （空欄）」自体の出現数は3件(共通の書き出し部分)になる。MISSION 049の
-    # 新規追加分(ai-mismatch-3points)は汎用文言のまま空欄にしているため、
-    # 出現数はさらに1件増えて4件になる。
+    # （空欄）」自体の出現数は3件(共通の書き出し部分)になる。
+    # MISSION 054: 「AIが「なんか違う」ときに見直す3つ」もリンク先(公開済み
+    # note記事のURL)が確定したため、汎用の空欄注記を表示しなくなった。
+    # そのため出現数は3件のまま変わらない。
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 4)
+    self.assertEqual(html.count("楽天ROOMリンク：（空欄）"), 3)
     self.assertEqual(
         html.count(
             "社長がPinterestへ投稿する際に手動で貼り付けてください。"
             "URLの取得・保存・外部連携は、この画面では一切行いません。"
         ),
-        3,
+        2,
     )
     self.assertIn(
         "楽天ROOMリンク：（空欄）公開済みの折りたたみキーボード投稿URLを、"
@@ -2254,23 +2295,28 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("fp-copy-btn", html)
     self.assertIn("showResult(false)", html)
     self.assertIn("catch(e)", html)
-    # コピー用ボタンは、デスク配線・周辺機器選び・スマホAI下書き・AIとの
-    # 会話見直しの4件がタイトル・説明文・altテキストの3フィールド×4件=12個、
-    # メール下書きがタイトル・説明文・altテキスト・リンク先の4フィールド=
-    # 4個で、合計16個(MISSION 049でAIとの会話見直しカードの3フィールドが
-    # 追加された)。
-    self.assertEqual(html.count('class="fp-copy-btn"'), 16)
+    # コピー用ボタンは、デスク配線・周辺機器選び・スマホAI下書きの3件が
+    # タイトル・説明文・altテキストの3フィールド×3件=9個、メール下書き・
+    # AIとの会話見直しの2件がタイトル・説明文・altテキスト・リンク先の
+    # 4フィールド×2件=8個で、合計17個(MISSION 054でAIとの会話見直しに
+    # 実際の記事へのリンク先フィールドが追加された)。
+    self.assertEqual(html.count('class="fp-copy-btn"'), 17)
 
   def test_publish_queue_has_no_external_resources_or_network_calls(self):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
     # MISSION 039で「AIにメールの下書きを頼む前に決める3つ」のPinterest
     # リンク先として、公開済みnote記事への実URLを1箇所だけ追加した(href属性
     # とリンクテキストの2箇所に同じURLが現れるため、https://の出現回数は2)。
+    # MISSION 054で「AIが「なんか違う」ときに見直す3つ」も公開済みとなり、
+    # 同じ形式でもう1つの実URL(nb2a21a842387)を追加したため、合計4。
     # それ以外の外部通信・スクリプト・API呼び出しは一切追加していないことを
     # 確認する。
-    self.assertEqual(html.count("https://"), 2)
+    self.assertEqual(html.count("https://"), 4)
     self.assertEqual(
         html.count("https://note.com/legal_crow9879/n/nf7af35ac8c28"), 2
+    )
+    self.assertEqual(
+        html.count("https://note.com/legal_crow9879/n/nb2a21a842387"), 2
     )
     self.assertNotIn("<script src", html)
     self.assertNotIn("fetch(", html)
@@ -2302,6 +2348,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.PUBLISH_QUEUE_POSTS,
         office_views.PUBLISH_QUEUE_ROOM_LINK_NOTE,
         office_views.PUBLISH_QUEUE_MANUAL_POST_NOTE,
+        office_views.PUBLISH_QUEUE_STATUS_LABELS,
     )
     self.assertIn("publish-queue-board", rendered)
 
@@ -2405,7 +2452,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "smartphone-ai-draft-3points"
     ][0]
     self.assertEqual(post["pin"]["title"], "スマホでAIに下書きを頼む前に確認する3つ")
-    self.assertEqual(post["status"], "社長承認待ち")
+    # MISSION 054修正: この投稿は実際には柴犬社長が手動でPinterestへ
+    # 投稿済みであることが判明したため、"published"へ更新した。
+    self.assertEqual(post["status"], "published")
     self.assertIn('id="pq-title-smartphone-ai-draft-3points"', html)
     self.assertIn('id="pq-description-smartphone-ai-draft-3points"', html)
     self.assertIn('id="pq-alt-smartphone-ai-draft-3points"', html)
@@ -2775,8 +2824,15 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("本文が4,500〜5,500字の目安に収まっているか確認した", html)
 
   def test_note_first_article_has_no_external_resources_or_network_calls(self):
+    # MISSION 054: 「AIとの会話の見直し」記事が公開済みとなったため、公開
+    # 済みの事実として実際の記事URL(nb2a21a842387)をプレーンテキストで
+    # 1箇所だけ表示する(リンク化はしていないため、出現回数は1)。それ以外の
+    # 外部通信・スクリプト・API呼び出しは一切追加していないことを確認する。
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
-    self.assertNotIn("https://", html)
+    self.assertEqual(html.count("https://"), 1)
+    self.assertEqual(
+        html.count("https://note.com/legal_crow9879/n/nb2a21a842387"), 1
+    )
     self.assertNotIn("fetch(", html)
     self.assertNotIn("/api/", html)
     self.assertNotIn('method="POST"', html)
@@ -3007,7 +3063,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     # その増減はこのミッション(044)によるものではない。
     self.assertEqual(len(office_views.PUBLISH_QUEUE_POSTS), 5)
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
-    self.assertEqual(html.count('class="pq-status-badge"'), 5)
+    self.assertEqual(html.count('class="pq-status-badge'), 5)
 
   def test_note_second_article_draft_checklist_and_copy_buttons(self):
     import office_views
@@ -3222,10 +3278,13 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 049: 「AIが『なんか違う』ときに見直す3つ」note記事・Pinterest投稿 ---
 
   def test_note_third_article_draft_appears_on_note_first_article_page(self):
+    # MISSION 054: この記事は2026年9月12日までに公開済みとなったため、
+    # 見出しを「さらに次のnote記事下書き」から「公開済みのnote記事」へ、
+    # タイトルを実際に公開されたタイトルへ更新した。
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
-    self.assertIn("さらに次のnote記事下書き", html)
+    self.assertIn("公開済みのnote記事", html)
     self.assertIn(
-        "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないときの3つの見直し", html
+        "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないとき、まず見直す3つ", html
     )
     # 既存2件のタイトルも引き続き表示されていることを確認する
     # (既存記事・下書きは変更・削除していない)。
@@ -3311,23 +3370,30 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn(article["alt_text_draft"], html)
     self.assertLessEqual(len(article["pinterest_description"]), 500)
 
-  def test_note_third_article_draft_states_draft_only_not_posted_to_note(self):
+  def test_note_third_article_draft_states_published_with_real_url(self):
+    # MISSION 054: この記事は2026年9月12日までに柴犬社長が手動でnoteへ
+    # 貼り付けて公開済みとなったため、「まだ下書き」という表現をやめ、
+    # 実際の記事URLとともに公開済みであることを表示する。
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     third_section_html = html.split(
-        'aria-label="AIとの会話の見直しテーマのnote記事下書き"', 1
+        'aria-label="AIとの会話の見直しテーマのnote記事（公開済み）"', 1
     )[1]
-    self.assertIn("この記事はまだ下書きであり、noteへは投稿していません", third_section_html)
+    self.assertIn("この記事は柴犬社長が手動でnoteへ貼り付けて公開済みです", third_section_html)
+    self.assertIn(
+        "https://note.com/legal_crow9879/n/nb2a21a842387", third_section_html
+    )
     self.assertIn(
         "note・SNSへの自動投稿・予約投稿・ログイン操作・API連携・外部通信は一切行いません",
         third_section_html,
     )
+    self.assertNotIn("この記事はまだ下書きであり、noteへは投稿していません", third_section_html)
 
   def test_note_third_article_draft_shows_hero_image_without_html_title_overlay(self):
     import office_views
     article = office_views.NOTE_THIRD_ARTICLE_DRAFT
     html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
     third_section_html = html.split(
-        'aria-label="AIとの会話の見直しテーマのnote記事下書き"', 1
+        'aria-label="AIとの会話の見直しテーマのnote記事（公開済み）"', 1
     )[1].split("</section>", 1)[0]
     self.assertIn(
         '<img class="note-hero-img" src="/static/images/note-ai-mismatch-hero-photo.png" '
@@ -3388,7 +3454,9 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
     post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == "ai-mismatch-3points"][0]
     self.assertEqual(post["pin"]["title"], "AIが「なんか違う」ときに見直す3つ")
-    self.assertEqual(post["status"], "社長承認待ち")
+    # MISSION 054: この投稿は2026年9月12日までに柴犬社長が手動でPinterestへ
+    # 投稿済みとなったため、"published"へ更新した。
+    self.assertEqual(post["status"], "published")
     self.assertIn('id="pq-title-ai-mismatch-3points"', html)
     self.assertIn('id="pq-description-ai-mismatch-3points"', html)
     self.assertIn('id="pq-alt-ai-mismatch-3points"', html)
@@ -3407,7 +3475,21 @@ class DashboardDesignTestCase(unittest.TestCase):
         html,
     )
     self.assertNotIn("custom_room_link_note", post)
-    self.assertNotIn('id="pq-link-ai-mismatch-3points"', html)
+    # MISSION 054: 実際に公開されたnote記事のURLへリンクするフィールドが
+    # 追加されたため(email-draft-3pointsと同じ扱い)、リンク先フィールドが
+    # 表示されることを確認する。
+    self.assertIn('id="pq-link-ai-mismatch-3points"', html)
+    self.assertEqual(
+        post["pinterest_link_url"],
+        "https://note.com/legal_crow9879/n/nb2a21a842387",
+    )
+    self.assertIn(
+        'href="https://note.com/legal_crow9879/n/nb2a21a842387" '
+        'target="_blank" rel="noopener noreferrer"',
+        html,
+    )
+    self.assertIn(">https://note.com/legal_crow9879/n/nb2a21a842387</a>", html)
+    self.assertIn('data-copy-target="pq-link-ai-mismatch-3points"', html)
 
   def test_publish_queue_ai_mismatch_checklist_includes_ai_label_requirement(self):
     import office_views
@@ -3573,11 +3655,15 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(name, office_html)
 
   def test_weekly_plan_published_days_have_no_fabricated_reaction_numbers(self):
-    # MISSION 050で新たに公開済みへ変わった2・6・7日目も、1日目と同様に
+    # MISSION 050で新たに公開済みへ変わった2日目も、1日目と同様に
     # 表示回数・保存数・クリック数などの反応・成果を、数値付きで記載して
     # いないことを確認する。
+    # MISSION 054修正: 6・7日目(デスク配線・周辺機器選び)は、投稿キューでの
+    # 実際の公開状況が未公開("awaiting_president")だったことが判明した
+    # ため、published扱いをやめてmanual_candidateへ戻した。この2日は
+    # 対象から外す。
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
-    for day_start, day_end in (("2日目：", "3日目："), ("6日目：", "7日目："), ("7日目：", "</section>")):
+    for day_start, day_end in (("2日目：", "3日目："),):
       with self.subTest(day_start=day_start):
         card = html.split(day_start, 1)[1].split(day_end, 1)[0]
         self.assertIn("公開済み", card)
@@ -3587,12 +3673,15 @@ class DashboardDesignTestCase(unittest.TestCase):
           self.assertNotIn(f"{word}が", card)
 
   def test_weekly_plan_status_labels_reflect_only_statuses_in_use(self):
+    # MISSION 054修正: 6・7日目が参照する投稿キューのテーマは実際には
+    # 未公開だったため、公開済みは1・2日目の2件のみになり、手動投稿候補は
+    # 3〜7日目の5件になった。
     import office_views
     used_statuses = {entry["status"] for entry in office_views.WEEKLY_PLAN}
     self.assertEqual(used_statuses, {"published", "manual_candidate"})
     html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
-    self.assertEqual(html.count('class="wp-day-status status-published"'), 4)
-    self.assertEqual(html.count('class="wp-day-status status-manual_candidate"'), 3)
+    self.assertEqual(html.count('class="wp-day-status status-published"'), 2)
+    self.assertEqual(html.count('class="wp-day-status status-manual_candidate"'), 5)
 
   # --- MISSION 051: オフィス・休憩室・社長室を現在の実際の運用状況へ更新 ---------
 
@@ -3750,8 +3839,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('class="ceo-spotlight" aria-hidden="true"', html)
     self.assertIn('class="ceo-monitor" aria-hidden="true"', html)
     self.assertIn("いま確認している状況", html)
-    self.assertIn("<span>Pinterest</span><span>4件公開</span>", html)
-    self.assertIn("<span>note</span><span>2本公開</span>", html)
+    self.assertIn("<span>Pinterest</span><span>5件公開</span>", html)
+    self.assertIn("<span>note</span><span>3件公開</span>", html)
     self.assertIn("<span>Threads</span><span>Dify運用</span>", html)
     self.assertIn(".ceo-desk{--s:", html)
     self.assertNotIn("円", html)
@@ -3809,6 +3898,139 @@ class DashboardDesignTestCase(unittest.TestCase):
             "売上", "ランキング", "在庫",
         ):
           self.assertNotIn(forbidden, html)
+
+  # --- MISSION 054: 2026年9月12日時点の公開状況への更新 -------------------------
+
+  def test_mission_054_no_stale_publish_counts_remain_anywhere(self):
+    # 「Pinterest 4件」「note 2本」という古い件数が、更新対象のどの画面にも
+    # 残っていないことを確認する(投稿キューの説明文中の「メール下書き」等、
+    # 件数と無関係な文脈での「4」「2」は対象外)。
+    for path in (
+        "/", "/office", "/office/break-room", "/office/ceo-office", "/revenue",
+        "/content-studio",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True) if path != "/" else self.html
+        self.assertNotIn("Pinterest：4件", html)
+        self.assertNotIn("Pinterestは4件", html)
+        self.assertNotIn("4件公開済み", html)
+        self.assertNotIn("note：2本", html)
+        self.assertNotIn("noteは2本", html)
+        self.assertNotIn("2本公開済み", html)
+
+  def test_mission_054_five_pinterest_and_three_note_counts_are_consistent(self):
+    # Pinterest5件・note3件という実際の公開件数が、ダッシュボード・
+    # オフィス・社長室・収益化ボードのすべてで一致していることを確認する。
+    root_html = self.html
+    office_html = self.client.get("/office").get_data(as_text=True)
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("3件公開済み", root_html)
+    self.assertIn("Pinterest：5件公開済み", office_html)
+    self.assertIn("note：3件公開済み", office_html)
+    self.assertIn("<b>5件</b><span>Pinterest公開済み</span>", ceo_html)
+    self.assertIn("<b>3件</b><span>note公開済み</span>", ceo_html)
+    self.assertIn("（5件）", revenue_html)
+    self.assertIn("（3件）", revenue_html)
+
+  def test_mission_054_ai_mismatch_post_is_published_not_pending_anywhere(self):
+    # 「AIが「なんか違う」ときに見直す3つ」が、社長室・投稿キューのどちらでも
+    # 「社長承認待ち」「次の投稿案」として表示されていないことを確認する。
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertNotIn(
+        "Pinterest：「AIが「なんか違う」ときに見直す3つ」を準備（社長承認待ち）",
+        ceo_html,
+    )
+    self.assertNotIn("Pinterest次の投稿案", ceo_html)
+    queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    card_html = queue_html.split(
+        '<h3>AIが「なんか違う」ときに見直す3つ</h3>', 1
+    )[1].split('<div class="pq-card">', 1)[0]
+    self.assertIn('status-published">公開済み</span>', card_html)
+    self.assertNotIn("社長承認待ち", card_html)
+
+  def test_mission_054_uses_only_the_given_real_urls_and_no_fabricated_ones(self):
+    # note・Pinterestの実際のURLとして、社長から渡された2件のURLだけが
+    # 使われており、それ以外のドメインの実URLを捏造していないことを確認する。
+    import re
+    for path in (
+        "/", "/office", "/office/break-room", "/office/ceo-office", "/revenue",
+        "/content-studio", "/content-studio/publish-queue",
+        "/content-studio/note-first-article", "/content-studio/weekly-plan",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True) if path != "/" else self.html
+        urls = set(re.findall(r"https://[^\s\"'<]+", html))
+        allowed = {
+            "https://note.com/legal_crow9879/n/nf7af35ac8c28",
+            "https://note.com/legal_crow9879/n/nb2a21a842387",
+        }
+        self.assertTrue(urls <= allowed, f"unexpected URLs on {path}: {urls - allowed}")
+
+  def test_mission_054_ceo_and_dashboard_next_action_is_48_hour_reaction_check(self):
+    # 次に確認することが「48時間後のPinterest反応確認」に統一されている
+    # ことを確認する。
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn("48時間後を目安にPinterestの反応を確認すること", ceo_html)
+    self.assertIn("<b>48時間</b><span>Pinterest反応確認の目安</span>", ceo_html)
+    root_html = self.html
+    self.assertIn("48時間後を目安に", root_html)
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("48時間後を目安にPinterestの反応を確認", revenue_html)
+
+  def test_mission_054_fix_desk_wiring_and_peripherals_are_still_awaiting_approval(self):
+    # MISSION 054の修正: デスク配線・周辺機器選びの2件は実際には未公開の
+    # ままであり、「スマホでのAI下書き」は実際には公開済みであることを
+    # 確認する。投稿キューと7日間計画の両方で、この2件が「社長承認待ち」
+    # のまま(「公開済み」表示にならない)ことを確認する。
+    import office_views
+    queue_html = self.client.get("/content-studio/publish-queue").get_data(as_text=True)
+    for pinterest_title in (
+        "デスクが狭いときに配線を見直す3つのポイント",
+        "スマホ・PC作業をラクにする周辺機器の選び方",
+    ):
+      with self.subTest(pinterest_title=pinterest_title):
+        card_html = queue_html.split(f'<h3>{pinterest_title}</h3>', 1)[1].split(
+            '<div class="pq-card">', 1
+        )[0]
+        self.assertIn('status-awaiting_president">社長承認待ち</span>', card_html)
+        self.assertNotIn('status-published">公開済み</span>', card_html)
+
+    smartphone_card_html = queue_html.split(
+        '<h3>スマホでAIに下書きを頼む前に確認する3つ</h3>', 1
+    )[1].split('<div class="pq-card">', 1)[0]
+    self.assertIn('status-published">公開済み</span>', smartphone_card_html)
+
+    weekly_html = self.client.get("/content-studio/weekly-plan").get_data(as_text=True)
+    for day_start, day_end in (("6日目：", "7日目："), ("7日目：", "</section>")):
+      with self.subTest(day_start=day_start):
+        card = weekly_html.split(day_start, 1)[1].split(day_end, 1)[0]
+        self.assertIn('status-manual_candidate">手動投稿候補</span>', card)
+        self.assertNotIn("投稿済みとして記録しています", card)
+
+    for entry in office_views.WEEKLY_PLAN:
+      if entry["day"] in (6, 7):
+        self.assertEqual(entry["status"], "manual_candidate")
+
+    smartphone_post = [
+        p for p in office_views.PUBLISH_QUEUE_POSTS
+        if p["id"] == "smartphone-ai-draft-3points"
+    ][0]
+    self.assertEqual(smartphone_post["status"], "published")
+    for post_id in ("desk-wiring-3points", "peripheral-choice-3points"):
+      post = [p for p in office_views.PUBLISH_QUEUE_POSTS if p["id"] == post_id][0]
+      self.assertEqual(post["status"], "awaiting_president")
+
+  def test_mission_054_fix_pinterest_and_note_totals_are_unchanged(self):
+    # 修正後も、Pinterest5件・note3件という合計数、最新note記事URL、
+    # 48時間後の反応確認方針は変わらないことを確認する。
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn("<b>5件</b><span>Pinterest公開済み</span>", ceo_html)
+    self.assertIn("<b>3件</b><span>note公開済み</span>", ceo_html)
+    self.assertIn("<b>48時間</b><span>Pinterest反応確認の目安</span>", ceo_html)
+    note_html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn("https://note.com/legal_crow9879/n/nb2a21a842387", note_html)
 
 
 if __name__ == "__main__":

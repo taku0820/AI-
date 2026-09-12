@@ -174,6 +174,11 @@ def index():
   # 送信・ログイン・API連携・外部通信を一切行わない(表示専用)。Threadsの
   # 実際の投稿・認証情報はDify側で管理されており、このダッシュボードでは
   # 一切扱わない。
+  #
+  # MISSION 054: 2026年9月12日時点の実態(note記事3件・Pinterest5件が公開
+  # 済みであり、最新のPinterest投稿「AIが「なんか違う」ときに見直す3つ」は
+  # 最新note記事へリンク済み)に合わせて件数・次の行動を更新した。次に
+  # 確認することは、48時間後のPinterest反応確認である。
   html_content = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -335,8 +340,8 @@ def index():
                     <span>Pinterest</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：4件公開済み。反応を手動で確認しつつ、次の投稿案（1件）を準備済み。</p>
-                <p class="channel-next">次の行動：<b>投稿キューの準備済み案を確認し、社長が手動でPinterestへ投稿・分析確認を行う。</b></p>
+                <p class="channel-role">現在の役割：5件公開済み。最新投稿は48時間後を目安に反応を手動で確認予定。</p>
+                <p class="channel-next">次の行動：<b>48時間後を目安に最新投稿の反応を手動で確認し、準備済みの案も引き続き確認する。</b></p>
                 <a class="channel-link" href="/content-studio/publish-queue">投稿キューを見る →</a>
             </div>
 
@@ -355,7 +360,7 @@ def index():
                     <span>note</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：2本公開済み。次の記事の下書き・見出し画像・Pinterest投稿案まで準備済み。</p>
+                <p class="channel-role">現在の役割：3件公開済み。次の記事の下書き・見出し画像・Pinterest投稿案まで準備済み。</p>
                 <p class="channel-next">次の行動：<b>準備済みの下書きを確認し、社長が手動でnoteへ貼り付けて公開する。</b></p>
                 <a class="channel-link" href="/content-studio/note-first-article">note記事を見る →</a>
             </div>

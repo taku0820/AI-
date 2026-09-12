@@ -128,7 +128,9 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .pq-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px 18px;margin-bottom:22px}
 .pq-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .pq-card-head h3{margin:0;font-size:16px}
-.pq-status-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;background:#3d3106;color:#fbbf24;flex-shrink:0}
+.pq-status-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;flex-shrink:0}
+.pq-status-badge.status-awaiting_president{background:#3d3106;color:#fbbf24}
+.pq-status-badge.status-published{background:#063d2c;color:var(--green)}
 .pq-topics-label{font-size:11px;color:var(--sub);margin:14px 0 6px}
 .pq-topics{list-style:none;padding:0;display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
 .pq-topics li{background:#0f1a2c;border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:11px;color:var(--sub)}
@@ -316,7 +318,7 @@ REVENUE_FOCUS = {
                         "スマホ・PC周辺機器を探している人",
     "service_ideas": [
         "投稿企画工場のテーマに沿った発信",
-        "公開済みPinterest投稿（4件）・note記事（2本）からの流入育成",
+        "公開済みPinterest投稿（5件）・note記事（3件）からの流入育成",
         "楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）",
     ],
     # MISSION 052: Pinterest・note・楽天ROOMの投稿活動自体は手動ですでに
@@ -328,14 +330,14 @@ REVENUE_FOCUS = {
     "price_note": "楽天ROOMでの紹介はすべて手動登録の想定であり、金額・成果はすべて未確定の"
                   "「たたき台」です。確定した収益・契約内容ではありません。",
     "price_tiers": [
-        ("Pinterest経由の流入", "4件公開・手動運用中"),
+        ("Pinterest経由の流入", "5件公開・手動運用中"),
         ("楽天ROOMでの手動紹介", "1件公開・次の登録は確認後に判断"),
-        ("noteでの信頼構築", "2本公開・手動運用中"),
+        ("noteでの信頼構築", "3件公開・手動運用中"),
     ],
     "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
-        "Pinterest・noteの反応確認",
-        "次の手動投稿タイミングの判断",
+        "48時間後を目安にPinterestの反応を確認",
+        "noteの反応確認",
         "既存ROOM投稿（折りたたみキーボード）の内容・反応を確認",
     ],
 }
@@ -466,14 +468,20 @@ CONTENT_STUDIO_IMAGE_STANDARDS = [
 # 候補を3つ整理した企画メモ。表示専用の静的コンテンツであり、記事・画像・
 # 投稿はまだ作成していない(検討段階)。将来候補を差し替える場合は、この
 # データ構造(CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES)を編集するだけでよい。
+# MISSION 054: 候補2「AIとの会話がかみ合わないときに見直す3つ」は、
+# 2026年9月12日までにPinterest投稿「AIが「なんか違う」ときに見直す3つ」と
+# note記事「AIに聞いても「なんか違う」と感じる人へ」として実際に公開済みに
+# なったため、企画メモから削除した(公開済み記事を改めて「次に作る候補」
+# として提案するのは実態と食い違うため)。残る候補を2つに整理した。
 CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_HEADING = (
     "次のnote記事・Pinterest投稿の候補（AI初心者向け・企画メモ）"
 )
 CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES_INTRO = (
-    "公開済みのPinterest投稿4本・note記事2本の内容を踏まえ、次に作る候補を3つ整理した"
+    "公開済みのPinterest投稿5件・note記事3件の内容を踏まえ、次に作る候補を2つ整理した"
     "企画メモです。ここに書いた内容は下書き作成前の検討段階であり、記事・画像・投稿は"
     "まだ作成していません。メール下書き・スマホでのAI下書き・デスク配線・一般的なAIの"
-    "使い方（メール・要約・壁打ち）とは重複しないテーマだけを選んでいます。"
+    "使い方（メール・要約・壁打ち）・AIとの会話がかみ合わないときの見直しとは重複しない"
+    "テーマだけを選んでいます。"
 )
 CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES = [
     {
@@ -521,52 +529,7 @@ CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES = [
         ),
     },
     {
-        "theme": "候補2：AIとの会話がかみ合わないときに見直す3つ",
-        "pain_point": (
-            "AIに質問しても期待した答えが返ってこず、「AIって思ったより使えない」と"
-            "感じて、それ以上使うのをやめてしまう。"
-        ),
-        "note_title_candidates": [
-            "AIとの会話がかみ合わないと感じたときに見直したい3つ",
-            "思った答えが返ってこないときに試したい、AIへの伝え方3つの工夫",
-            "AIが「なんか違う」と感じたら見直したい3つのポイント",
-        ],
-        "pinterest_title": "AIとの会話がかみ合わないときに見直す3つ",
-        "opening_hook": (
-            "AIに質問してみたものの、返ってきた答えが求めていたものと違って、なんとな"
-            "くガッカリした——そんな経験がある人は少なくないはずです。ここで「AIはこん"
-            "なものか」と使うのをやめてしまうのは、少しもったいないかもしれません。実は"
-            "、伝え方を少し変えるだけで、返ってくる答えが大きく変わることがあります。"
-            "何度もやり取りしているうちに、かえって話がずれていくと感じることもあるか"
-            "もしれません。この記事では、AIとの会話がかみ合わないと感じたときに見直し"
-            "たい3つのポイントを紹介します。"
-        ),
-        "heading_outline": [
-            "はじめに（「思った答えが返ってこない」というよくある感覚）",
-            "1. 一度に多くを求めすぎていないか見直す",
-            "2. 前提条件を伝えられているか見直す",
-            "3. 一往復で終わらせず、返ってきた答えに重ねて聞き返す",
-            "まとめ",
-        ],
-        "image_subject_and_composition": (
-            "画像の作成基準の「AIの使い方記事」に沿い、考える・入力する場面を主役に"
-            "する。画面に向かって指先で文字を打ち直している手元を中心に置き、デスク"
-            "全体は写さない。デスク配線・スマホ下書きの既存画像と同じ構図の使い回しは"
-            "避ける。"
-        ),
-        "pinterest_vs_note_image_difference": (
-            "Pinterest用画像には、タイトルと3項目を画像本体に焼き込む。note用見出し"
-            "画像は文字を重ねず、考え直している空気感が伝わる写真のみにする。"
-        ),
-        "reason": (
-            "既存のメール下書き・スマホでのAI下書きは「何を頼むか決める前」の準備に"
-            "焦点を当てているのに対し、この候補は「頼んだあと、答えが期待と違ったとき"
-            "にどうするか」という、初心者が挫折しやすい別の場面を扱っているため、内容が"
-            "重複しない。"
-        ),
-    },
-    {
-        "theme": "候補3：AIに1日の優先順位を整理してもらう前の3つ",
+        "theme": "候補2：AIに1日の優先順位を整理してもらう前の3つ",
         "pain_point": (
             "在宅ワークでやることが多く優先順位がつけられず、AIに整理を手伝ってもら"
             "いたいが、何をどう伝えればよいか分からない。"
@@ -605,10 +568,10 @@ CONTENT_STUDIO_NEXT_ARTICLE_CANDIDATES = [
             "画像は文字を重ねず、タスク整理をしている空気感が伝わる写真のみにする。"
         ),
         "reason": (
-            "既存4本・note記事2本はいずれも「AIに文章の下書きを頼む」場面が中心だが、"
-            "この候補は「AIにタスク・優先順位の整理を頼む」という、文章作成以外の"
-            "使い方を扱っており、テーマが重複しない。在宅ワーカーという想定読者にも"
-            "刺さりやすい。"
+            "既存のPinterest投稿5件・note記事3件はいずれも「AIに文章の下書きを頼む」"
+            "「AIとの会話を見直す」といった場面が中心だが、この候補は「AIにタスク・"
+            "優先順位の整理を頼む」という、文章作成・対話の見直し以外の使い方を扱って"
+            "おり、テーマが重複しない。在宅ワーカーという想定読者にも刺さりやすい。"
         ),
     },
 ]
@@ -616,8 +579,8 @@ CONTENT_STUDIO_NEXT_ARTICLE_RECOMMENDATION = (
     "候補1「AIに調べ物を頼む前に確認する3つ」をおすすめします。仕事・在宅ワークに限らず"
     "誰にでも当てはまる場面であり、既存投稿と同じ「頼む前に確認する3つ」という型を"
     "踏襲できるため、読者にとって見慣れた形で試しやすいこと、AIの回答をどう受け止める"
-    "かという、初心者が早い段階で感じやすい不安に応えられることが理由です。候補2・"
-    "候補3も重複のない有力なテーマのため、続けて検討する価値があります。"
+    "かという、初心者が早い段階で感じやすい不安に応えられることが理由です。候補2も"
+    "重複のない有力なテーマのため、続けて検討する価値があります。"
 )
 
 # 現在公開済みのnote記事(note初回記事)に合う2テーマだけを残した。他の
@@ -1087,10 +1050,16 @@ def _render_first_post_scene(package):
 # status を draft から published へ更新した。6日目・7日目は、MISSION 040
 # で投稿企画工場の表示から外れた未実施の汎用ガジェットテーマ(「デスク
 # 周りを整える便利ガジェット」「スマホ・PC作業を快適にする周辺機器」)を
-# 参照したまま古くなっていたため、実際に投稿キューから公開済みの2テーマ
-# (デスク配線・周辺機器選び)へ差し替えた。3〜5日目は、投稿企画工場
-# (CONTENT_STUDIO_PLANS)にいまも残っている未着手の候補テーマのままで
-# 変わっていないため、手動投稿候補のまま維持している。
+# 参照したまま古くなっていたため、投稿キューのデスク配線・周辺機器選びの
+# 2テーマへ差し替えた。3〜5日目は、投稿企画工場(CONTENT_STUDIO_PLANS)に
+# いまも残っている未着手の候補テーマのままで変わっていないため、手動投稿
+# 候補のまま維持している。
+#
+# MISSION 054修正: 6日目・7日目が参照する投稿キューのデスク配線・周辺機器
+# 選びテーマは、実際には柴犬社長がまだPinterestへ投稿していない
+# ("awaiting_president")ことが判明したため、statusをpublishedから
+# manual_candidateへ戻した(投稿キュー側の公開状況と食い違わないように
+# するため)。
 WEEKLY_PLAN_POST_PUBLISH_CHECKS = [
     "表示回数（インプレッション）をPinterest上で手動確認する",
     "保存数をPinterest上で手動確認する",
@@ -1148,30 +1117,26 @@ WEEKLY_PLAN = [
         "checks": ["タイトルが検索されやすいか", "altテキストが正しいか"],
     },
     {
+        # MISSION 054修正: 投稿キューのデスク配線テーマ(desk-wiring-3points)は
+        # 実際には未公開("awaiting_president")のため、published表現をやめ、
+        # 他の手動投稿候補日と同じ"manual_candidate"に戻した。
         "day": 6,
         "theme": "デスクが狭いときに配線を見直す3つのポイント",
         "medium": "Pinterest",
         "purpose": "保存・検索からの流入",
-        "status": "published",
-        "note": (
-            "投稿キュー（/content-studio/publish-queue）のデスク配線テーマの内容を、"
-            "柴犬社長が手動でPinterestへ投稿済みとして記録しています。"
-            "表示回数・保存数・クリック数などの反応・成果は、この画面では"
-            "一切表示・推測しません。"
-        ),
+        "status": "manual_candidate",
+        "checks": ["誰向けかが明確か", "誇大表現・断定的な言い回しがないか"],
     },
     {
+        # MISSION 054修正: 投稿キューの周辺機器選びテーマ(peripheral-choice-
+        # 3points)は実際には未公開("awaiting_president")のため、published
+        # 表現をやめ、他の手動投稿候補日と同じ"manual_candidate"に戻した。
         "day": 7,
         "theme": "スマホ・PC作業をラクにする周辺機器の選び方",
         "medium": "Pinterest",
         "purpose": "保存・検索からの流入",
-        "status": "published",
-        "note": (
-            "投稿キュー（/content-studio/publish-queue）の周辺機器選びテーマの内容を、"
-            "柴犬社長が手動でPinterestへ投稿済みとして記録しています。"
-            "表示回数・保存数・クリック数などの反応・成果は、この画面では"
-            "一切表示・推測しません。"
-        ),
+        "status": "manual_candidate",
+        "checks": ["タイトルが検索されやすいか", "altテキストが正しいか"],
     },
 ]
 
@@ -1712,10 +1677,25 @@ def _render_desk_setup_scene(package):
 # 手動実行する運用であることを、各カードに明記する。将来投稿内容を
 # 差し替える場合は、このデータ構造(PUBLISH_QUEUE_POSTS)を編集するだけで
 # よい。
+# MISSION 054: 「status」を自由文字列から状態キーへ変更した。
+# MISSION 054修正: 実際の公開状況は、メール下書き・スマホでのAI下書き・
+# 「なんか違う」投稿(ai-mismatch-3points)の3件が柴犬社長により手動で
+# Pinterestへ投稿済み("published")であり、デスク配線(desk-wiring-3points)・
+# 周辺機器選び(peripheral-choice-3points)の2件は未公開のまま
+# ("awaiting_president")である。公開済みPinterest5件の内訳は、この3件に
+# 別データ構造のFIRST_POST_PACKAGE・DESK_SETUP_POST_PACKAGEを加えた5件。
+# スマホでのAI下書きは対応するnote記事下書き(NOTE_SECOND_ARTICLE_DRAFT)が
+# まだ下書きのままだが、Pinterest投稿自体は公開済みのため、両者のstatusは
+# 独立して扱う。
+PUBLISH_QUEUE_STATUS_LABELS = {
+    "awaiting_president": "社長承認待ち",
+    "published": "公開済み",
+}
+
 PUBLISH_QUEUE_POSTS = [
     {
         "id": "email-draft-3points",
-        "status": "社長承認待ち",
+        "status": "published",
         "pin": {
             "title": "AIにメールの下書きを頼む前に決める3つ",
             "description": (
@@ -1767,7 +1747,7 @@ PUBLISH_QUEUE_POSTS = [
     },
     {
         "id": "desk-wiring-3points",
-        "status": "社長承認待ち",
+        "status": "awaiting_president",
         "pin": {
             "title": "デスクが狭いときに配線を見直す3つのポイント",
             "description": (
@@ -1804,7 +1784,7 @@ PUBLISH_QUEUE_POSTS = [
     },
     {
         "id": "peripheral-choice-3points",
-        "status": "社長承認待ち",
+        "status": "awaiting_president",
         "pin": {
             "title": "スマホ・PC作業をラクにする周辺機器の選び方",
             "description": (
@@ -1845,7 +1825,7 @@ PUBLISH_QUEUE_POSTS = [
         # 社長が手動で結び付けられる状態にする(このアプリからは投稿URLを
         # 取得・保存・自動連携しない)。
         "id": "smartphone-ai-draft-3points",
-        "status": "社長承認待ち",
+        "status": "published",
         "pin": {
             "title": "スマホでAIに下書きを頼む前に確認する3つ",
             "description": (
@@ -1904,8 +1884,12 @@ PUBLISH_QUEUE_POSTS = [
         # MISSION 049: 「AIに聞いても『なんか違う』と感じる人へ」note記事下書きと
         # 対応するPinterest投稿。楽天ROOMの商品紹介は行わないため、リンク欄は
         # 汎用の空欄注記(PUBLISH_QUEUE_ROOM_LINK_NOTE)のままにする。
+        # MISSION 054: 2026年9月12日までに柴犬社長が手動でPinterestへ投稿済み。
+        # リンク先も、実際に公開されたnote記事(NOTE_THIRD_ARTICLE)のURLへ
+        # 更新した(email-draft-3pointsと同じ扱い)。
         "id": "ai-mismatch-3points",
-        "status": "社長承認待ち",
+        "status": "published",
+        "pinterest_link_url": "https://note.com/legal_crow9879/n/nb2a21a842387",
         "pin": {
             "title": "AIが「なんか違う」ときに見直す3つ",
             "description": (
@@ -1941,8 +1925,7 @@ PUBLISH_QUEUE_POSTS = [
             "画像内の文字（タイトル・3項目）が読みやすいか（誤字・はみ出しがないか）"
             "確認した",
             "altテキストが画像の内容を正しく説明しているか確認した",
-            "楽天ROOMリンク欄が空欄のままであることを確認した（社長がPinterestへ"
-            "投稿する際に手動で貼り付ける）",
+            "リンク先のnote記事が正しく公開されているか確認した",
             "この画像がAIで生成・加工した画像であり、Pinterest側で必要な「AIで"
             "修正済み」等の画像ラベル設定が必要であることを確認した",
             "Pinterestアカウントにログインした状態で、手動で投稿できる準備ができている",
@@ -2415,7 +2398,7 @@ def generate_publish_queue_ai_mismatch_png(out_path=None):
   return out_path
 
 
-def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
+def _render_publish_queue_scene(posts, room_link_note, manual_post_note, status_labels):
   """Pinterest向け・手動承認つき投稿キューのHTMLを組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・楽天API・外部
@@ -2423,6 +2406,11 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
   URLの取得・保存・外部連携は行わない。コピー用ボタンはクライアント側JS
   のみで完結し、クリップボード操作が失敗しても例外を伝播させず、安全な
   フォールバック表示にする。
+
+  MISSION 054: statusは自由文字列ではなく状態キー("published"/
+  "awaiting_president")になったため、status_labels(PUBLISH_QUEUE_STATUS_
+  LABELS)で日本語ラベルへ変換し、状態ごとに異なる配色のバッジ
+  (pq-status-badge status-{key})で表示する。
   """
   post_cards = []
   for post in posts:
@@ -2537,7 +2525,8 @@ def _render_publish_queue_scene(posts, room_link_note, manual_post_note):
         '<div class="pq-card">'
         '<div class="pq-card-head">'
         f'<h3>{pin["title"]}</h3>'
-        f'<span class="pq-status-badge">{post["status"]}</span>'
+        f'<span class="pq-status-badge status-{post["status"]}">'
+        f'{status_labels[post["status"]]}</span>'
         '</div>'
         f'{media_and_fields_html}'
         '<p class="pq-topics-label">Pinterestのトピック候補</p>'
@@ -3613,8 +3602,8 @@ NOTE_THIRD_ARTICLE_DRAFT_COVER_WIDTH = 1672
 NOTE_THIRD_ARTICLE_DRAFT_COVER_HEIGHT = 941
 
 NOTE_THIRD_ARTICLE_DRAFT = {
-    "theme": "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないときの3つの見直し",
-    "title": "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないときの3つの見直し",
+    "theme": "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないとき、まず見直す3つ",
+    "title": "AIに聞いても「なんか違う」と感じる人へ。話がかみ合わないとき、まず見直す3つ",
     "hero_image_alt": (
         "明るい昼間の室内で、スマートフォンの画面に文字を入力し直している手元のイメージ。"
         "柔らかい光がやわらかく差し込む様子を表現しており、ロゴ・読める文字・人物の顔・"
@@ -3787,10 +3776,14 @@ NOTE_THIRD_ARTICLE_DRAFT = {
         "直す手元を主役にしており、Pinterest投稿キューには別途、縦長でタイトルを焼き込んだ画像を"
         "用意しています。"
     ),
+    # MISSION 054: 2026年9月12日までに柴犬社長が手動でnoteへ貼り付けて公開済み。
+    # 実際に公開されたタイトルは、下書き時点の案から一部変更されている
+    # （"theme"/"title"を参照）。以下は公開時に使用した内容の記録である。
     "manual_post_note": (
-        "この記事はまだ下書きであり、noteへは投稿していません。柴犬社長が内容を確認し、必要に応じて"
-        "手動でnoteへ貼り付けて公開する場合に備えた下書きです。note・SNSへの自動投稿・予約投稿・"
-        "ログイン操作・API連携・外部通信は一切行いません。"
+        "この記事は柴犬社長が手動でnoteへ貼り付けて公開済みです。"
+        "実際の記事URL：https://note.com/legal_crow9879/n/nb2a21a842387 "
+        "note・SNSへの自動投稿・予約投稿・ログイン操作・API連携・外部通信は"
+        "一切行いません。"
     ),
     "checklist": [
         "本文が4,500〜5,500字の目安に収まっているか確認した",
@@ -3824,7 +3817,11 @@ def _note_third_article_draft_body_plain_text(article):
 
 
 def _render_note_third_article_draft_scene(article):
-  """MISSION 049: AIとの会話の見直しテーマのnote記事下書きのHTMLを組み立てる。
+  """MISSION 049: AIとの会話の見直しテーマのnote記事のHTMLを組み立てる。
+
+  MISSION 054: この記事は2026年9月12日までに公開済みとなったため、関数名・
+  データ構造名(NOTE_THIRD_ARTICLE_DRAFT)は変更していないが、画面表示は
+  「下書き」ではなく「公開済みの記録」として組み立てる。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・note・外部通信への
   アクセスは一切行わない。見出し画像は、あらかじめ生成された既存ファイル
@@ -3849,13 +3846,13 @@ def _render_note_third_article_draft_scene(article):
   )
 
   return (
-      '<section class="note-article-board" aria-label="AIとの会話の見直しテーマのnote記事下書き">'
-      '<div class="fp-notice"><b>社内向けの下書き確認画面です。</b>'
-      'noteへの投稿・送信・連携は一切行われません。柴犬社長が内容を確認するための'
-      '下書き表示です。</div>'
+      '<section class="note-article-board" aria-label="AIとの会話の見直しテーマのnote記事（公開済み）">'
+      '<div class="fp-notice"><b>公開済み記事の記録画面です。</b>'
+      'この画面からのnoteへの投稿・送信・連携は一切行われません。柴犬社長が実際に'
+      '公開した内容を、そのまま記録として表示しています。</div>'
       f'<p class="fp-theme">対象テーマ：<b>{article["theme"]}</b>'
       '（Pinterest投稿キューの「AIが「なんか違う」ときに見直す3つ」と対応）</p>'
-      f'<div class="fp-note fp-note-warn"><b>下書きについて。</b>{article["manual_post_note"]}</div>'
+      f'<div class="fp-note fp-note-warn"><b>公開状況について。</b>{article["manual_post_note"]}</div>'
       '<h3 class="fp-section-title">見出し画像</h3>'
       '<div class="note-hero">'
       f'<img class="note-hero-img" src="/static/{NOTE_THIRD_ARTICLE_DRAFT_COVER_RELATIVE_PATH}" '
@@ -3965,8 +3962,8 @@ def register_office_views(app):
         '<span class="cast-badge">AI Hive OSの架空キャラクター</span></div>'
         '<div class="live-board" id="office-live-status"><b>現在の投稿運用状況</b>'
         '<ul>'
-        '<li>Pinterest：4件公開済み・次の投稿案1件を準備済み（社長承認待ち）</li>'
-        '<li>note：2本公開済み・次の記事下書きを準備済み</li>'
+        '<li>Pinterest：5件公開済み・48時間後を目安に最新投稿の反応を確認予定</li>'
+        '<li>note：3件公開済み・次の記事下書きを準備済み</li>'
         '<li>Threads：Difyで別管理の自動投稿を運用中（このアプリからは投稿・ログイン・連携しません）</li>'
         '</ul></div>'
         '<div class="windows" aria-hidden="true"><i></i><i></i><i></i></div><div class="plant" aria-hidden="true">🪴</div>'
@@ -3987,8 +3984,8 @@ def register_office_views(app):
         '<h2 id="desk-detail-title">-</h2>'
         '<p class="desk-detail-role" id="desk-detail-role">-</p>'
         '<dl class="desk-detail-facts">'
-        '<div><dt>Pinterest</dt><dd>4件公開済み。次の投稿案（1件）を準備済み（社長承認待ち）。</dd></div>'
-        '<div><dt>note</dt><dd>2本公開済み。次の記事の下書き・見出し画像・Pinterest用画像まで準備済み。</dd></div>'
+        '<div><dt>Pinterest</dt><dd>5件公開済み。最新投稿は48時間後を目安に反応を確認予定。</dd></div>'
+        '<div><dt>note</dt><dd>3件公開済み。次の記事の下書き・見出し画像・Pinterest用画像まで準備済み。</dd></div>'
         '<div><dt>Threads</dt><dd>Difyを使った別管理の自動投稿を運用中（このアプリでは扱いません）。</dd></div>'
         '</dl>'
         '<p class="desk-detail-disclaimer" id="desk-detail-disclaimer">'
@@ -4101,9 +4098,12 @@ def register_office_views(app):
     # MISSION 051: 社長室(業務司令室)を、実データに乏しいwork_logs
     # (2026-09-01付けの3件、A8.net・美容サロン案件など現在と無関係な
     # 内容)から動的に算出する方式から、柴犬社長が確認した現在の実際の
-    # 運用状況(Pinterest 4件公開済み+次の投稿案1件、note 2本公開済み+
-    # 次の記事下書き1本、Threadsのみ別管理のDify自動投稿)を示す静的な
-    # 表示へ切り替えた。DB・APIへの書き込みは一切行わない(表示専用)。
+    # 運用状況を示す静的な表示へ切り替えた。DB・APIへの書き込みは一切
+    # 行わない(表示専用)。
+    # MISSION 054: 2026年9月12日時点の実態(Pinterest 5件公開済み・note
+    # 3件公開済み・次の記事下書き1本、Threadsのみ別管理のDify自動投稿)へ
+    # 更新した。「AIが「なんか違う」ときに見直す3つ」は公開済みとなり、
+    # 次に確認することは48時間後のPinterest反応確認である。
     # MISSION 053: 柴犬社長を「小さなアイコン」ではなく主役として見せる
     # ため、ceo-desk内の人物をCSS変数--s(DEPTH_STYLE内の.ceo-desk{--s:1.32})
     # で拡大し、背景にスポットライト状のグラデーションを敷く。あわせて、
@@ -4116,8 +4116,8 @@ def register_office_views(app):
         '<div class="ceo-window" aria-hidden="true">☀</div>'
         '<div class="ceo-spotlight" aria-hidden="true"></div>'
         '<div class="ceo-monitor" aria-hidden="true"><b>いま確認している状況</b>'
-        '<div><span>Pinterest</span><span>4件公開</span></div>'
-        '<div><span>note</span><span>2本公開</span></div>'
+        '<div><span>Pinterest</span><span>5件公開</span></div>'
+        '<div><span>note</span><span>3件公開</span></div>'
         '<div><span>Threads</span><span>Dify運用</span></div>'
         '</div>'
         f'<div class="ceo-desk">{figure("president", "柴犬社長")}'
@@ -4125,21 +4125,21 @@ def register_office_views(app):
         '<div class="bubble">「Pinterestの反応、確認できた？次の投稿タイミングを一緒に考えよう。」</div></section>'
         '<section class="command" aria-label="業務司令室"><h2 class="sr-only">業務司令室</h2>'
         '<div class="command-stats">'
-        '<div class="stat"><b>4件</b><span>Pinterest公開済み</span></div>'
-        '<div class="stat"><b>2本</b><span>note公開済み</span></div>'
-        '<div class="stat"><b>1件</b><span>Pinterest次の投稿案</span></div>'
+        '<div class="stat"><b>5件</b><span>Pinterest公開済み</span></div>'
+        '<div class="stat"><b>3件</b><span>note公開済み</span></div>'
+        '<div class="stat"><b>48時間</b><span>Pinterest反応確認の目安</span></div>'
         '</div>'
         '<p class="command-note">note次の記事の下書き・見出し画像・Pinterest用画像も準備済みです。'
         'Threadsのみ、Difyを使った別管理の自動投稿を運用していますが、'
         'この画面（このダッシュボード）からの投稿・ログイン・連携は一切行いません。</p>'
         '<div class="command-block"><h3>最新の仕事（最大3件）</h3>'
         '<ul>'
-        '<li>Pinterest：「AIが「なんか違う」ときに見直す3つ」を準備（社長承認待ち）</li>'
-        '<li>note：「AIに聞いても「なんか違う」と感じる人へ」の下書きを準備</li>'
-        '<li>前回Pinterest投稿の反応を確認中（48時間ほど様子を見る段階）</li>'
+        '<li>Pinterest：「AIが「なんか違う」ときに見直す3つ」を公開済み</li>'
+        '<li>note：「AIに聞いても「なんか違う」と感じる人へ」を公開済み</li>'
+        '<li>公開済みのPinterest投稿の反応を確認中（48時間ほど様子を見る段階）</li>'
         '</ul></div>'
         '<div class="command-block"><h3>いま優先すること</h3>'
-        '<p>Pinterestの反応確認と、次の手動投稿タイミングの判断</p></div>'
+        '<p>48時間後を目安にPinterestの反応を確認すること</p></div>'
         '</section>'
         '<section class="chat" aria-labelledby="chat-title"><h2 id="chat-title">柴犬社長に話しかける</h2><p>進捗・相談・次の一歩を入力できます。内容は保存・送信されません。</p>'
         # MISSION 027/051: 業務サポート会話の4ボタン。「オフィスへ案内」
@@ -4167,15 +4167,15 @@ def register_office_views(app):
         'l.scrollTop=l.scrollHeight;'
         '}'
         'document.querySelector("#qa-today").addEventListener("click",()=>{'
-        'qaAppendBoss("🐕 柴犬社長：Pinterestは4件、noteは2本、公開済みだよ。'
-        '次の投稿案・記事下書きもどちらも準備できているよ。");'
+        'qaAppendBoss("🐕 柴犬社長：Pinterestは5件、noteは3件、公開済みだよ。'
+        '次の記事下書きも準備できているよ。");'
         '});'
         'document.querySelector("#qa-priority").addEventListener("click",()=>{'
-        'qaAppendBoss("🐕 柴犬社長：いま優先するのは、Pinterestの反応確認と、'
-        '次の手動投稿タイミングの判断だよ。");'
+        'qaAppendBoss("🐕 柴犬社長：いま優先するのは、48時間後を目安にした'
+        'Pinterestの反応確認だよ。");'
         '});'
         'document.querySelector("#qa-done").addEventListener("click",()=>{'
-        'qaAppendBoss("🐕 柴犬社長：Pinterestは4件、noteは2本、公開まで完了しているよ。");'
+        'qaAppendBoss("🐕 柴犬社長：Pinterestは5件、noteは3件、公開まで完了しているよ。");'
         '});'
         '</script>'
     )
@@ -4251,13 +4251,20 @@ def register_office_views(app):
   @app.route("/content-studio/publish-queue")
   def content_studio_publish_queue():
     scene = _render_publish_queue_scene(
-        PUBLISH_QUEUE_POSTS, PUBLISH_QUEUE_ROOM_LINK_NOTE, PUBLISH_QUEUE_MANUAL_POST_NOTE
+        PUBLISH_QUEUE_POSTS, PUBLISH_QUEUE_ROOM_LINK_NOTE, PUBLISH_QUEUE_MANUAL_POST_NOTE,
+        PUBLISH_QUEUE_STATUS_LABELS,
     )
     return _page(
         "content", "投稿キュー（社長承認待ち）",
-        "次の3本分のPinterest投稿を、画像・タイトル・説明文・altテキスト・"
-        "確認項目までまとめて準備する画面です。公開は社長がPinterestで"
-        "手動実行します。",
+        # MISSION 054修正: 5件中3件(メール下書き・スマホでのAI下書き・
+        # 「なんか違う」投稿)はすでに柴犬社長が手動でPinterestへ投稿済み
+        # (公開済み)であり、社長承認待ちのまま残っているのはデスク配線・
+        # 周辺機器選びの2件。画像・タイトル・説明文・altテキスト・確認項目は、
+        # 公開済みの投稿についても、実際に使用した内容の記録としてそのまま
+        # 確認できる。
+        "Pinterest投稿の準備・公開状況を、画像・タイトル・説明文・altテキスト・"
+        "確認項目までまとめて確認する画面です。公開は社長がPinterestで手動実行します。"
+        "公開済みの投稿についても、使用した内容の記録として表示しています。",
         scene,
     )
 
@@ -4269,15 +4276,17 @@ def register_office_views(app):
     # 下書きを追加する。既存の初回記事セクションの内容・構成は変更しない。
     second_draft_scene = _render_note_second_article_draft_scene(NOTE_SECOND_ARTICLE_DRAFT)
     # MISSION 049: さらにその下へ、「AIに聞いても『なんか違う』と感じる人へ」
-    # note記事下書きを追加する。既存の2件のセクションの内容・構成は変更しない。
+    # note記事を追加する。既存の2件のセクションの内容・構成は変更しない。
+    # MISSION 054: この記事は2026年9月12日までに公開済みとなったため、
+    # 見出しを「下書き」から「公開済み」へ更新した。
     third_draft_scene = _render_note_third_article_draft_scene(NOTE_THIRD_ARTICLE_DRAFT)
     return _page(
         "content", "note初回記事",
-        "柴犬社長がnoteへ手動で貼り付けて公開するための、初回記事および"
-        "記事下書き(スマホAI下書き・AIとの会話の見直し)の見出し・本文・"
+        "柴犬社長がnoteへ手動で貼り付けて公開するための、初回記事・公開済み"
+        "記事(AIとの会話の見直し)・記事下書き(スマホAI下書き)の見出し・本文・"
         "見出し画像・タグ候補を確認する画面です。",
         f'{scene}<h2 class="fp-section-title">次のnote記事下書き</h2>'
         f'{second_draft_scene}'
-        '<h2 class="fp-section-title">さらに次のnote記事下書き</h2>'
+        '<h2 class="fp-section-title">公開済みのnote記事</h2>'
         f'{third_draft_scene}',
     )
