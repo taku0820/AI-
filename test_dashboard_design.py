@@ -609,15 +609,21 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(role, html)
 
   def test_break_room_reflects_actual_posting_wait_and_review_state(self):
-    # MISSION 051: 架空スタッフ(琴衣・海・蒼・伊藤)の氏名・休憩理由・移動
-    # 予定を削除し、「投稿の反応を待ち、次の作業を整理する時間」という
-    # 実際の待機・振り返りの状態を表示するように更新した。
+    # MISSION 051: 架空スタッフの氏名・休憩理由・移動予定を一旦削除し、
+    # 「投稿の反応を待ち、次の作業を整理する時間」という実際の待機・
+    # 振り返りの状態を表示するように更新した。
+    # MISSION 053: 「気軽に相談している空気感」を出すため、琴衣・蒼・彩の
+    # 3人をソファ・休憩室に再登場させたが、話している内容はPinterest反応
+    # 待ち・note次の記事準備済みという実際の状態のみであり、休憩理由・
+    # 移動予定などの新しい実データは増やしていない。
     html = self.client.get("/office/break-room").get_data(as_text=True)
     self.assertIn("Pinterest投稿の反応を待つ時間", html)
     self.assertIn("次の投稿・記事の準備状況を整理中", html)
     self.assertIn("48時間ほど反応を見ている段階です", html)
     self.assertIn("勤怠・休憩予定・作業ログの実データは表示・記録していません", html)
-    for name in ("琴衣", "海", "蒼", "伊藤"):
+    for name in ("琴衣", "蒼", "彩"):
+      self.assertIn(name, html)
+    for name in ("海", "伊藤"):
       self.assertNotIn(name, html)
 
   # --- MISSION 029: ローカル収益化ボード ---------------------------------------
@@ -3652,6 +3658,157 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn(".bubble{position:absolute", html)
     bubble_rule = html.split(".bubble{position:absolute", 1)[1].split("}", 1)[0]
     self.assertIn("z-index:5", bubble_rule)
+
+  # --- MISSION 053: 社員・柴犬社長が主役の立体的な空間への刷新 -------------------
+
+  def test_walker_figures_use_background_color_not_shorthand_background(self):
+    # 画面確認中に発見した表示崩れの回帰テスト: .walker span / .reading span
+    # がショートハンドのbackgroundプロパティを使っており、同じ<span>である
+    # 人物アバター(.figure)のbackground-image(アバター画像)まで打ち消して
+    # しまい、オフィスの「彩・休憩へ」の人物が完全に透明になっていた。
+    # background-colorに変更し、アバター画像を打ち消さないようにした。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn(
+        ".walker span{font-size:10px;padding:4px 7px;background-color:#101b2edb",
+        html,
+    )
+    self.assertIn(
+        ".reading span{font-size:10px;background-color:#fff0c9", html
+    )
+
+  def test_office_walker_figure_is_visible_with_correct_avatar(self):
+    # 上記回帰の直接確認: 「彩・休憩へ」の人物アバターが実際に描画される
+    # (avatar-ayakaのクラスが立っている)ことを確認する。
+    html = self.client.get("/office").get_data(as_text=True)
+    walker_section = html.split('<div class="walker">', 1)[1].split("</div>", 1)[0]
+    self.assertIn("avatar-ayaka", walker_section)
+
+  def test_mobile_layout_keeps_walking_figures_clear_of_desks_and_furniture(self):
+    # 画面確認中に発見した表示崩れの回帰テスト: モバイル幅では、移動中の
+    # 人物(.walker / .break-walker)がアニメーションで動き回ると、デスクや
+    # ソファ・コーヒーバーと重なって読みにくくなっていたため、モバイル幅
+    # では静止位置に固定し、重ならない位置へ調整した。
+    office_html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn(".walker{animation:none", office_html)
+    break_html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn(".break-walker{animation:none", break_html)
+    self.assertIn(".coffee{left:8%", break_html)
+
+  def test_rooms_declare_staff_are_ai_hive_os_fictional_characters(self):
+    # 社員(柴犬社長を含む)がAI Hive OSの架空キャラクターであることを、
+    # 3部屋すべてで画面上に明記していることを確認する。
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('class="cast-badge"', html)
+        self.assertIn("AI Hive OS", html)
+    office_html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn("AI Hive OSの架空キャラクターです", office_html)
+    ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn("柴犬社長も、AI Hive OSの架空キャラクターです", ceo_html)
+
+  def test_office_desks_are_split_into_front_and_back_rows_for_depth(self):
+    # MISSION 053: 平面的なカード並びを避けるため、奥の列(desk-back)と
+    # 手前の列(desk-front)に分ける。手前列はCSS変数--sで人物をやや
+    # 拡大し、奥列は明度・彩度を落とす(filter)ことで奥行きを表現する
+    # (人物を縮小すると、モニター表示の裏に顔が隠れてしまうため、奥列の
+    # 拡大縮小は行わない)。デスクの実データ(役割・作業内容)は変更しない。
+    html = self.client.get("/office").get_data(as_text=True)
+    for key in ("misaki", "umi", "minato", "ito"):
+      self.assertIn(f'id="desk-{key}" data-key="{key}"', html)
+    for key in ("kotoe", "aoi"):
+      self.assertIn(f'id="desk-{key}" data-key="{key}"', html)
+    for i, key in enumerate(("misaki", "umi", "minato", "ito"), start=1):
+      self.assertIn(f'class="desk d{i} desk-back" id="desk-{key}"', html)
+    for i, key in enumerate(("kotoe", "aoi"), start=5):
+      self.assertIn(f'class="desk d{i} desk-front" id="desk-{key}"', html)
+    self.assertIn(".desk.desk-back{filter:", html)
+    self.assertIn(".desk.desk-front{--s:", html)
+
+  def test_office_desks_show_visible_role_labels_without_a_click(self):
+    # MISSION 053: 役割(顔・表情・役割が分かる)を、デスク詳細を開かなくても
+    # その場で見えるようにする。
+    html = self.client.get("/office").get_data(as_text=True)
+    for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO"):
+      self.assertIn(f'<i class="desk-role">{role}</i>', html)
+    self.assertEqual(html.count('<i class="desk-role">運用チーム</i>'), 2)
+
+  def test_office_has_lighting_and_meeting_space_props_for_depth(self):
+    # MISSION 053: 「デスク、モニター、窓、照明、観葉植物、会議スペース」の
+    # うち、照明(.lamp)と会議スペース(.meeting)を新設した。いずれも
+    # 装飾のみでDB/API/実データとは無関係なため、aria-hidden。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('<div class="lamp" aria-hidden="true"></div>', html)
+    self.assertIn('class="meeting" aria-hidden="true"', html)
+    self.assertIn("MTG SPACE", html)
+
+  def test_ceo_office_president_has_spotlight_and_status_monitor(self):
+    # MISSION 053: 柴犬社長を主役として見せるためのスポットライトと、
+    # Pinterest・note・Threadsの状況を確認している体裁のモニター。
+    # 数値はcommand-statsと同じ既存の事実のみで、新しい数値は追加しない。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('class="ceo-spotlight" aria-hidden="true"', html)
+    self.assertIn('class="ceo-monitor" aria-hidden="true"', html)
+    self.assertIn("いま確認している状況", html)
+    self.assertIn("<span>Pinterest</span><span>4件公開</span>", html)
+    self.assertIn("<span>note</span><span>2本公開</span>", html)
+    self.assertIn("<span>Threads</span><span>Dify運用</span>", html)
+    self.assertIn(".ceo-desk{--s:", html)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+
+  def test_break_room_shows_two_characters_chatting_about_real_status_only(self):
+    # MISSION 053: 「投稿後の反応確認や次の企画を気軽に相談している
+    # 空気感」を出すため、琴衣・蒼をソファに座らせる。会話の内容は
+    # Pinterest反応待ち・note次の記事準備済みという既存の事実のみで
+    # あり、新しい休憩理由・移動予定・個人の勤務実績は追加しない。
+    html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn('class="sofa-guest sofa-guest-1"', html)
+    self.assertIn('class="sofa-guest sofa-guest-2"', html)
+    self.assertIn("avatar-kotoe", html)
+    self.assertIn("avatar-aoi", html)
+    self.assertIn('<span class="sofa-chat"><b>琴衣</b>', html)
+    self.assertIn('<span class="sofa-chat"><b>蒼</b>', html)
+    self.assertNotIn("休憩理由", html)
+    self.assertNotIn("円", html)
+    self.assertNotIn("¥", html)
+
+  def test_break_room_walker_is_a_character_figure_not_a_bare_emoji(self):
+    # MISSION 053: 「📝」の絵文字だけだった移動中の人物を、既存のアバター
+    # 仕組み(彩)を使ったキャラクター表示に差し替える。読みやすさの回帰
+    # 修正(.break-walker smallの明るい文字色)は維持する。
+    html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn("avatar-ayaka", html)
+    walker_section = html.split('class="break-walker"', 1)[1].split("</div>", 1)[0]
+    self.assertNotIn("📝", walker_section)
+    self.assertIn(
+        ".break-walker small{display:block;text-align:center;color:#fff8e9", html
+    )
+
+  def test_figure_depth_scale_is_css_only_with_no_external_calls(self):
+    # MISSION 053の奥行き表現(--sによるCSSスケール)が、外部リソースや
+    # fetch等を一切追加していないことを確認する。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn("transform:scale(var(--s,1))", html)
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        page_html = self.client.get(path).get_data(as_text=True)
+        self.assertNotIn("fetch(", page_html)
+        self.assertNotIn("/api/", page_html)
+        self.assertNotIn("http://", page_html)
+        self.assertNotIn("https://", page_html)
+
+  def test_mission_053_rooms_have_no_fabricated_or_stale_business_data(self):
+    # 架空の売上・A8.net・美容案件・実在しない作業ログ・実在スタッフ名を
+    # 一切復活させていないことを、追加した要素も含めて確認する。
+    for path in ("/office", "/office/break-room", "/office/ceo-office"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for forbidden in (
+            "A8.net", "ラッシュアディクト", "美容サロン", "提携申請",
+            "売上", "ランキング", "在庫",
+        ):
+          self.assertNotIn(forbidden, html)
 
 
 if __name__ == "__main__":

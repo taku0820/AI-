@@ -214,9 +214,67 @@ a.qa-btn{text-decoration:none;display:inline-block}
 """
 
 
+# MISSION 053: オフィス・休憩室・社長室を「奥行きのある会社空間」へ強化する
+# ための追加スタイル。既存の巨大なSTYLE文字列(部屋の骨格・座標)には最小限の
+# 手（.figureの拡大縮小をCSS変数`--s`で扱えるようにする3箇所）しか入れず、
+# 新規の見た目(照明・会議スペース・キャラクターの拡大縮小・社長の演出・
+# 休憩室のキャラクター配置)はすべてこのブロックに分離する。DB/API/外部
+# 通信は一切使わない、純粋な表示用CSSのみ。
+DEPTH_STYLE = """
+<style>
+.cast-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;background:#0d192bdc;border:1px solid #4a7595;color:#a8c0d7;margin-left:8px;vertical-align:middle}
+.figure{-webkit-mask-image:radial-gradient(ellipse 68% 62% at 50% 42%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 68% 62% at 50% 42%,#000 62%,transparent 100%)}
+@media(min-width:761px){.office.scene{min-height:660px}}
+.desk .desk-role{position:absolute;left:0;right:0;bottom:-3px;z-index:5;font-size:9px;color:#9fb3cf;font-style:normal;letter-spacing:.02em}
+.desk em{bottom:-25px}
+.desk .figure{bottom:40px}
+.desk:before{height:20px}
+.desk.desk-back{filter:brightness(.88) saturate(.88)}
+.desk.desk-back:hover,.desk.desk-back:focus-visible{filter:none}
+.desk.desk-front{--s:1.1;z-index:4}
+.lamp{position:absolute;top:3%;left:47%;width:2px;height:12%;background:linear-gradient(#0000,#3a4560);z-index:1}
+.lamp:after{content:"";position:absolute;left:50%;bottom:0;width:50px;height:50px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,#ffe9a8cc 0%,#ffe9a833 55%,transparent 72%)}
+.lamp:before{content:"";position:absolute;left:50%;bottom:-6px;width:20px;height:12px;transform:translateX(-50%);background:#ecd9a0;border-radius:0 0 10px 10px;box-shadow:0 2px 16px 4px #ffdb8a80}
+.meeting{position:absolute;right:5%;bottom:4%;width:150px;height:60px;z-index:1;text-align:center}
+.meeting:after{content:"";position:absolute;left:50%;bottom:12px;width:82px;height:28px;transform:translateX(-50%);background:#2a3d58;border:3px solid #4a6a8f;border-radius:50%}
+.meeting span{position:absolute;bottom:10px;font-size:20px}
+.meeting span:nth-of-type(1){left:10px}
+.meeting span:nth-of-type(2){right:10px}
+.meeting small{position:absolute;left:0;right:0;top:0;color:#8ba2c2;font-size:9px;letter-spacing:.03em}
+.ceo-desk{--s:1.32}
+.ceo-spotlight{position:absolute;left:50%;bottom:4%;width:420px;height:420px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,#ffdb8a26 0%,#ffdb8a10 45%,transparent 70%);z-index:1}
+.ceo-monitor{position:absolute;left:8%;bottom:30%;width:150px;background:#0d192bdc;border:1px solid #4a7595;border-radius:10px;padding:9px 11px;font-size:10px;line-height:1.7;color:#dceafa;z-index:4}
+.ceo-monitor b{display:block;color:var(--green);font-size:10px;margin-bottom:4px}
+.ceo-monitor div{display:flex;justify-content:space-between;gap:6px}
+.ceo-monitor span:first-child{color:#a8c0d7}
+.sofa{--s:1.05}
+.sofa-guest{position:absolute;bottom:14px;z-index:3;width:120px;text-align:center}
+.sofa-guest .figure{position:relative;left:auto;bottom:auto;display:inline-block;animation:work 3.4s ease-in-out infinite}
+.sofa-guest-1{left:52px}
+.sofa-guest-2{left:216px;}
+.sofa-guest-2 .figure{animation-delay:.6s}
+.sofa-chat{display:block;margin-top:6px;font-size:10px;line-height:1.4;color:#fff8e9;background:#0b1528d9;border:1px solid #3d5a86;border-radius:8px;padding:5px 8px}
+.sofa-chat b{color:#8fd9ff;margin-right:3px}
+.break-walker{--s:1.08;width:84px}
+@media(max-width:760px){
+.meeting{display:none}
+.lamp{display:none}
+.ceo-monitor{left:4%;bottom:auto;top:15%;width:118px}
+.ceo-spotlight{width:260px;height:260px}
+.break-walker{animation:none;right:4%;bottom:auto;top:14%}
+.coffee{left:8%;right:auto;bottom:auto;top:48%;transform:scale(.65);transform-origin:top left}
+.walker{animation:none;left:auto;right:8%;bottom:4%}
+.sofa-guest{width:96px}
+.sofa-guest-1{left:8px}
+.sofa-guest-2{left:150px}
+}
+</style>
+"""
+
+
 STYLE = """
 <style>
-:root{--bg:#090c15;--panel:#121a2c;--edge:#293958;--ink:#f1f5f9;--sub:#a3b2c6;--blue:#38bdf8;--green:#34d399}*{box-sizing:border-box}body{margin:0;padding:20px;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.head,.tabs,main{max-width:1240px;margin:auto}.head{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #202d47;padding-bottom:15px}.head h1{font-size:21px;margin:0 0 4px}.head p{margin:0;font-size:12px;color:var(--sub)}a,.chat-form button{color:var(--ink);text-decoration:none;font-size:12px;border:1px solid var(--edge);border-radius:9px;padding:8px 12px;background:#142039}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px;margin-bottom:15px}.tabs a.active,.tabs a:hover{border-color:var(--blue);color:var(--blue);background:#1b2d4b}.scene{position:relative;min-height:590px;overflow:hidden;border:1px solid var(--edge);border-radius:20px;background:#142038;box-shadow:0 18px 45px #0007}.label{position:absolute;top:16px;left:18px;font-size:12px;font-weight:800;letter-spacing:.08em;z-index:6}.label span{color:var(--green);font-size:10px;margin-left:8px}.figure{display:block;width:74px;height:99px;background:url('/static/images/office-avatars-v1.png?v=2') no-repeat;background-size:400% 200%;filter:drop-shadow(0 7px 7px #0008)}.avatar-president{background-position:0 0}.avatar-ayaka{background-position:33.333% 0}.avatar-kotoe{background-position:66.666% 0}.avatar-aoi{background-position:100% 0}.avatar-misaki{background-position:0 100%}.avatar-umi{background-position:33.333% 100%}.avatar-minato{background-position:66.666% 100%}.avatar-ito{background-position:100% 100%}.office{background:linear-gradient(#263b5b 0 44%,#c18c5e 44% 46%,#233247 46%)}.office:after{content:"";position:absolute;inset:46% 0 0;background:repeating-linear-gradient(90deg,#ffffff08 0 2px,transparent 2px 85px),linear-gradient(135deg,#28394e,#172235);z-index:0}.windows{position:absolute;left:9%;right:10%;top:11%;height:145px;display:flex;gap:15px}.windows i{flex:1;border:8px solid #354861;background:linear-gradient(#56c8ed 0 60%,#c4f3e9 60%);box-shadow:inset 0 0 0 3px #152237}.door{position:absolute;right:6%;top:27%;width:88px;height:180px;border:5px solid #3e2d25;border-radius:8px 8px 0 0;background:#784b38;text-align:center;padding-top:50px;z-index:3}.door b{display:block;font-size:24px}.door small{font-size:9px}.plant{position:absolute;bottom:20%;left:4%;font-size:48px;z-index:4}.desk{position:absolute;width:145px;height:165px;text-align:center;z-index:3}.desk .figure{position:absolute;left:36px;bottom:29px;animation:work 3.2s ease-in-out infinite}.desk:after{content:"";position:absolute;left:0;right:0;bottom:23px;height:44px;background:linear-gradient(#d8ad80,#7f4e32);border-top:5px solid #ffe0b3;border-radius:5px 5px 11px 11px;z-index:2}.desk:before{content:attr(data-screen);position:absolute;left:49px;bottom:66px;width:44px;height:32px;line-height:25px;color:#eaffff;background:#286da0;border:4px solid #111d2e;border-radius:5px;z-index:4;font:bold 13px monospace}.desk b,.desk em{position:absolute;left:0;right:0;bottom:2px;z-index:5;font-size:11px}.desk em{bottom:-13px;color:#b8c8da;font-size:9px;font-style:normal}.d1{left:7%;top:41%}.d2{left:27%;top:41%}.d3{left:47%;top:41%}.d4{left:67%;top:41%}.d5{left:19%;top:70%}.d6{left:59%;top:70%}.route{position:absolute;right:9%;bottom:25%;width:48%;border-top:4px dashed #72d8d8aa;border-radius:50%;transform:rotate(-8deg);z-index:1}.walker{position:absolute;left:7%;bottom:16%;display:flex;gap:4px;align-items:end;z-index:5;animation:to-break 17s ease-in-out infinite}.walker .figure{animation:step .42s infinite alternate}.walker span{font-size:10px;padding:4px 7px;background:#101b2edb;border:1px solid #38587c;border-radius:8px;white-space:nowrap}.live-board{position:absolute;left:18px;top:58px;z-index:6;max-width:340px;border:1px solid #4a7595;background:#0d192bdc;border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.45;color:#dceafa}.live-board b{color:var(--green);margin-right:6px}.live-board span{color:#a8c0d7}.live-board ul{margin:6px 0 0;padding-left:16px;color:#a8c0d7}.live-board li{margin:2px 0}.note{margin-top:12px;padding:12px 14px;border:1px solid var(--edge);background:#101827;border-radius:12px;color:var(--sub);font-size:12px}.note b{color:var(--ink);margin:0 7px}.dot{display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 1.8s infinite}.break{background:linear-gradient(#f5cc88 0 46%,#a56d51 46% 48%,#362831 48%)}.break .label{color:#34262c}.break .label span{color:#1e775e}.break-window{position:absolute;left:9%;top:12%;width:245px;height:160px;border:9px solid #fff0ca;background:linear-gradient(#5cd0ef,#c7f3db);font-size:55px;padding:22px 35px}.coffee{position:absolute;right:9%;bottom:19%;width:235px;height:145px;background:#84523a;border:6px solid #5c3729;border-radius:12px 12px 0 0;text-align:center;padding:18px;color:#fff2d7;z-index:2}.coffee b{display:block;font-size:11px;letter-spacing:.1em}.coffee i{display:inline-block;width:22px;height:22px;background:#fadf97;border-radius:50%;margin:11px 7px}.sofa{position:absolute;left:10%;bottom:18%;width:410px;height:175px;z-index:2}.sofa:before,.sofa:after{content:"";position:absolute;left:0;right:0;background:#326b91;border:7px solid #23506d}.sofa:before{top:25px;height:106px;border-radius:45px 45px 15px 15px}.sofa:after{bottom:25px;height:62px;border-radius:12px}.sofa .figure{position:absolute;bottom:62px;z-index:3}.sofa .figure:nth-of-type(1){left:95px}.sofa .figure:nth-of-type(3){left:240px;animation:work 2.8s infinite}.sofa small{position:absolute;bottom:0;left:0;right:0;text-align:center;color:#fff8e9;font-size:10px}.break-walker{position:absolute;right:37%;bottom:17%;z-index:4;animation:coffee-walk 14s ease-in-out infinite}.break-walker .figure{animation:step .4s infinite alternate}.break-walker small{display:block;text-align:center;color:#fff8e9;font-weight:bold}.reading{position:absolute;left:6%;bottom:8%;display:flex;gap:7px;align-items:end;z-index:2}.reading span{font-size:10px;background:#fff0c9;color:#34272b;padding:5px;border-radius:6px}.ceo{min-height:400px;background:linear-gradient(#2a3d58 0 47%,#94644c 47% 49%,#2f2730 49%)}.ceo-window{position:absolute;left:9%;top:14%;width:290px;height:180px;border:9px solid #d0ab80;background:linear-gradient(#75d3ec,#e9f7c6);font-size:45px;text-align:right;padding:16px 20px}.ceo-desk{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);width:350px;height:220px;z-index:2}.ceo-desk .figure{position:absolute;left:138px;bottom:38px;z-index:2;animation:work 3s infinite}.ceo-desk:after{content:"";position:absolute;left:0;right:0;bottom:0;height:82px;background:linear-gradient(#b98760,#6c422f);border:7px solid #4b3028;border-radius:10px 10px 0 0;z-index:3}.approval{position:absolute;right:26px;bottom:99px;z-index:4;background:#fff1c5;color:#513923;padding:8px 12px;font-size:11px;border-radius:5px;transform:rotate(4deg)}.approval b{font-size:20px}.bubble{position:absolute;right:6%;bottom:16%;max-width:280px;padding:13px;background:#0b1528e8;border:1px solid #4b6991;border-radius:13px;font-size:12px;line-height:1.6;z-index:5}.chat{margin-top:14px;background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px}.chat h2{font-size:15px;margin:0 0 5px}.chat>p{margin:0;color:var(--sub);font-size:11px}.log{height:118px;margin:12px 0;padding:10px;overflow:auto;background:#0b1120;border:1px solid #253651;border-radius:10px;font-size:12px}.log p{padding:7px 9px;margin:0 0 8px;width:fit-content;max-width:87%;border-radius:8px;line-height:1.45}.boss{background:#17263d}.you{background:#29436c;margin-left:auto!important}.chat-form{display:flex;gap:8px}.chat-form input{min-width:0;flex:1;padding:10px;background:#0b1120;color:#fff;border:1px solid #385072;border-radius:9px}.chat-form button{background:#147fac;border:0;font-weight:700;cursor:pointer}@keyframes work{50%{transform:translateY(-4px)}}@keyframes step{to{transform:translateY(-5px) rotate(2deg)}}@keyframes to-break{0%,25%{left:7%;bottom:16%}45%,62%{left:78%;bottom:30%}79%,100%{left:7%;bottom:16%}}@keyframes coffee-walk{0%,25%{right:37%;bottom:17%}44%,63%{right:11%;bottom:22%}80%,100%{right:37%;bottom:17%}}@keyframes pulse{50%{opacity:.3}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}@media(max-width:760px){body{padding:12px}.head{align-items:flex-start;flex-direction:column}.scene{min-height:720px}.desk{transform:scale(.72);transform-origin:top left}.d1{left:3%;top:38%}.d2{left:37%;top:38%}.d3{left:3%;top:64%}.d4{left:37%;top:64%}.d5,.d6{display:none}.break-window{transform:scale(.7);transform-origin:top left}.coffee{transform:scale(.7);transform-origin:bottom right}.sofa{transform:scale(.7);transform-origin:bottom left}.ceo-window{transform:scale(.7);transform-origin:top left}.bubble{bottom:8%;right:3%;max-width:210px}.ceo-desk{transform:translateX(-50%) scale(.8);transform-origin:bottom center}}
+:root{--bg:#090c15;--panel:#121a2c;--edge:#293958;--ink:#f1f5f9;--sub:#a3b2c6;--blue:#38bdf8;--green:#34d399}*{box-sizing:border-box}body{margin:0;padding:20px;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.head,.tabs,main{max-width:1240px;margin:auto}.head{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #202d47;padding-bottom:15px}.head h1{font-size:21px;margin:0 0 4px}.head p{margin:0;font-size:12px;color:var(--sub)}a,.chat-form button{color:var(--ink);text-decoration:none;font-size:12px;border:1px solid var(--edge);border-radius:9px;padding:8px 12px;background:#142039}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px;margin-bottom:15px}.tabs a.active,.tabs a:hover{border-color:var(--blue);color:var(--blue);background:#1b2d4b}.scene{position:relative;min-height:590px;overflow:hidden;border:1px solid var(--edge);border-radius:20px;background:#142038;box-shadow:0 18px 45px #0007}.label{position:absolute;top:16px;left:18px;font-size:12px;font-weight:800;letter-spacing:.08em;z-index:6}.label span{color:var(--green);font-size:10px;margin-left:8px}.figure{display:block;width:74px;height:99px;background:url('/static/images/office-avatars-v1.png?v=2') no-repeat;background-size:400% 200%;filter:drop-shadow(0 7px 7px #0008);transform:scale(var(--s,1));transform-origin:bottom center}.avatar-president{background-position:0 0}.avatar-ayaka{background-position:33.333% 0}.avatar-kotoe{background-position:66.666% 0}.avatar-aoi{background-position:100% 0}.avatar-misaki{background-position:0 100%}.avatar-umi{background-position:33.333% 100%}.avatar-minato{background-position:66.666% 100%}.avatar-ito{background-position:100% 100%}.office{background:linear-gradient(#263b5b 0 44%,#c18c5e 44% 46%,#233247 46%)}.office:after{content:"";position:absolute;inset:46% 0 0;background:repeating-linear-gradient(90deg,#ffffff08 0 2px,transparent 2px 85px),linear-gradient(135deg,#28394e,#172235);z-index:0}.windows{position:absolute;left:9%;right:10%;top:11%;height:145px;display:flex;gap:15px}.windows i{flex:1;border:8px solid #354861;background:linear-gradient(#56c8ed 0 60%,#c4f3e9 60%);box-shadow:inset 0 0 0 3px #152237}.door{position:absolute;right:6%;top:27%;width:88px;height:180px;border:5px solid #3e2d25;border-radius:8px 8px 0 0;background:#784b38;text-align:center;padding-top:50px;z-index:3}.door b{display:block;font-size:24px}.door small{font-size:9px}.plant{position:absolute;bottom:20%;left:4%;font-size:48px;z-index:4}.desk{position:absolute;width:145px;height:165px;text-align:center;z-index:3}.desk .figure{position:absolute;left:36px;bottom:29px;animation:work 3.2s ease-in-out infinite}.desk:after{content:"";position:absolute;left:0;right:0;bottom:23px;height:44px;background:linear-gradient(#d8ad80,#7f4e32);border-top:5px solid #ffe0b3;border-radius:5px 5px 11px 11px;z-index:2}.desk:before{content:attr(data-screen);position:absolute;left:49px;bottom:66px;width:44px;height:32px;line-height:25px;color:#eaffff;background:#286da0;border:4px solid #111d2e;border-radius:5px;z-index:4;font:bold 13px monospace}.desk b,.desk em{position:absolute;left:0;right:0;bottom:2px;z-index:5;font-size:11px}.desk em{bottom:-13px;color:#b8c8da;font-size:9px;font-style:normal}.d1{left:7%;top:41%}.d2{left:27%;top:41%}.d3{left:47%;top:41%}.d4{left:67%;top:41%}.d5{left:19%;top:70%}.d6{left:59%;top:70%}.route{position:absolute;right:9%;bottom:25%;width:48%;border-top:4px dashed #72d8d8aa;border-radius:50%;transform:rotate(-8deg);z-index:1}.walker{position:absolute;left:7%;bottom:16%;display:flex;gap:4px;align-items:end;z-index:5;animation:to-break 17s ease-in-out infinite}.walker .figure{animation:step .42s infinite alternate}.walker span{font-size:10px;padding:4px 7px;background-color:#101b2edb;border:1px solid #38587c;border-radius:8px;white-space:nowrap}.live-board{position:absolute;left:18px;top:58px;z-index:6;max-width:340px;border:1px solid #4a7595;background:#0d192bdc;border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.45;color:#dceafa}.live-board b{color:var(--green);margin-right:6px}.live-board span{color:#a8c0d7}.live-board ul{margin:6px 0 0;padding-left:16px;color:#a8c0d7}.live-board li{margin:2px 0}.note{margin-top:12px;padding:12px 14px;border:1px solid var(--edge);background:#101827;border-radius:12px;color:var(--sub);font-size:12px}.note b{color:var(--ink);margin:0 7px}.dot{display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 1.8s infinite}.break{background:linear-gradient(#f5cc88 0 46%,#a56d51 46% 48%,#362831 48%)}.break .label{color:#34262c}.break .label span{color:#1e775e}.break-window{position:absolute;left:9%;top:12%;width:245px;height:160px;border:9px solid #fff0ca;background:linear-gradient(#5cd0ef,#c7f3db);font-size:55px;padding:22px 35px}.coffee{position:absolute;right:9%;bottom:19%;width:235px;height:145px;background:#84523a;border:6px solid #5c3729;border-radius:12px 12px 0 0;text-align:center;padding:18px;color:#fff2d7;z-index:2}.coffee b{display:block;font-size:11px;letter-spacing:.1em}.coffee i{display:inline-block;width:22px;height:22px;background:#fadf97;border-radius:50%;margin:11px 7px}.sofa{position:absolute;left:10%;bottom:18%;width:410px;height:175px;z-index:2}.sofa:before,.sofa:after{content:"";position:absolute;left:0;right:0;background:#326b91;border:7px solid #23506d}.sofa:before{top:25px;height:106px;border-radius:45px 45px 15px 15px}.sofa:after{bottom:25px;height:62px;border-radius:12px}.sofa .figure{position:absolute;bottom:62px;z-index:3}.sofa .figure:nth-of-type(1){left:95px}.sofa .figure:nth-of-type(3){left:240px;animation:work 2.8s infinite}.sofa small{position:absolute;bottom:0;left:0;right:0;text-align:center;color:#fff8e9;font-size:10px}.break-walker{position:absolute;right:37%;bottom:17%;z-index:4;animation:coffee-walk 14s ease-in-out infinite}.break-walker .figure{animation:step .4s infinite alternate}.break-walker small{display:block;text-align:center;color:#fff8e9;font-weight:bold}.reading{position:absolute;left:6%;bottom:8%;display:flex;gap:7px;align-items:end;z-index:2}.reading span{font-size:10px;background-color:#fff0c9;color:#34272b;padding:5px;border-radius:6px}.ceo{min-height:400px;background:linear-gradient(#2a3d58 0 47%,#94644c 47% 49%,#2f2730 49%)}.ceo-window{position:absolute;left:9%;top:14%;width:290px;height:180px;border:9px solid #d0ab80;background:linear-gradient(#75d3ec,#e9f7c6);font-size:45px;text-align:right;padding:16px 20px}.ceo-desk{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);width:350px;height:220px;z-index:2}.ceo-desk .figure{position:absolute;left:138px;bottom:38px;z-index:2;animation:work 3s infinite}.ceo-desk:after{content:"";position:absolute;left:0;right:0;bottom:0;height:82px;background:linear-gradient(#b98760,#6c422f);border:7px solid #4b3028;border-radius:10px 10px 0 0;z-index:3}.approval{position:absolute;right:26px;bottom:99px;z-index:4;background:#fff1c5;color:#513923;padding:8px 12px;font-size:11px;border-radius:5px;transform:rotate(4deg)}.approval b{font-size:20px}.bubble{position:absolute;right:6%;bottom:16%;max-width:280px;padding:13px;background:#0b1528e8;border:1px solid #4b6991;border-radius:13px;font-size:12px;line-height:1.6;z-index:5}.chat{margin-top:14px;background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:16px}.chat h2{font-size:15px;margin:0 0 5px}.chat>p{margin:0;color:var(--sub);font-size:11px}.log{height:118px;margin:12px 0;padding:10px;overflow:auto;background:#0b1120;border:1px solid #253651;border-radius:10px;font-size:12px}.log p{padding:7px 9px;margin:0 0 8px;width:fit-content;max-width:87%;border-radius:8px;line-height:1.45}.boss{background:#17263d}.you{background:#29436c;margin-left:auto!important}.chat-form{display:flex;gap:8px}.chat-form input{min-width:0;flex:1;padding:10px;background:#0b1120;color:#fff;border:1px solid #385072;border-radius:9px}.chat-form button{background:#147fac;border:0;font-weight:700;cursor:pointer}@keyframes work{0%,100%{transform:scale(var(--s,1))}50%{transform:scale(var(--s,1)) translateY(-4px)}}@keyframes step{0%{transform:scale(var(--s,1))}to{transform:scale(var(--s,1)) translateY(-5px) rotate(2deg)}}@keyframes to-break{0%,25%{left:7%;bottom:16%}45%,62%{left:78%;bottom:30%}79%,100%{left:7%;bottom:16%}}@keyframes coffee-walk{0%,25%{right:37%;bottom:17%}44%,63%{right:11%;bottom:22%}80%,100%{right:37%;bottom:17%}}@keyframes pulse{50%{opacity:.3}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}@media(max-width:760px){body{padding:12px}.head{align-items:flex-start;flex-direction:column}.scene{min-height:720px}.desk{transform:scale(.72);transform-origin:top left}.d1{left:3%;top:38%}.d2{left:37%;top:38%}.d3{left:3%;top:64%}.d4{left:37%;top:64%}.d5,.d6{display:none}.break-window{transform:scale(.7);transform-origin:top left}.coffee{transform:scale(.7);transform-origin:bottom right}.sofa{transform:scale(.7);transform-origin:bottom left}.ceo-window{transform:scale(.7);transform-origin:top left}.bubble{bottom:8%;right:3%;max-width:210px}.ceo-desk{transform:translateX(-50%) scale(.8);transform-origin:bottom center}}
 </style>
 """
 
@@ -236,7 +294,7 @@ def _page(room, title, lead, scene):
   )
   return render_template_string(
       f'<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" '
-      f'content="width=device-width,initial-scale=1"><title>{title} | AI Hive</title>{STYLE}{LIVE_DATA_STYLE}'
+      f'content="width=device-width,initial-scale=1"><title>{title} | AI Hive</title>{STYLE}{LIVE_DATA_STYLE}{DEPTH_STYLE}'
       f'</head><body><header class="head"><div><h1>{title}</h1><p>{lead}</p></div>'
       f'<a href="/">← ダッシュボードへ戻る</a></header><nav class="tabs" aria-label="部屋を選ぶ">{nav}'
       f'</nav><main>{scene}</main></body></html>'
@@ -3885,10 +3943,16 @@ def register_office_views(app):
     # 確認した現在の投稿運用状況(Pinterest・note・Threadsの実際の状況)を
     # 静的に表示する。デスクの役割・作業中フレーバーテキストは、いずれも
     # 個別の実データに基づかない演出として、そのまま維持する。
+    # MISSION 053: d1〜d4(奥の列)をdesk-back、d5〜d6(手前の列)をdesk-front
+    # にして、手前・奥の2層で床の奥行きを表現する(CSS変数--sで人物の
+    # 拡大縮小のみを行い、実データや座標の意味は変更しない)。役割も
+    # クリック不要で見えるよう、デスクの上に直接表示する。
     desk_html = "".join(
-        f'<button type="button" class="desk d{i + 1}" id="desk-{key}" data-key="{key}" '
+        f'<button type="button" class="desk d{i + 1} {"desk-front" if i >= 4 else "desk-back"}" '
+        f'id="desk-{key}" data-key="{key}" '
         f'data-screen="{screen}" aria-haspopup="true" aria-expanded="false" '
         f'aria-controls="desk-detail-panel">{figure(key, name)}<b>{name}</b>'
+        f'<i class="desk-role">{role}</i>'
         f'<em id="desk-task-{key}">{task}</em>'
         f'<i class="status-chip status-pending" id="desk-status-{key}" aria-hidden="true"></i></button>'
         for i, (key, name, role, task, screen) in enumerate(desks)
@@ -3897,7 +3961,8 @@ def register_office_views(app):
         f'"{key}":{{name:"{name}",role:"{role}"}}' for key, name, role, _t, _s in desks
     )
     scene = (
-        '<section class="scene office" aria-label="作業フロア"><div class="label">WEB制作・運用フロア<span>● LIVE</span></div>'
+        '<section class="scene office" aria-label="作業フロア"><div class="label">WEB制作・運用フロア<span>● LIVE</span>'
+        '<span class="cast-badge">AI Hive OSの架空キャラクター</span></div>'
         '<div class="live-board" id="office-live-status"><b>現在の投稿運用状況</b>'
         '<ul>'
         '<li>Pinterest：4件公開済み・次の投稿案1件を準備済み（社長承認待ち）</li>'
@@ -3905,7 +3970,10 @@ def register_office_views(app):
         '<li>Threads：Difyで別管理の自動投稿を運用中（このアプリからは投稿・ログイン・連携しません）</li>'
         '</ul></div>'
         '<div class="windows" aria-hidden="true"><i></i><i></i><i></i></div><div class="plant" aria-hidden="true">🪴</div>'
+        '<div class="lamp" aria-hidden="true"></div>'
         '<div class="door"><b>☕</b><small>BREAK ROOM</small></div><div class="route" aria-hidden="true"></div>' + desk_html +
+        '<div class="meeting" aria-hidden="true"><small>MTG SPACE</small>'
+        '<span>🪑</span><span>🪑</span></div>' +
         f'<div class="walker">{figure("ayaka", "彩・休憩へ移動中")}<span>彩・休憩へ</span></div></section>'
         # MISSION 028/051: デスクの詳細パネル。通常のドキュメントフロー内に
         # 置き、クリック/キーボードで選択したデスクの名前・役割をJSで書き
@@ -3981,24 +4049,37 @@ def register_office_views(app):
         '</script>'
         '<p class="note"><span class="dot"></span><b>いまの様子</b>彩が経理デスクから休憩室へ向かい、しばらくするとフロアへ戻ります。</p>'
     )
-    return _page("office", "ライブオフィス", "デスクでの作業と小さな移動を眺められるフロアです。", scene)
+    return _page(
+        "office", "ライブオフィス",
+        "デスクでの作業と小さな移動を眺められるフロアです。登場する社員は、"
+        "AI Hive OSの架空キャラクターです。",
+        scene,
+    )
 
   @app.route("/office/break-room")
   def break_room():
     # MISSION 051: 架空スタッフ(琴衣・海・蒼・伊藤)の氏名・休憩理由・移動
-    # 予定は、現在の実際の運用状況と関係がないため削除した。休憩室は、
-    # Pinterest投稿の反応を待ちながら、次の投稿・記事の準備状況を整理する
-    # 実際の待機・振り返りの時間として表示する。勤怠・休憩予定・作業ログの
-    # 実データは一切表示・記録しない(この部屋の内容はすべて静的な表示専用
-    # テキストであり、DB・APIへの書き込みは行わない)。
+    # 予定は、現在の実際の運用状況と関係がなかったため一旦削除した。
+    # MISSION 053: 「投稿後の反応確認や次の企画を気軽に相談している空気感」
+    # を出すため、琴衣・蒼(いずれもオフィスの運用チームと同じ架空
+    # キャラクター)をソファに座らせ、実際に確定している状態(Pinterest
+    # 反応待ち・note次の記事準備済み)についてだけ、ふたりで話している
+    # 体裁の短い一言を添える。新しい勤怠・休憩理由・移動予定などの実データは
+    # 一切増やしていない(この部屋の内容はすべて静的な表示専用テキストで
+    # あり、DB・APIへの書き込みは行わない)。
     scene = (
         '<section class="scene break" aria-label="休憩室">'
-        '<div class="label">BREAK ROOM<span>☕ 反応待ち・整理中</span></div>'
+        '<div class="label">BREAK ROOM<span>☕ 反応待ち・整理中</span>'
+        '<span class="cast-badge">AI Hive OSの架空キャラクター</span></div>'
         '<div class="break-window" aria-hidden="true">☁</div>'
         '<div class="coffee">☕<b>COFFEE BAR</b><i></i><i></i><i></i></div>'
-        '<div class="sofa"><span aria-hidden="true">🛋️</span>'
+        '<div class="sofa">'
+        f'<div class="sofa-guest sofa-guest-1">{figure("kotoe", "琴衣：Pinterestの反応を、ひと息ついて確認中")}'
+        '<span class="sofa-chat"><b>琴衣</b>Pinterestの反応、まだ様子見だね</span></div>'
+        f'<div class="sofa-guest sofa-guest-2">{figure("aoi", "蒼：次の記事・投稿の準備を、ゆるく相談中")}'
+        '<span class="sofa-chat"><b>蒼</b>note の次の記事、もう準備できてるよ</span></div>'
         '<small>Pinterest投稿の反応を待つ時間</small></div>'
-        '<div class="break-walker"><span aria-hidden="true">📝</span>'
+        f'<div class="break-walker">{figure("ayaka", "彩：次の投稿・記事の準備状況を整理中")}'
         '<small>次の投稿・記事の準備状況を整理中</small></div>'
         '<div class="reading"><span aria-hidden="true">☕</span>'
         '<span>note・Threadsの状況をひと息ついて振り返り中</span></div>'
@@ -4010,7 +4091,8 @@ def register_office_views(app):
     )
     return _page(
         "break", "休憩室",
-        "投稿の反応を待ちながら、次の作業を整理する時間を表すスペースです。",
+        "投稿の反応を待ちながら、次の作業を整理する時間を表すスペースです。"
+        "登場する社員は、AI Hive OSの架空キャラクターです。",
         scene,
     )
 
@@ -4022,9 +4104,22 @@ def register_office_views(app):
     # 運用状況(Pinterest 4件公開済み+次の投稿案1件、note 2本公開済み+
     # 次の記事下書き1本、Threadsのみ別管理のDify自動投稿)を示す静的な
     # 表示へ切り替えた。DB・APIへの書き込みは一切行わない(表示専用)。
+    # MISSION 053: 柴犬社長を「小さなアイコン」ではなく主役として見せる
+    # ため、ceo-desk内の人物をCSS変数--s(DEPTH_STYLE内の.ceo-desk{--s:1.32})
+    # で拡大し、背景にスポットライト状のグラデーションを敷く。あわせて、
+    # 社長が実際に見ている想定のPinterest・note・Threadsの状況を、
+    # 既存の.command-statsと同じ数値のまま、デスク脇の小さな画面
+    # (.ceo-monitor)としても表示する(数値・事実は一切増やしていない)。
     scene = (
-        '<section class="scene ceo" aria-label="柴犬社長の執務室"><div class="label">PRESIDENT’S OFFICE<span>承認デスク</span></div>'
+        '<section class="scene ceo" aria-label="柴犬社長の執務室"><div class="label">PRESIDENT’S OFFICE<span>承認デスク</span>'
+        '<span class="cast-badge">AI Hive OSの主役キャラクター</span></div>'
         '<div class="ceo-window" aria-hidden="true">☀</div>'
+        '<div class="ceo-spotlight" aria-hidden="true"></div>'
+        '<div class="ceo-monitor" aria-hidden="true"><b>いま確認している状況</b>'
+        '<div><span>Pinterest</span><span>4件公開</span></div>'
+        '<div><span>note</span><span>2本公開</span></div>'
+        '<div><span>Threads</span><span>Dify運用</span></div>'
+        '</div>'
         f'<div class="ceo-desk">{figure("president", "柴犬社長")}'
         '<div class="approval">承認デスク</div></div>'
         '<div class="bubble">「Pinterestの反応、確認できた？次の投稿タイミングを一緒に考えよう。」</div></section>'
@@ -4086,7 +4181,8 @@ def register_office_views(app):
     )
     return _page(
         "ceo", "社長室",
-        "柴犬社長と、Pinterest・noteの投稿準備や反応確認について気軽に話せる小さな部屋です。",
+        "柴犬社長と、Pinterest・noteの投稿準備や反応確認について気軽に話せる小さな部屋です。"
+        "柴犬社長も、AI Hive OSの架空キャラクターです。",
         scene,
     )
 
