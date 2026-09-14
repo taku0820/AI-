@@ -242,6 +242,9 @@ class DashboardDesignTestCase(unittest.TestCase):
     # に合わせて更新した。
     # MISSION 055: noteの「3件」はAI Hive関連の記事数であり、noteアカウント
     # 全体の記事数ではないことを明記した。
+    # MISSION 057: 楽天ROOMは、折りたたみキーボード1件に加え、9月13日に
+    # 過去購入・使用商品5件、9月14日にショルダー型ガジェットポーチ1件を
+    # 投稿し、合計7件になったことを反映した。
     for role, next_action in (
         (
             "現在の役割：5件公開済み。最新投稿は48時間後を目安に"
@@ -250,7 +253,8 @@ class DashboardDesignTestCase(unittest.TestCase):
             "準備済みの案も引き続き確認する。</b>",
         ),
         (
-            "現在の役割：公開済みの商品投稿を確認し、次に紹介する候補を整理する。",
+            "現在の役割：商品投稿7件が公開済み。反応を確認しつつ、"
+            "次に紹介する候補を整理する。",
             "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
         ),
         (
@@ -678,6 +682,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 合わせて更新した。
     # MISSION 055: noteの件数はAI Hive関連の記事数であり、noteアカウント
     # 全体の記事数ではないことを明記した。
+    # MISSION 057: 楽天ROOMは折りたたみキーボード1件に加え、9月13日・14日の
+    # 投稿を合わせて合計7件公開済みになったことを反映した。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
     self.assertIn("投稿企画工場のテーマを軸に発信し", html)
@@ -689,14 +695,14 @@ class DashboardDesignTestCase(unittest.TestCase):
         "公開済みPinterest投稿（5件）・AI Hive関連のnote記事（3本）からの流入育成", html
     )
     self.assertIn("noteアカウントには、この他にも既存記事があります", html)
-    self.assertIn("楽天ROOMでの手動カテゴリ紹介（折りたたみキーボードを1件公開済み）", html)
+    self.assertIn("楽天ROOMでの手動カテゴリ紹介（商品投稿7件公開済み）", html)
     self.assertIn("ROOM登録までの段階", html)
     for stage in ("テーマ選定", "投稿確認", "ROOM準備", "手動登録"):
       self.assertIn(stage, html)
     self.assertIn("今週の優先行動", html)
     self.assertIn("48時間後を目安にPinterestの反応を確認", html)
     self.assertIn("noteの反応確認", html)
-    self.assertIn("既存ROOM投稿（折りたたみキーボード）の内容・反応を確認", html)
+    self.assertIn("既存ROOM投稿（7件）の内容・反応を確認", html)
 
   def test_revenue_board_price_is_an_explicit_draft_not_final(self):
     html = self.client.get("/revenue").get_data(as_text=True)
@@ -1700,9 +1706,12 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("http://", section)
     self.assertNotIn("https://", section)
 
-  def test_room_prep_shows_published_folding_keyboard_post_as_plain_fact(self):
+  def test_room_prep_shows_published_room_posts_as_plain_facts(self):
     # MISSION 052: 既に手動投稿済みの折りたたみキーボード投稿を、金額・
     # 在庫・ランキング・未確認レビューなしの事実のみで表示することを確認する。
+    # MISSION 057: 9月13日の過去購入・使用商品5件、9月14日のショルダー型
+    # ガジェットポーチ1件を追加し、合計7件になった。次のステップの案内は
+    # 最新の投稿にだけ表示し、古い投稿に重複表示しないことを確認する。
     html = self.client.get("/revenue").get_data(as_text=True)
     published_block = html.split('class="room-prep-published"', 1)[1].split(
         "</div>", 1
@@ -1710,10 +1719,27 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("公開済みの楽天ROOM投稿", published_block)
     self.assertIn("折りたたみキーボード", published_block)
     self.assertIn("楽天ROOMへ手動投稿済み（1件）", published_block)
+    self.assertIn("過去に購入・使用した商品", published_block)
     self.assertIn(
-        "商品候補を増やす前に、この投稿の内容と反応を手動で確認する段階です。",
+        "9月13日に楽天ROOMへ手動投稿済み（5件、#オリジナル写真を使用しない通常投稿）",
         published_block,
     )
+    self.assertIn("ショルダー型ガジェットポーチ", published_block)
+    self.assertIn(
+        "9月14日に楽天ROOMへ手動投稿済み（1件、公開情報・購入者レビューを参考にした通常投稿。"
+        "#オリジナル写真は使用していません）",
+        published_block,
+    )
+    self.assertIn(
+        "商品候補をさらに増やす前に、この7件の内容と反応を手動で確認する段階です。",
+        published_block,
+    )
+    self.assertIn(
+        "売上・クリック数・成果報酬・商品が売れた実績は未確認のため表示していません。",
+        published_block,
+    )
+    # 次のステップの案内は最新の投稿にだけ表示され、1回だけ出現する。
+    self.assertEqual(published_block.count("次のステップ："), 1)
     self.assertNotIn("円", published_block)
     self.assertNotIn("¥", published_block)
     self.assertNotIn("位獲得", published_block)
@@ -1792,15 +1818,23 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 052: 「デスク周り」等の古いカテゴリ2件を削除し、2カテゴリに
     # 整理した。公開済み投稿の事実はROOM_PUBLISHED_POSTSという独立した
     # データ構造から組み立てられる。
+    # MISSION 057: 楽天ROOMの投稿が7件(3エントリ)になったため、next_stepは
+    # 最新の1件にだけ設定する運用にした(他の投稿は必須項目ではない)。
     import office_views
     self.assertEqual(len(office_views.ROOM_PREP_CATEGORIES), 2)
     for category in office_views.ROOM_PREP_CATEGORIES:
       self.assertIn(category["status"], office_views.ROOM_PREP_STATUS_LABELS)
-    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 1)
+    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 3)
     for post in office_views.ROOM_PUBLISHED_POSTS:
       self.assertIn("item_label", post)
       self.assertIn("status_text", post)
-      self.assertIn("next_step", post)
+    posts_with_next_step = [
+        p for p in office_views.ROOM_PUBLISHED_POSTS if "next_step" in p
+    ]
+    self.assertEqual(len(posts_with_next_step), 1)
+    self.assertEqual(
+        posts_with_next_step[0]["item_label"], "ショルダー型ガジェットポーチ"
+    )
     rendered = office_views._render_room_prep_section(
         office_views.ROOM_PREP_CATEGORIES,
         office_views.ROOM_PREP_STATUS_LABELS,
@@ -4114,6 +4148,69 @@ class DashboardDesignTestCase(unittest.TestCase):
             "https://note.com/legal_crow9879/n/nb2a21a842387",
         }
         self.assertTrue(urls <= allowed, f"unexpected URLs on {path}: {urls - allowed}")
+
+  # --- MISSION 057: 楽天ROOMの投稿状況を実態に合わせて更新する -----------------
+
+  def test_mission_057_room_post_count_is_seven_everywhere(self):
+    # 楽天ROOMの投稿数が、ダッシュボード・収益化ボードのすべてで「7件」に
+    # 統一されており、古い「1件」表記が残っていないことを確認する。
+    root_html = self.html
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("商品投稿7件が公開済み", root_html)
+    self.assertIn("商品投稿7件公開済み", revenue_html)
+    self.assertIn("7件公開・手動運用中", revenue_html)
+    self.assertIn("既存ROOM投稿（7件）", revenue_html)
+    for html in (root_html, revenue_html):
+      self.assertNotIn("折りたたみキーボードを1件公開済み", html)
+      self.assertNotIn("次の登録は確認後に判断", html)
+
+  def test_mission_057_room_post_count_does_not_confuse_count_with_reaction(self):
+    # 「投稿数」と「反応・売上」を混同しない表現になっており、売上・
+    # クリック数・成果報酬・商品が売れた実績を新たに表示・推測していない
+    # ことを確認する。
+    import office_views
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    published_block = revenue_html.split('class="room-prep-published"', 1)[1].split(
+        "</div>", 1
+    )[0]
+    self.assertIn(
+        "売上・クリック数・成果報酬・商品が売れた実績は未確認のため表示していません。",
+        published_block,
+    )
+    for forbidden in ("円", "¥", "位獲得", "在庫あり", "在庫切れ", "クリック数：", "成果報酬："):
+      self.assertNotIn(forbidden, published_block)
+    # データ側にも売上・クリック数等のフィールドを新設していないことを確認する。
+    for post in office_views.ROOM_PUBLISHED_POSTS:
+      self.assertEqual(
+          set(post.keys()) - {"item_label", "status_text", "next_step"}, set()
+      )
+
+  def test_mission_057_shoulder_pouch_is_a_normal_post_not_original_photo(self):
+    # 最新のショルダー型ガジェットポーチが、#オリジナル写真ではない通常投稿
+    # として扱われており、AI生成の使用イメージをオリジナル写真実績として
+    # 数えていないことを確認する。
+    import office_views
+    pouch_posts = [
+        p for p in office_views.ROOM_PUBLISHED_POSTS
+        if p["item_label"] == "ショルダー型ガジェットポーチ"
+    ]
+    self.assertEqual(len(pouch_posts), 1)
+    pouch = pouch_posts[0]
+    self.assertIn("公開情報・購入者レビューを参考にした通常投稿", pouch["status_text"])
+    self.assertIn("#オリジナル写真は使用していません", pouch["status_text"])
+    batch_posts = [
+        p for p in office_views.ROOM_PUBLISHED_POSTS
+        if p["item_label"] == "過去に購入・使用した商品"
+    ]
+    self.assertEqual(len(batch_posts), 1)
+    self.assertIn("#オリジナル写真を使用しない通常投稿", batch_posts[0]["status_text"])
+
+  def test_mission_057_does_not_touch_protected_files(self):
+    # MISSION 057は調査・表記更新のみで、DB・backups・hive_db.py・
+    # 画像ファイルを変更しないことをソースの範囲外であることを確認する
+    # (このテスト自体はoffice_views.pyの内容のみを確認する)。
+    import office_views
+    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 3)
 
 
 if __name__ == "__main__":

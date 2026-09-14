@@ -186,6 +186,11 @@ def index():
   # 「AI Hive関連の記事」であることを明記し、既存記事があることも数値を
   # 出さずに一文で示した(既存記事数・売上・フォロワー数は未確認のため、
   # 新たに表示・推測しない)。
+  #
+  # MISSION 057: 楽天ROOMは、折りたたみキーボード(1件)に加えて9月13日に
+  # 過去購入・使用商品5件、9月14日にショルダー型ガジェットポーチ1件を
+  # 追加投稿し、合計7件になった。件数のみ実態へ更新し、売上・クリック数・
+  # 成果報酬・商品が売れた実績は未確認のため表示していない。
   html_content = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -358,7 +363,7 @@ def index():
                     <span>楽天ROOM</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：公開済みの商品投稿を確認し、次に紹介する候補を整理する。</p>
+                <p class="channel-role">現在の役割：商品投稿7件が公開済み。反応を確認しつつ、次に紹介する候補を整理する。</p>
                 <p class="channel-next">次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b></p>
                 <a class="channel-link" href="/revenue#room-prep">ROOM投稿準備を見る →</a>
             </div>
