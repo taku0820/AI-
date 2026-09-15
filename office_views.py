@@ -94,6 +94,7 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .room-published-item{margin-bottom:8px}
 .room-published-item:last-child{margin-bottom:0}
 .room-published-next{display:block;color:var(--sub);margin-top:2px}
+.room-prep-account-note{margin:10px 0 0;padding-top:10px;border-top:1px dashed #1e775e;color:var(--sub);font-size:11px;line-height:1.6}
 .room-prep-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:12px}
 .room-prep-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .room-prep-head h3{margin:0;font-size:14px}
@@ -320,7 +321,8 @@ REVENUE_FOCUS = {
         "投稿企画工場のテーマに沿った発信",
         "公開済みPinterest投稿（5件）・AI Hive関連のnote記事（3本）からの流入育成"
         "（noteアカウントには、この他にも既存記事があります）",
-        "楽天ROOMでの手動カテゴリ紹介（商品投稿7件公開済み）",
+        "楽天ROOMでの手動カテゴリ紹介（AI Hiveで追加した商品投稿7件。"
+        "アカウント全体では商品投稿30件）",
     ],
     # MISSION 052: Pinterest・note・楽天ROOMの投稿活動自体は手動ですでに
     # 進行しているため、「すべて未定・検討中」という当初の見出しから、
@@ -335,18 +337,24 @@ REVENUE_FOCUS = {
     # 過去購入・使用商品5件、9月14日にショルダー型ガジェットポーチ1件を
     # 投稿し、合計7件となった。売上・クリック数・成果報酬・売れた実績は
     # 未確認のため、件数のみを更新し、反応・売上は引き続き表示しない。
+    # MISSION 058: 楽天ROOMアカウント全体の商品数は30件であり、AI Hiveで
+    # 追加・記録しているのはそのうち7件だけである。「ROOM投稿7件」とだけ
+    # 表示するとアカウント全体の商品数のように誤解されるため、「AI Hiveで
+    # 追加した」ことを明記し、アカウント全体の商品数(30件)にも控えめに
+    # 触れた。30件という数値は水増ししていない確認済みの事実であり、
+    # 売上・クリック数・成果報酬・購入実績は未確認のため表示しない。
     "price_note": "楽天ROOMでの紹介はすべて手動登録の想定であり、金額・成果はすべて未確定の"
                   "「たたき台」です。確定した収益・契約内容ではありません。",
     "price_tiers": [
         ("Pinterest経由の流入", "5件公開・手動運用中"),
-        ("楽天ROOMでの手動紹介", "7件公開・手動運用中"),
+        ("楽天ROOMでの手動紹介", "AI Hive分7件公開・手動運用中"),
         ("noteでの信頼構築", "AI Hive関連3本公開・手動運用中"),
     ],
     "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
         "48時間後を目安にPinterestの反応を確認",
         "noteの反応確認",
-        "既存ROOM投稿（7件）の内容・反応を確認",
+        "既存ROOM投稿（AI Hive分7件）の内容・反応を確認",
     ],
 }
 
@@ -393,7 +401,8 @@ def _render_revenue_scene(focus):
       f'<ol class="revenue-priorities">{priority_items}</ol></div>'
       '</div>'
       + _render_room_prep_section(
-          ROOM_PREP_CATEGORIES, ROOM_PREP_STATUS_LABELS, ROOM_PUBLISHED_POSTS
+          ROOM_PREP_CATEGORIES, ROOM_PREP_STATUS_LABELS, ROOM_PUBLISHED_POSTS,
+          ROOM_ACCOUNT_TOTAL_NOTE,
       ) +
       '<p class="revenue-footnote">この画面はlocalhost限定で表示される'
       '社内検討用の資料です。送信・公開・自動実行は行われません。</p>'
@@ -1283,11 +1292,21 @@ ROOM_PREP_CATEGORIES = [
 # ROOM_PUBLISHED_POSTS を新設する。ここには金額・在庫・ランキング・未確認の
 # レビューは一切含めない。
 # MISSION 057: 9月13日に過去購入・使用商品5件、9月14日にショルダー型
-# ガジェットポーチ1件を追加投稿し、合計7件になった。いずれも
-# #オリジナル写真を使用しない通常投稿であり、AI生成の使用イメージは実物
-# 写真ではないため、オリジナル写真実績としては数えない。売上・クリック数・
+# ガジェットポーチ1件を追加投稿し、AI Hiveで追加した投稿は合計7件になった。
+# いずれも#オリジナル写真を使用しない通常投稿であり、AI生成の使用イメージは
+# 実物写真ではないため、オリジナル写真実績としては数えない。売上・クリック数・
 # 成果報酬・商品が売れた実績は未確認のため、件数以外は表示しない
 # (next_stepは、現在の優先事項を示す最新の1件にだけ設定する)。
+# MISSION 058: 楽天ROOMアカウント全体の商品数は30件で、そのうちAI Hiveで
+# 追加・記録しているのは7件だけである。「ROOM投稿7件」とだけ表示すると
+# アカウント全体の商品数のように誤解されるため、「AI Hiveで追加した」旨を
+# 明記し、アカウント全体の商品数(30件)にも控えめに触れる。30件という数値は
+# 社長から確認できた事実であり、この画面以外では推測・水増ししない。
+ROOM_ACCOUNT_TOTAL_NOTE = (
+    "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
+    "追加・記録しているのは7件です。"
+)
+
 ROOM_PUBLISHED_POSTS = [
     {
         "item_label": "折りたたみキーボード",
@@ -1304,19 +1323,26 @@ ROOM_PUBLISHED_POSTS = [
             "した通常投稿。#オリジナル写真は使用していません）"
         ),
         "next_step": (
-            "商品候補をさらに増やす前に、この7件の内容と反応を手動で確認する段階です。"
-            "売上・クリック数・成果報酬・商品が売れた実績は未確認のため表示していません。"
+            "商品候補をさらに増やす前に、このAI Hive分7件の内容と反応を手動で確認する"
+            "段階です。売上・クリック数・成果報酬・商品が売れた実績は未確認のため"
+            "表示していません。"
         ),
     },
 ]
 
 
-def _render_room_prep_section(categories, status_labels, published_posts=None):
+def _render_room_prep_section(
+    categories, status_labels, published_posts=None, account_total_note=None
+):
   """楽天ROOM投稿準備のカード群を、ROOM_PREP_CATEGORIESのデータから組み立てる。
 
   published_posts（ROOM_PUBLISHED_POSTS）が渡された場合は、既に手動投稿
   済みの事実のみを先頭に表示する。金額・在庫・ランキング・未確認の
   レビューは一切表示しない。
+
+  MISSION 058: account_total_note（ROOM_ACCOUNT_TOTAL_NOTE）が渡された
+  場合は、「AI Hiveで追加した件数」と「アカウント全体の商品数」を混同
+  しないよう、公開済み一覧の直後に一度だけ表示する。
 
   純粋な表示用マークアップの生成のみを行う。DB・API・SNS・楽天API・
   外部通信へのアクセスは一切行わない。楽天市場の商品画像は保存・加工・
@@ -1336,10 +1362,15 @@ def _render_room_prep_section(categories, status_labels, published_posts=None):
       + '</li>'
       for post in published_posts
   )
+  account_total_html = (
+      f'<p class="room-prep-account-note">{account_total_note}</p>'
+      if account_total_note else ""
+  )
   published_block = (
       '<div class="room-prep-published">'
-      '<h3>公開済みの楽天ROOM投稿</h3>'
+      '<h3>公開済みの楽天ROOM投稿（AI Hiveで追加した7件）</h3>'
       f'<ul>{published_items}</ul>'
+      f'{account_total_html}'
       '</div>'
   ) if published_posts else ""
   category_cards = []

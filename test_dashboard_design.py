@@ -245,6 +245,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 057: 楽天ROOMは、折りたたみキーボード1件に加え、9月13日に
     # 過去購入・使用商品5件、9月14日にショルダー型ガジェットポーチ1件を
     # 投稿し、合計7件になったことを反映した。
+    # MISSION 058: 楽天ROOMアカウント全体の商品数は30件であり、AI Hiveで
+    # 追加・記録しているのは7件だけであることを明記した。
     for role, next_action in (
         (
             "現在の役割：5件公開済み。最新投稿は48時間後を目安に"
@@ -253,7 +255,7 @@ class DashboardDesignTestCase(unittest.TestCase):
             "準備済みの案も引き続き確認する。</b>",
         ),
         (
-            "現在の役割：商品投稿7件が公開済み。反応を確認しつつ、"
+            "現在の役割：AI Hiveで追加した商品投稿が7件公開済み。反応を確認しつつ、"
             "次に紹介する候補を整理する。",
             "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
         ),
@@ -684,6 +686,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 全体の記事数ではないことを明記した。
     # MISSION 057: 楽天ROOMは折りたたみキーボード1件に加え、9月13日・14日の
     # 投稿を合わせて合計7件公開済みになったことを反映した。
+    # MISSION 058: 楽天ROOMアカウント全体の商品数は30件であり、AI Hiveで
+    # 追加・記録しているのは7件だけであることを明記した。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
     self.assertIn("投稿企画工場のテーマを軸に発信し", html)
@@ -695,14 +699,18 @@ class DashboardDesignTestCase(unittest.TestCase):
         "公開済みPinterest投稿（5件）・AI Hive関連のnote記事（3本）からの流入育成", html
     )
     self.assertIn("noteアカウントには、この他にも既存記事があります", html)
-    self.assertIn("楽天ROOMでの手動カテゴリ紹介（商品投稿7件公開済み）", html)
+    self.assertIn(
+        "楽天ROOMでの手動カテゴリ紹介（AI Hiveで追加した商品投稿7件。"
+        "アカウント全体では商品投稿30件）",
+        html,
+    )
     self.assertIn("ROOM登録までの段階", html)
     for stage in ("テーマ選定", "投稿確認", "ROOM準備", "手動登録"):
       self.assertIn(stage, html)
     self.assertIn("今週の優先行動", html)
     self.assertIn("48時間後を目安にPinterestの反応を確認", html)
     self.assertIn("noteの反応確認", html)
-    self.assertIn("既存ROOM投稿（7件）の内容・反応を確認", html)
+    self.assertIn("既存ROOM投稿（AI Hive分7件）の内容・反応を確認", html)
 
   def test_revenue_board_price_is_an_explicit_draft_not_final(self):
     html = self.client.get("/revenue").get_data(as_text=True)
@@ -1712,11 +1720,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 057: 9月13日の過去購入・使用商品5件、9月14日のショルダー型
     # ガジェットポーチ1件を追加し、合計7件になった。次のステップの案内は
     # 最新の投稿にだけ表示し、古い投稿に重複表示しないことを確認する。
+    # MISSION 058: 見出しに「AI Hiveで追加した7件」であることを明記し、
+    # アカウント全体の商品数(30件)にも一度だけ控えめに触れることを確認する。
     html = self.client.get("/revenue").get_data(as_text=True)
     published_block = html.split('class="room-prep-published"', 1)[1].split(
         "</div>", 1
     )[0]
-    self.assertIn("公開済みの楽天ROOM投稿", published_block)
+    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した7件）", published_block)
     self.assertIn("折りたたみキーボード", published_block)
     self.assertIn("楽天ROOMへ手動投稿済み（1件）", published_block)
     self.assertIn("過去に購入・使用した商品", published_block)
@@ -1731,13 +1741,19 @@ class DashboardDesignTestCase(unittest.TestCase):
         published_block,
     )
     self.assertIn(
-        "商品候補をさらに増やす前に、この7件の内容と反応を手動で確認する段階です。",
+        "商品候補をさらに増やす前に、このAI Hive分7件の内容と反応を手動で確認する段階です。",
         published_block,
     )
     self.assertIn(
         "売上・クリック数・成果報酬・商品が売れた実績は未確認のため表示していません。",
         published_block,
     )
+    self.assertIn(
+        "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
+        "追加・記録しているのは7件です。",
+        published_block,
+    )
+    self.assertEqual(published_block.count("30件"), 1)
     # 次のステップの案内は最新の投稿にだけ表示され、1回だけ出現する。
     self.assertEqual(published_block.count("次のステップ："), 1)
     self.assertNotIn("円", published_block)
@@ -4154,12 +4170,13 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_mission_057_room_post_count_is_seven_everywhere(self):
     # 楽天ROOMの投稿数が、ダッシュボード・収益化ボードのすべてで「7件」に
     # 統一されており、古い「1件」表記が残っていないことを確認する。
+    # MISSION 058: 「AI Hiveで追加した」という限定が付いていることも確認する。
     root_html = self.html
     revenue_html = self.client.get("/revenue").get_data(as_text=True)
-    self.assertIn("商品投稿7件が公開済み", root_html)
-    self.assertIn("商品投稿7件公開済み", revenue_html)
-    self.assertIn("7件公開・手動運用中", revenue_html)
-    self.assertIn("既存ROOM投稿（7件）", revenue_html)
+    self.assertIn("AI Hiveで追加した商品投稿が7件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿7件", revenue_html)
+    self.assertIn("AI Hive分7件公開・手動運用中", revenue_html)
+    self.assertIn("既存ROOM投稿（AI Hive分7件）", revenue_html)
     for html in (root_html, revenue_html):
       self.assertNotIn("折りたたみキーボードを1件公開済み", html)
       self.assertNotIn("次の登録は確認後に判断", html)
@@ -4211,6 +4228,72 @@ class DashboardDesignTestCase(unittest.TestCase):
     # (このテスト自体はoffice_views.pyの内容のみを確認する)。
     import office_views
     self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 3)
+
+  # --- MISSION 058: 楽天ROOMの件数表記を誤解のない形に修正する -----------------
+
+  def test_mission_058_room_counts_are_scoped_to_ai_hive_not_whole_account(self):
+    # 「ROOM投稿7件」のような表現が、楽天ROOMアカウント全体の商品数の
+    # ように誤解されないよう、AI Hiveで追加した件数であることが、
+    # ダッシュボード・収益化ボードのすべてで明記されていることを確認する。
+    root_html = self.html
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("AI Hiveで追加した商品投稿が7件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿7件", revenue_html)
+    self.assertIn("AI Hive分7件公開・手動運用中", revenue_html)
+    self.assertIn("既存ROOM投稿（AI Hive分7件）", revenue_html)
+    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した7件）", revenue_html)
+
+  def test_mission_058_dashboard_and_revenue_mention_account_total_once(self):
+    # 楽天ROOMアカウント全体の商品数(30件)が、確認済みの事実として、
+    # ダッシュボード・収益化ボードでそれぞれ一度だけ控えめに示され、
+    # 水増し・重複表示していないことを確認する。
+    root_html = self.html
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn(
+        "楽天ROOMアカウント全体では商品投稿が30件あります。件数はAI Hiveで"
+        "追加した分のみを示しています。",
+        root_html,
+    )
+    self.assertEqual(root_html.count("30件"), 1)
+    self.assertIn(
+        "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
+        "追加・記録しているのは7件です。",
+        revenue_html,
+    )
+    self.assertEqual(revenue_html.count("30件"), 2)  # service_ideasと公開済み一覧の2箇所
+
+  def test_mission_058_does_not_fabricate_sales_or_click_data(self):
+    # 売上、クリック、成果報酬、購入実績は未確認のまま表示しないことを
+    # 確認する。
+    root_html = self.html
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    for html in (root_html, revenue_html):
+      for forbidden in (
+          "円", "¥", "クリック数：", "成果報酬：", "購入実績", "売れました", "売上：",
+      ):
+        self.assertNotIn(forbidden, html)
+
+  def test_mission_058_room_account_total_note_is_data_driven(self):
+    # ROOM_ACCOUNT_TOTAL_NOTEが独立したデータ構造として定義されており、
+    # _render_room_prep_sectionへ渡されていることを確認する。
+    import office_views
+    self.assertIn("30件", office_views.ROOM_ACCOUNT_TOTAL_NOTE)
+    self.assertIn("7件", office_views.ROOM_ACCOUNT_TOTAL_NOTE)
+    rendered = office_views._render_room_prep_section(
+        office_views.ROOM_PREP_CATEGORIES,
+        office_views.ROOM_PREP_STATUS_LABELS,
+        office_views.ROOM_PUBLISHED_POSTS,
+        office_views.ROOM_ACCOUNT_TOTAL_NOTE,
+    )
+    self.assertIn(office_views.ROOM_ACCOUNT_TOTAL_NOTE, rendered)
+    # account_total_noteを渡さない場合は表示されないことも確認する
+    # (後方互換のデフォルト引数)。
+    rendered_without_note = office_views._render_room_prep_section(
+        office_views.ROOM_PREP_CATEGORIES,
+        office_views.ROOM_PREP_STATUS_LABELS,
+        office_views.ROOM_PUBLISHED_POSTS,
+    )
+    self.assertNotIn("room-prep-account-note", rendered_without_note)
 
 
 if __name__ == "__main__":
