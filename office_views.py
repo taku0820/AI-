@@ -213,6 +213,32 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .wp-day-note{font-size:11px;color:var(--sub);margin:8px 0 0;line-height:1.6}
 .wp-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.wp-day-meta{flex-direction:column;gap:4px}}
+.room-candidate-board{max-width:900px;margin:0 auto}
+.room-candidate-rules{background:#101827;border:1px solid var(--blue);color:var(--ink);padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.room-candidate-rules b{color:var(--blue);display:block;margin-bottom:4px;font-size:13px}
+.room-candidate-rules ul{margin:6px 0 0;padding-left:18px}
+.room-candidate-date-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:10px 14px}
+.room-candidate-date-nav input[type="date"]{background:#0b1120;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:6px 10px;font-family:inherit}
+.room-candidate-date-nav button{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.room-candidate-date-nav button:hover,.room-candidate-date-nav button:focus-visible{border-color:var(--blue);color:var(--blue)}
+.room-candidate-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:14px}
+.room-candidate-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.room-candidate-head h3{margin:0;font-size:14px}
+.room-candidate-verifying-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;background:#3d3106;color:#fbbf24}
+.room-candidate-verifying-badge[hidden]{display:none}
+.room-candidate-field{margin-bottom:10px}
+.room-candidate-field label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px}
+.room-candidate-field input[type="text"],.room-candidate-field textarea{width:100%;background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;box-sizing:border-box}
+.room-candidate-field textarea{resize:vertical}
+.room-candidate-reaction-inputs{display:flex;gap:10px;flex-wrap:wrap}
+.room-candidate-reaction-inputs label{font-size:11px;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+.room-candidate-reaction-inputs input{background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;width:130px;box-sizing:border-box}
+.room-candidate-hashtags{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:10px}
+.room-candidate-hashtags input{background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;box-sizing:border-box}
+.room-candidate-checks{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:1.5;padding-top:8px;border-top:1px dashed var(--edge)}
+.room-candidate-checks label{display:flex;align-items:flex-start;gap:8px}
+.room-candidate-intro-count{color:var(--sub);font-weight:400}
+@media(max-width:760px){.room-candidate-date-nav{flex-direction:column;align-items:stretch}.room-candidate-reaction-inputs{flex-direction:column}.room-candidate-reaction-inputs input{width:100%}}
 </style>
 """
 
@@ -321,7 +347,7 @@ REVENUE_FOCUS = {
         "投稿企画工場のテーマに沿った発信",
         "公開済みPinterest投稿（5件）・AI Hive関連のnote記事（3本）からの流入育成"
         "（noteアカウントには、この他にも既存記事があります）",
-        "楽天ROOMでの手動カテゴリ紹介（AI Hiveで追加した商品投稿7件。"
+        "楽天ROOMでの手動カテゴリ紹介（AI Hiveで追加した商品投稿17件。"
         "アカウント全体では商品投稿30件）",
     ],
     # MISSION 052: Pinterest・note・楽天ROOMの投稿活動自体は手動ですでに
@@ -343,18 +369,21 @@ REVENUE_FOCUS = {
     # 追加した」ことを明記し、アカウント全体の商品数(30件)にも控えめに
     # 触れた。30件という数値は水増ししていない確認済みの事実であり、
     # 売上・クリック数・成果報酬・購入実績は未確認のため表示しない。
+    # MISSION 059: 9月16日に10件を追加投稿し、AI Hiveで追加した投稿は
+    # 合計17件になった。アカウント全体の商品数(30件)は変更せず、引き続き
+    # 区別して表示する。
     "price_note": "楽天ROOMでの紹介はすべて手動登録の想定であり、金額・成果はすべて未確定の"
                   "「たたき台」です。確定した収益・契約内容ではありません。",
     "price_tiers": [
         ("Pinterest経由の流入", "5件公開・手動運用中"),
-        ("楽天ROOMでの手動紹介", "AI Hive分7件公開・手動運用中"),
+        ("楽天ROOMでの手動紹介", "AI Hive分17件公開・手動運用中"),
         ("noteでの信頼構築", "AI Hive関連3本公開・手動運用中"),
     ],
     "pipeline_stages": ["テーマ選定", "投稿確認", "ROOM準備", "手動登録"],
     "weekly_priorities": [
         "48時間後を目安にPinterestの反応を確認",
         "noteの反応確認",
-        "既存ROOM投稿（AI Hive分7件）の内容・反応を確認",
+        "既存ROOM投稿（AI Hive分17件）の内容・反応を確認",
     ],
 }
 
@@ -1302,9 +1331,12 @@ ROOM_PREP_CATEGORIES = [
 # アカウント全体の商品数のように誤解されるため、「AI Hiveで追加した」旨を
 # 明記し、アカウント全体の商品数(30件)にも控えめに触れる。30件という数値は
 # 社長から確認できた事実であり、この画面以外では推測・水増ししない。
+# MISSION 059: 9月16日に10件を追加投稿し、AI Hiveで追加した投稿は合計17件
+# になった。アカウント全体の商品数(30件)は変更せず、引き続き区別して表示
+# する。売上・クリック数・成果報酬・購入実績は未確認のため表示しない。
 ROOM_ACCOUNT_TOTAL_NOTE = (
     "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
-    "追加・記録しているのは7件です。"
+    "追加・記録しているのは17件です。"
 )
 
 ROOM_PUBLISHED_POSTS = [
@@ -1322,8 +1354,12 @@ ROOM_PUBLISHED_POSTS = [
             "9月14日に楽天ROOMへ手動投稿済み（1件、公開情報・購入者レビューを参考に"
             "した通常投稿。#オリジナル写真は使用していません）"
         ),
+    },
+    {
+        "item_label": "追加投稿分",
+        "status_text": "9月16日に楽天ROOMへ手動投稿済み（10件）",
         "next_step": (
-            "商品候補をさらに増やす前に、このAI Hive分7件の内容と反応を手動で確認する"
+            "商品候補をさらに増やす前に、このAI Hive分17件の内容と反応を手動で確認する"
             "段階です。売上・クリック数・成果報酬・商品が売れた実績は未確認のため"
             "表示していません。"
         ),
@@ -1368,7 +1404,7 @@ def _render_room_prep_section(
   )
   published_block = (
       '<div class="room-prep-published">'
-      '<h3>公開済みの楽天ROOM投稿（AI Hiveで追加した7件）</h3>'
+      '<h3>公開済みの楽天ROOM投稿（AI Hiveで追加した17件）</h3>'
       f'<ul>{published_items}</ul>'
       f'{account_total_html}'
       '</div>'
@@ -1422,6 +1458,272 @@ def _render_room_prep_section(
       '</div>'
       + published_block
       + "".join(category_cards) +
+      '<a class="cs-first-post-link" href="/content-studio/room-daily-candidates">'
+      '→ 楽天ROOM 毎日の投稿候補（下書き）を見る</a>'
+      '</section>'
+  )
+
+
+# MISSION 060: 楽天ROOMの「毎日5件・投稿候補下書き」機能。
+#
+# ♡(いいね)が10以上ついた投稿があるジャンルを優先し、1日あたり最大5件の
+# 投稿候補を下書きできるようにする。実際の♡数・コメント数・確認日は、
+# 柴犬社長がROOM上で目視確認して手動入力する想定であり、このアプリが
+# 自動取得・推測することは一切ない(このデータ構造にも架空の反応実績・
+# 購入体験・口コミは一切含めない)。入力内容はブラウザのlocalStorageに
+# のみ保存し(このアプリのDB・バックアップ・サーバーへの送信は一切ない。
+# ブラウザを変える/localStorageを消すと内容は失われる)、楽天ROOM・楽天
+# アフィリエイト・Pinterest・note・Threadsへの投稿・送信・ログイン・
+# 外部API通信・ブラウザ自動操作は一切行わない。「ROOMで投稿する」は
+# チェック欄であり、外部への投稿を実行するボタンではない(実際の投稿は
+# 利用者がROOM上で手動で行う)。商品画像の取得・生成画像の自動アップロード
+# ・#オリジナル写真の自動付与も行わない(この画面に画像アップロード欄・
+# 画像プレビューは存在しない)。将来ルールを差し替える場合は、この
+# データ構造を編集するだけでよい。
+ROOM_CANDIDATE_HEART_THRESHOLD = 10
+ROOM_CANDIDATE_MAX_PER_DAY = 5
+ROOM_CANDIDATE_HASHTAG_COUNT = 5
+ROOM_CANDIDATE_INTRO_TARGET_LENGTH = 300
+# 現在、♡10以上の投稿が確認できている有力ジャンル(社長確認済みの事実)。
+# 具体的な♡数・コメント数は、候補ごとに柴犬社長が手動入力するため、ここ
+# には含めない(架空の数値を書かないため)。
+ROOM_CANDIDATE_PRIORITY_GENRES = ["バッグの中の整理", "スマホ周辺の持ち運び収納"]
+
+
+def _render_room_daily_candidates_scene():
+  """楽天ROOMの「毎日5件・投稿候補下書き」画面のHTMLを組み立てる。
+
+  純粋な表示用マークアップ+クライアント側JSのみで構成する。DB・API・
+  楽天ROOM・楽天アフィリエイト・Pinterest・note・Threadsへの通信は一切
+  行わない。入力値の保存先はブラウザのlocalStorageのみで、フォーム
+  送信(<form method="POST">等)や外部へのfetch/XHRは一切使わない。
+  「ROOMで投稿する」はチェックボックスであり、クリックしても外部投稿は
+  発生しない。
+  """
+  genre_options = "".join(
+      f'<option value="{genre}"></option>' for genre in ROOM_CANDIDATE_PRIORITY_GENRES
+  )
+  priority_genre_items = "".join(
+      f"<li>{genre}</li>" for genre in ROOM_CANDIDATE_PRIORITY_GENRES
+  )
+
+  def _candidate_card(slot):
+    hashtag_inputs = "".join(
+        f'<input type="text" class="rc-hashtag" data-slot="{slot}" '
+        f'data-hashtag-index="{i}" placeholder="#タグ{i + 1}">'
+        for i in range(ROOM_CANDIDATE_HASHTAG_COUNT)
+    )
+    return (
+        f'<div class="room-candidate-card" data-slot="{slot}">'
+        '<div class="room-candidate-head">'
+        f'<h3>候補 {slot + 1}</h3>'
+        f'<span class="room-candidate-verifying-badge" data-slot="{slot}" hidden>検証中</span>'
+        '</div>'
+        '<div class="room-candidate-field">'
+        '<label>ジャンル（♡10以上の投稿があるジャンルを優先）</label>'
+        f'<input type="text" class="rc-genre" data-slot="{slot}" '
+        f'list="room-candidate-genre-options" placeholder="例：{ROOM_CANDIDATE_PRIORITY_GENRES[0]}">'
+        '</div>'
+        '<div class="room-candidate-field">'
+        '<label>商品名</label>'
+        f'<input type="text" class="rc-product-name" data-slot="{slot}" placeholder="商品名を入力">'
+        '</div>'
+        '<div class="room-candidate-field">'
+        '<label>楽天市場URL（貼り付けのみ。このアプリからのアクセス・取得は行いません）</label>'
+        f'<input type="text" class="rc-product-url" data-slot="{slot}" '
+        'placeholder="https://item.rakuten.co.jp/...">'
+        '</div>'
+        '<div class="room-candidate-field">'
+        '<label>参考にした反応実績（ROOM上で確認した内容を手動入力）</label>'
+        '<div class="room-candidate-reaction-inputs">'
+        f'<label>♡数<input type="number" min="0" class="rc-hearts" data-slot="{slot}"></label>'
+        f'<label>コメント数<input type="number" min="0" class="rc-comments" data-slot="{slot}"></label>'
+        f'<label>確認日<input type="date" class="rc-checked-date" data-slot="{slot}"></label>'
+        '</div>'
+        '</div>'
+        '<div class="room-candidate-field">'
+        '<label>紹介文下書き（300字程度の目安。実際に使用していない商品について、'
+        '断定的な使用体験・口コミは書かないでください）'
+        f'<span class="room-candidate-intro-count" data-slot="{slot}">0字</span></label>'
+        f'<textarea class="rc-intro" data-slot="{slot}" rows="5" maxlength="600"></textarea>'
+        '</div>'
+        '<div class="room-candidate-field">'
+        f'<label>ハッシュタグ下書き（{ROOM_CANDIDATE_HASHTAG_COUNT}個）</label>'
+        f'<div class="room-candidate-hashtags">{hashtag_inputs}</div>'
+        '</div>'
+        '<div class="room-candidate-checks">'
+        f'<label><input type="checkbox" class="rc-manual-checked" data-slot="{slot}"> 手動確認済み</label>'
+        f'<label><input type="checkbox" class="rc-post-in-room" data-slot="{slot}"> ROOMで投稿する'
+        '（このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は'
+        '行われません。実際の投稿は利用者がROOM上で手動で行ってください。）</label>'
+        '</div>'
+        '</div>'
+    )
+
+  candidate_cards = "".join(
+      _candidate_card(slot) for slot in range(ROOM_CANDIDATE_MAX_PER_DAY)
+  )
+
+  return (
+      '<section class="room-candidate-board" aria-label="楽天ROOM 毎日の投稿候補（下書き）">'
+      '<div class="room-prep-notice">'
+      '<b>この画面はローカルのみで動作する下書きツールです。</b>'
+      '<ul>'
+      '<li>楽天ROOM・楽天アフィリエイト・Pinterest・note・Threadsへの投稿・送信・'
+      'ログイン・外部API通信・ブラウザ自動操作は一切行いません。</li>'
+      '<li>「ROOMで投稿する」はチェック欄であり、外部投稿を実行するボタンでは'
+      'ありません。実際の投稿は、利用者がROOM上で内容を確認したうえで手動で'
+      '行ってください。</li>'
+      '<li>入力内容はお使いのブラウザのlocalStorageにのみ保存されます。このアプリの'
+      'データベース・バックアップへは保存されず、どこにも送信されません。ブラウザや'
+      '端末を変えたり、ブラウザのデータを消去すると内容は失われます。</li>'
+      '<li>商品画像の取得・生成画像の自動アップロード・#オリジナル写真の自動付与は'
+      '行いません。実際に使用していない商品についての購入・使用体験や口コミは'
+      '書かないでください。</li>'
+      '</ul>'
+      '</div>'
+      '<div class="room-candidate-rules">'
+      '<b>候補の選び方（優先ルール）</b>'
+      f'♡が{ROOM_CANDIDATE_HEART_THRESHOLD}以上ついた投稿があるジャンルを最優先にします。'
+      '現在、確認できている有力ジャンルは次のとおりです（具体的な♡数・コメント数は、'
+      '候補ごとに手動で記録してください）。'
+      f'<ul>{priority_genre_items}</ul>'
+      f'反応実績（♡数）が{ROOM_CANDIDATE_HEART_THRESHOLD}未満、または未入力の候補は、'
+      '「検証中」と表示されます。'
+      '</div>'
+      f'<datalist id="room-candidate-genre-options">{genre_options}</datalist>'
+      '<div class="room-candidate-date-nav">'
+      '<button type="button" id="rc-prev-day">← 前日</button>'
+      '<label for="rc-date-input" class="sr-only">対象日</label>'
+      '<input type="date" id="rc-date-input">'
+      '<button type="button" id="rc-today">今日</button>'
+      '<button type="button" id="rc-next-day">翌日 →</button>'
+      '<span id="rc-date-label"></span>'
+      '</div>'
+      f'{candidate_cards}'
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の下書き'
+      'ツールです。楽天ROOM・楽天アフィリエイト・Pinterest・note・Threadsへの投稿・'
+      '送信・ログインは行われません。</p>'
+      '<script>'
+      '(function(){'
+      'const MAX_SLOTS=' + str(ROOM_CANDIDATE_MAX_PER_DAY) + ';'
+      'const HEART_THRESHOLD=' + str(ROOM_CANDIDATE_HEART_THRESHOLD) + ';'
+      'const HASHTAG_COUNT=' + str(ROOM_CANDIDATE_HASHTAG_COUNT) + ';'
+      'const STORAGE_PREFIX="ai-hive-room-candidate:";'
+      'const dateInput=document.querySelector("#rc-date-input");'
+      'const dateLabel=document.querySelector("#rc-date-label");'
+      'function toIsoDate(d){'
+      'const y=d.getFullYear();'
+      'const m=String(d.getMonth()+1).padStart(2,"0");'
+      'const day=String(d.getDate()).padStart(2,"0");'
+      'return y+"-"+m+"-"+day;'
+      '}'
+      'function fieldsForSlot(slot){'
+      'return {'
+      'genre:document.querySelector(\'.rc-genre[data-slot="\'+slot+\'"]\'),'
+      'productName:document.querySelector(\'.rc-product-name[data-slot="\'+slot+\'"]\'),'
+      'productUrl:document.querySelector(\'.rc-product-url[data-slot="\'+slot+\'"]\'),'
+      'hearts:document.querySelector(\'.rc-hearts[data-slot="\'+slot+\'"]\'),'
+      'comments:document.querySelector(\'.rc-comments[data-slot="\'+slot+\'"]\'),'
+      'checkedDate:document.querySelector(\'.rc-checked-date[data-slot="\'+slot+\'"]\'),'
+      'intro:document.querySelector(\'.rc-intro[data-slot="\'+slot+\'"]\'),'
+      'manualChecked:document.querySelector(\'.rc-manual-checked[data-slot="\'+slot+\'"]\'),'
+      'postInRoom:document.querySelector(\'.rc-post-in-room[data-slot="\'+slot+\'"]\'),'
+      'hashtags:Array.from(document.querySelectorAll(\'.rc-hashtag[data-slot="\'+slot+\'"]\'))'
+      '.sort((a,b)=>Number(a.dataset.hashtagIndex)-Number(b.dataset.hashtagIndex)),'
+      '};'
+      '}'
+      'function storageKey(iso,slot){return STORAGE_PREFIX+iso+":"+slot;}'
+      'function updateVerifyingBadge(slot,fields){'
+      'const badge=document.querySelector(\'.room-candidate-verifying-badge[data-slot="\'+slot+\'"]\');'
+      'if(!badge)return;'
+      'const hearts=fields.hearts.value;'
+      'const isVerifying=hearts===""||Number(hearts)<HEART_THRESHOLD;'
+      'badge.hidden=!isVerifying;'
+      '}'
+      'function updateIntroCount(slot,fields){'
+      'const counter=document.querySelector(\'.room-candidate-intro-count[data-slot="\'+slot+\'"]\');'
+      'if(!counter)return;'
+      'counter.textContent=(fields.intro.value||"").length+"字";'
+      '}'
+      'function loadSlot(iso,slot){'
+      'const fields=fieldsForSlot(slot);'
+      'let saved={};'
+      'try{'
+      'const raw=window.localStorage.getItem(storageKey(iso,slot));'
+      'saved=raw?JSON.parse(raw):{};'
+      '}catch(e){saved={};}'
+      'fields.genre.value=saved.genre||"";'
+      'fields.productName.value=saved.productName||"";'
+      'fields.productUrl.value=saved.productUrl||"";'
+      'fields.hearts.value=saved.hearts||"";'
+      'fields.comments.value=saved.comments||"";'
+      'fields.checkedDate.value=saved.checkedDate||"";'
+      'fields.intro.value=saved.intro||"";'
+      'fields.manualChecked.checked=Boolean(saved.manualChecked);'
+      'fields.postInRoom.checked=Boolean(saved.postInRoom);'
+      'const savedHashtags=saved.hashtags||[];'
+      'fields.hashtags.forEach((el,i)=>{el.value=savedHashtags[i]||"";});'
+      'updateVerifyingBadge(slot,fields);'
+      'updateIntroCount(slot,fields);'
+      '}'
+      'function saveSlot(iso,slot){'
+      'const fields=fieldsForSlot(slot);'
+      'const data={'
+      'genre:fields.genre.value,'
+      'productName:fields.productName.value,'
+      'productUrl:fields.productUrl.value,'
+      'hearts:fields.hearts.value,'
+      'comments:fields.comments.value,'
+      'checkedDate:fields.checkedDate.value,'
+      'intro:fields.intro.value,'
+      'manualChecked:fields.manualChecked.checked,'
+      'postInRoom:fields.postInRoom.checked,'
+      'hashtags:fields.hashtags.map(el=>el.value),'
+      '};'
+      'try{'
+      'window.localStorage.setItem(storageKey(iso,slot),JSON.stringify(data));'
+      '}catch(e){/* localStorageが使えない環境でも画面は壊さない */}'
+      'updateVerifyingBadge(slot,fields);'
+      'updateIntroCount(slot,fields);'
+      '}'
+      'function loadAllSlots(){'
+      'const iso=dateInput.value;'
+      'dateLabel.textContent=iso;'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){loadSlot(iso,slot);}'
+      '}'
+      'function bindSlotEvents(){'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){'
+      'const fields=fieldsForSlot(slot);'
+      'const inputs=[fields.genre,fields.productName,fields.productUrl,fields.hearts,'
+      'fields.comments,fields.checkedDate,fields.intro,fields.manualChecked,'
+      'fields.postInRoom,...fields.hashtags];'
+      'inputs.forEach(el=>{'
+      'if(!el)return;'
+      'el.addEventListener("input",()=>saveSlot(dateInput.value,slot));'
+      'el.addEventListener("change",()=>saveSlot(dateInput.value,slot));'
+      '});'
+      '}'
+      '}'
+      'function shiftDate(days){'
+      'const current=dateInput.value?new Date(dateInput.value+"T00:00:00"):new Date();'
+      'current.setDate(current.getDate()+days);'
+      'dateInput.value=toIsoDate(current);'
+      'loadAllSlots();'
+      '}'
+      'const today=new Date();'
+      'dateInput.value=toIsoDate(today);'
+      'bindSlotEvents();'
+      'loadAllSlots();'
+      'document.querySelector("#rc-prev-day").addEventListener("click",()=>shiftDate(-1));'
+      'document.querySelector("#rc-next-day").addEventListener("click",()=>shiftDate(1));'
+      'document.querySelector("#rc-today").addEventListener("click",()=>{'
+      'dateInput.value=toIsoDate(new Date());'
+      'loadAllSlots();'
+      '});'
+      'dateInput.addEventListener("change",loadAllSlots);'
+      '})();'
+      '</script>'
       '</section>'
   )
 
@@ -4335,6 +4637,17 @@ def register_office_views(app):
         "Pinterest投稿の準備・公開状況を、画像・タイトル・説明文・altテキスト・"
         "確認項目までまとめて確認する画面です。公開は社長がPinterestで手動実行します。"
         "公開済みの投稿についても、使用した内容の記録として表示しています。",
+        scene,
+    )
+
+  @app.route("/content-studio/room-daily-candidates")
+  def content_studio_room_daily_candidates():
+    scene = _render_room_daily_candidates_scene()
+    return _page(
+        "content", "楽天ROOM 毎日の投稿候補（下書き）",
+        "♡10以上の反応があるジャンルを参考に、1日あたり最大5件の投稿候補を"
+        "下書きできる画面です。入力はブラウザ内にのみ保存され、楽天ROOMへの"
+        "投稿・送信・ログインは一切行いません。",
         scene,
     )
 

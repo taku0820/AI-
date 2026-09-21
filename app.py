@@ -197,6 +197,11 @@ def index():
   # アカウント全体の商品数のように誤解されるため、「AI Hiveで追加した」旨を
   # 明記し、アカウント全体の商品数(30件)にも控えめに一度だけ触れた。30件は
   # 社長から確認できた事実であり、他の画面では推測・水増ししない。
+  #
+  # MISSION 059: 9月16日に10件を追加投稿し、AI Hiveで追加した楽天ROOM投稿は
+  # 合計17件になった。アカウント全体の商品数(30件)は変更せず、引き続き
+  # 区別して表示する。売上・クリック数・成果報酬・購入実績は未確認のため
+  # 推測で追加していない。
   html_content = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -369,7 +374,7 @@ def index():
                     <span>楽天ROOM</span>
                     <span class="badge-manual">手動</span>
                 </div>
-                <p class="channel-role">現在の役割：AI Hiveで追加した商品投稿が7件公開済み。反応を確認しつつ、次に紹介する候補を整理する。</p>
+                <p class="channel-role">現在の役割：AI Hiveで追加した商品投稿が17件公開済み。反応を確認しつつ、次に紹介する候補を整理する。</p>
                 <p class="channel-next">次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b></p>
                 <p class="channel-note">※楽天ROOMアカウント全体では商品投稿が30件あります。件数はAI Hiveで追加した分のみを示しています。</p>
                 <a class="channel-link" href="/revenue#room-prep">ROOM投稿準備を見る →</a>

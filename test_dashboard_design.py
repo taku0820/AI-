@@ -247,6 +247,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 投稿し、合計7件になったことを反映した。
     # MISSION 058: 楽天ROOMアカウント全体の商品数は30件であり、AI Hiveで
     # 追加・記録しているのは7件だけであることを明記した。
+    # MISSION 059: 9月16日に10件を追加投稿し、AI Hiveで追加した投稿は
+    # 合計17件になった。
     for role, next_action in (
         (
             "現在の役割：5件公開済み。最新投稿は48時間後を目安に"
@@ -255,7 +257,7 @@ class DashboardDesignTestCase(unittest.TestCase):
             "準備済みの案も引き続き確認する。</b>",
         ),
         (
-            "現在の役割：AI Hiveで追加した商品投稿が7件公開済み。反応を確認しつつ、"
+            "現在の役割：AI Hiveで追加した商品投稿が17件公開済み。反応を確認しつつ、"
             "次に紹介する候補を整理する。",
             "次の行動：<b>投稿間隔を空けながら、社長が手動で商品を整理・投稿する。</b>",
         ),
@@ -688,6 +690,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 投稿を合わせて合計7件公開済みになったことを反映した。
     # MISSION 058: 楽天ROOMアカウント全体の商品数は30件であり、AI Hiveで
     # 追加・記録しているのは7件だけであることを明記した。
+    # MISSION 059: 9月16日に10件を追加投稿し、AI Hiveで追加した投稿は
+    # 合計17件になった。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn("事業の目的", html)
     self.assertIn("投稿企画工場のテーマを軸に発信し", html)
@@ -700,7 +704,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
     self.assertIn("noteアカウントには、この他にも既存記事があります", html)
     self.assertIn(
-        "楽天ROOMでの手動カテゴリ紹介（AI Hiveで追加した商品投稿7件。"
+        "楽天ROOMでの手動カテゴリ紹介（AI Hiveで追加した商品投稿17件。"
         "アカウント全体では商品投稿30件）",
         html,
     )
@@ -710,7 +714,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("今週の優先行動", html)
     self.assertIn("48時間後を目安にPinterestの反応を確認", html)
     self.assertIn("noteの反応確認", html)
-    self.assertIn("既存ROOM投稿（AI Hive分7件）の内容・反応を確認", html)
+    self.assertIn("既存ROOM投稿（AI Hive分17件）の内容・反応を確認", html)
 
   def test_revenue_board_price_is_an_explicit_draft_not_final(self):
     html = self.client.get("/revenue").get_data(as_text=True)
@@ -1722,11 +1726,15 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 最新の投稿にだけ表示し、古い投稿に重複表示しないことを確認する。
     # MISSION 058: 見出しに「AI Hiveで追加した7件」であることを明記し、
     # アカウント全体の商品数(30件)にも一度だけ控えめに触れることを確認する。
+    # MISSION 059: 9月16日に10件を追加投稿し、AI Hiveで追加した投稿は
+    # 合計17件になった。次のステップの案内は、引き続き最新の投稿にだけ
+    # 表示され、古い投稿(ショルダー型ガジェットポーチ含む)には重複表示
+    # しないことを確認する。
     html = self.client.get("/revenue").get_data(as_text=True)
     published_block = html.split('class="room-prep-published"', 1)[1].split(
         "</div>", 1
     )[0]
-    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した7件）", published_block)
+    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した17件）", published_block)
     self.assertIn("折りたたみキーボード", published_block)
     self.assertIn("楽天ROOMへ手動投稿済み（1件）", published_block)
     self.assertIn("過去に購入・使用した商品", published_block)
@@ -1740,8 +1748,12 @@ class DashboardDesignTestCase(unittest.TestCase):
         "#オリジナル写真は使用していません）",
         published_block,
     )
+    self.assertIn("追加投稿分", published_block)
     self.assertIn(
-        "商品候補をさらに増やす前に、このAI Hive分7件の内容と反応を手動で確認する段階です。",
+        "9月16日に楽天ROOMへ手動投稿済み（10件）", published_block,
+    )
+    self.assertIn(
+        "商品候補をさらに増やす前に、このAI Hive分17件の内容と反応を手動で確認する段階です。",
         published_block,
     )
     self.assertIn(
@@ -1750,7 +1762,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
     self.assertIn(
         "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
-        "追加・記録しているのは7件です。",
+        "追加・記録しているのは17件です。",
         published_block,
     )
     self.assertEqual(published_block.count("30件"), 1)
@@ -1836,11 +1848,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     # データ構造から組み立てられる。
     # MISSION 057: 楽天ROOMの投稿が7件(3エントリ)になったため、next_stepは
     # 最新の1件にだけ設定する運用にした(他の投稿は必須項目ではない)。
+    # MISSION 059: 9月16日の追加投稿分(4エントリ目)が加わり、合計17件に
+    # なった。next_stepは引き続き最新の1件(追加投稿分)にだけ設定される。
     import office_views
     self.assertEqual(len(office_views.ROOM_PREP_CATEGORIES), 2)
     for category in office_views.ROOM_PREP_CATEGORIES:
       self.assertIn(category["status"], office_views.ROOM_PREP_STATUS_LABELS)
-    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 3)
+    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 4)
     for post in office_views.ROOM_PUBLISHED_POSTS:
       self.assertIn("item_label", post)
       self.assertIn("status_text", post)
@@ -1849,7 +1863,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     ]
     self.assertEqual(len(posts_with_next_step), 1)
     self.assertEqual(
-        posts_with_next_step[0]["item_label"], "ショルダー型ガジェットポーチ"
+        posts_with_next_step[0]["item_label"], "追加投稿分"
     )
     rendered = office_views._render_room_prep_section(
         office_views.ROOM_PREP_CATEGORIES,
@@ -4168,18 +4182,22 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 057: 楽天ROOMの投稿状況を実態に合わせて更新する -----------------
 
   def test_mission_057_room_post_count_is_seven_everywhere(self):
-    # 楽天ROOMの投稿数が、ダッシュボード・収益化ボードのすべてで「7件」に
-    # 統一されており、古い「1件」表記が残っていないことを確認する。
+    # 楽天ROOMの投稿数が、ダッシュボード・収益化ボードのすべてで統一
+    # されており、古い「1件」表記が残っていないことを確認する。
     # MISSION 058: 「AI Hiveで追加した」という限定が付いていることも確認する。
+    # MISSION 059: 9月16日の追加投稿(10件)により、件数は7件から17件に
+    # 更新された。
     root_html = self.html
     revenue_html = self.client.get("/revenue").get_data(as_text=True)
-    self.assertIn("AI Hiveで追加した商品投稿が7件公開済み", root_html)
-    self.assertIn("AI Hiveで追加した商品投稿7件", revenue_html)
-    self.assertIn("AI Hive分7件公開・手動運用中", revenue_html)
-    self.assertIn("既存ROOM投稿（AI Hive分7件）", revenue_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿17件", revenue_html)
+    self.assertIn("AI Hive分17件公開・手動運用中", revenue_html)
+    self.assertIn("既存ROOM投稿（AI Hive分17件）", revenue_html)
     for html in (root_html, revenue_html):
       self.assertNotIn("折りたたみキーボードを1件公開済み", html)
       self.assertNotIn("次の登録は確認後に判断", html)
+      self.assertNotIn("AI Hiveで追加した商品投稿7件", html)
+      self.assertNotIn("AI Hive分7件", html)
 
   def test_mission_057_room_post_count_does_not_confuse_count_with_reaction(self):
     # 「投稿数」と「反応・売上」を混同しない表現になっており、売上・
@@ -4226,27 +4244,31 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 057は調査・表記更新のみで、DB・backups・hive_db.py・
     # 画像ファイルを変更しないことをソースの範囲外であることを確認する
     # (このテスト自体はoffice_views.pyの内容のみを確認する)。
+    # MISSION 059で9月16日の追加投稿分(4件目のエントリ)が加わった。
     import office_views
-    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 3)
+    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 4)
 
   # --- MISSION 058: 楽天ROOMの件数表記を誤解のない形に修正する -----------------
 
   def test_mission_058_room_counts_are_scoped_to_ai_hive_not_whole_account(self):
-    # 「ROOM投稿7件」のような表現が、楽天ROOMアカウント全体の商品数の
+    # 「ROOM投稿N件」のような表現が、楽天ROOMアカウント全体の商品数の
     # ように誤解されないよう、AI Hiveで追加した件数であることが、
     # ダッシュボード・収益化ボードのすべてで明記されていることを確認する。
+    # MISSION 059: 件数は17件に更新された。
     root_html = self.html
     revenue_html = self.client.get("/revenue").get_data(as_text=True)
-    self.assertIn("AI Hiveで追加した商品投稿が7件公開済み", root_html)
-    self.assertIn("AI Hiveで追加した商品投稿7件", revenue_html)
-    self.assertIn("AI Hive分7件公開・手動運用中", revenue_html)
-    self.assertIn("既存ROOM投稿（AI Hive分7件）", revenue_html)
-    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した7件）", revenue_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿17件", revenue_html)
+    self.assertIn("AI Hive分17件公開・手動運用中", revenue_html)
+    self.assertIn("既存ROOM投稿（AI Hive分17件）", revenue_html)
+    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した17件）", revenue_html)
 
   def test_mission_058_dashboard_and_revenue_mention_account_total_once(self):
     # 楽天ROOMアカウント全体の商品数(30件)が、確認済みの事実として、
     # ダッシュボード・収益化ボードでそれぞれ一度だけ控えめに示され、
     # 水増し・重複表示していないことを確認する。
+    # MISSION 059: AI Hive分の件数は17件に更新されたが、アカウント全体の
+    # 商品数(30件)は変更せず、引き続き区別して表示されることを確認する。
     root_html = self.html
     revenue_html = self.client.get("/revenue").get_data(as_text=True)
     self.assertIn(
@@ -4257,7 +4279,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(root_html.count("30件"), 1)
     self.assertIn(
         "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
-        "追加・記録しているのは7件です。",
+        "追加・記録しているのは17件です。",
         revenue_html,
     )
     self.assertEqual(revenue_html.count("30件"), 2)  # service_ideasと公開済み一覧の2箇所
@@ -4276,9 +4298,10 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_mission_058_room_account_total_note_is_data_driven(self):
     # ROOM_ACCOUNT_TOTAL_NOTEが独立したデータ構造として定義されており、
     # _render_room_prep_sectionへ渡されていることを確認する。
+    # MISSION 059: AI Hive分の件数は17件に更新された。
     import office_views
     self.assertIn("30件", office_views.ROOM_ACCOUNT_TOTAL_NOTE)
-    self.assertIn("7件", office_views.ROOM_ACCOUNT_TOTAL_NOTE)
+    self.assertIn("17件", office_views.ROOM_ACCOUNT_TOTAL_NOTE)
     rendered = office_views._render_room_prep_section(
         office_views.ROOM_PREP_CATEGORIES,
         office_views.ROOM_PREP_STATUS_LABELS,
@@ -4294,6 +4317,220 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.ROOM_PUBLISHED_POSTS,
     )
     self.assertNotIn("room-prep-account-note", rendered_without_note)
+
+  # --- MISSION 059: 楽天ROOMの投稿件数表示を実態に合わせて更新する -------------
+
+  def test_mission_059_room_post_count_is_seventeen_everywhere(self):
+    # 9月16日に10件を追加投稿し、AI Hiveで追加した楽天ROOM投稿が7件から
+    # 17件に更新されたことが、ダッシュボード・収益化ボードのすべてで
+    # 一致していることを確認する。アカウント全体の商品数(30件)は変更
+    # しないまま、引き続き区別して表示されることも確認する。
+    import office_views
+    root_html = self.html
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿17件", revenue_html)
+    self.assertIn("AI Hive分17件公開・手動運用中", revenue_html)
+    self.assertIn("既存ROOM投稿（AI Hive分17件）", revenue_html)
+    self.assertIn("公開済みの楽天ROOM投稿（AI Hiveで追加した17件）", revenue_html)
+    self.assertIn("追加投稿分", revenue_html)
+    self.assertIn("9月16日に楽天ROOMへ手動投稿済み（10件）", revenue_html)
+    # アカウント全体の商品数(30件)は変わっていないことを確認する。
+    self.assertIn("アカウント全体では商品投稿30件", revenue_html)
+    self.assertIn(
+        "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
+        "追加・記録しているのは17件です。",
+        revenue_html,
+    )
+    self.assertEqual(len(office_views.ROOM_PUBLISHED_POSTS), 4)
+
+  def test_mission_059_does_not_fabricate_sales_or_click_data_for_new_batch(self):
+    # 9月16日の追加投稿分についても、売上・クリック数・成果報酬・
+    # 購入実績を推測で追加していないことを確認する。
+    import office_views
+    new_batch = [
+        p for p in office_views.ROOM_PUBLISHED_POSTS if p["item_label"] == "追加投稿分"
+    ][0]
+    self.assertEqual(
+        set(new_batch.keys()) - {"item_label", "status_text", "next_step"}, set()
+    )
+    combined_text = new_batch["status_text"] + new_batch.get("next_step", "")
+    for forbidden in ("円", "¥", "位獲得", "在庫あり", "在庫切れ", "クリック数：", "成果報酬："):
+      self.assertNotIn(forbidden, combined_text)
+
+  # --- MISSION 060: 楽天ROOMの「毎日5件・投稿候補下書き」機能 ------------------
+
+  def test_room_daily_candidates_page_loads(self):
+    res = self.client.get("/content-studio/room-daily-candidates")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("楽天ROOM 毎日の投稿候補（下書き）", html)
+    self.assertIn(
+        "<title>楽天ROOM 毎日の投稿候補（下書き） | AI Hive</title>", html
+    )
+
+  def test_room_daily_candidates_shows_exactly_five_candidate_slots(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.ROOM_CANDIDATE_MAX_PER_DAY, 5)
+    self.assertEqual(html.count('class="room-candidate-card"'), 5)
+    for slot in range(5):
+      self.assertIn(f'<h3>候補 {slot + 1}</h3>', html)
+
+  def test_room_daily_candidates_priority_genres_and_threshold_rule(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertEqual(
+        office_views.ROOM_CANDIDATE_PRIORITY_GENRES,
+        ["バッグの中の整理", "スマホ周辺の持ち運び収納"],
+    )
+    self.assertEqual(office_views.ROOM_CANDIDATE_HEART_THRESHOLD, 10)
+    self.assertIn("♡が10以上ついた投稿があるジャンルを最優先にします", html)
+    self.assertIn("バッグの中の整理", html)
+    self.assertIn("スマホ周辺の持ち運び収納", html)
+    self.assertIn(
+        '<datalist id="room-candidate-genre-options">'
+        '<option value="バッグの中の整理"></option>'
+        '<option value="スマホ周辺の持ち運び収納"></option>'
+        "</datalist>",
+        html,
+    )
+    self.assertIn("反応実績（♡数）が10未満、または未入力の候補は、"
+                  "「検証中」と表示されます。", html)
+
+  def test_room_daily_candidates_each_slot_has_all_required_fields(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for slot in range(office_views.ROOM_CANDIDATE_MAX_PER_DAY):
+      card = html.split(f'<div class="room-candidate-card" data-slot="{slot}">', 1)[1]
+      card = card.split('<div class="room-candidate-card"', 1)[0]
+      # ジャンル
+      self.assertIn(
+          f'<input type="text" class="rc-genre" data-slot="{slot}" '
+          'list="room-candidate-genre-options"',
+          card,
+      )
+      # 商品名・楽天市場URL
+      self.assertIn(f'class="rc-product-name" data-slot="{slot}"', card)
+      self.assertIn(f'class="rc-product-url" data-slot="{slot}"', card)
+      # 参考にした反応実績(♡数・コメント数・確認日)
+      self.assertIn(f'class="rc-hearts" data-slot="{slot}"', card)
+      self.assertIn(f'class="rc-comments" data-slot="{slot}"', card)
+      self.assertIn(f'class="rc-checked-date" data-slot="{slot}"', card)
+      self.assertIn('type="date"', card)
+      # 紹介文下書き(300字程度)とハッシュタグ5個
+      self.assertIn(f'class="rc-intro" data-slot="{slot}"', card)
+      self.assertIn("300字程度の目安", card)
+      self.assertEqual(
+          card.count(f'class="rc-hashtag" data-slot="{slot}"'),
+          office_views.ROOM_CANDIDATE_HASHTAG_COUNT,
+      )
+      # 「手動確認済み」「ROOMで投稿する」チェック欄
+      self.assertIn(
+          f'<input type="checkbox" class="rc-manual-checked" data-slot="{slot}"> 手動確認済み',
+          card,
+      )
+      self.assertIn(
+          f'<input type="checkbox" class="rc-post-in-room" data-slot="{slot}">', card
+      )
+      self.assertIn("検証中", card)
+
+  def test_room_daily_candidates_post_in_room_is_a_checkbox_not_a_button(self):
+    # 「ROOMで投稿する」は外部投稿を実行するボタンではなく、確認用の
+    # チェック欄であることを確認する。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn('class="rc-post-in-room"', html)
+    self.assertNotIn('<button', html.split('rc-post-in-room', 1)[0][-200:])
+    for slot_html in html.split('class="rc-post-in-room"')[1:]:
+      snippet = slot_html[:400]
+      self.assertNotIn("<button", snippet)
+    self.assertIn(
+        "このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は"
+        "行われません。実際の投稿は利用者がROOM上で手動で行ってください。",
+        html,
+    )
+
+  def test_room_daily_candidates_has_date_navigation(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn('id="rc-date-input"', html)
+    self.assertIn('id="rc-prev-day"', html)
+    self.assertIn('id="rc-next-day"', html)
+    self.assertIn('id="rc-today"', html)
+    self.assertIn('type="date"', html)
+
+  def test_room_daily_candidates_uses_local_storage_only_no_external_calls(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("window.localStorage", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<form", html)
+    self.assertNotIn("<script src", html)
+    # 商品URL欄の入力例(placeholder)としてのみ https:// 表記を許可する。
+    # 実際のリンクやスクリプト読み込みではないことを件数で確認する。
+    self.assertEqual(
+        html.count("https://"),
+        office_views.ROOM_CANDIDATE_MAX_PER_DAY,
+    )
+    self.assertEqual(
+        html.count('placeholder="https://item.rakuten.co.jp/...">'),
+        office_views.ROOM_CANDIDATE_MAX_PER_DAY,
+    )
+    self.assertNotIn("http://", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+
+  def test_room_daily_candidates_no_image_upload_or_fabricated_reviews(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertNotIn('type="file"', html)
+    self.assertNotIn("<img", html)
+    # 「#オリジナル写真」への言及は、自動付与しない旨の注記1箇所だけである
+    # ことを確認する(実際にオリジナル写真を使用したという記述がないこと)。
+    self.assertEqual(html.count("#オリジナル写真"), 1)
+    self.assertIn(
+        "商品画像の取得・生成画像の自動アップロード・#オリジナル写真の自動付与は",
+        html,
+    )
+    self.assertIn(
+        "実際に使用していない商品についての購入・使用体験や口コミは"
+        "書かないでください。",
+        html,
+    )
+
+  def test_room_daily_candidates_fields_have_no_prefilled_fabricated_values(self):
+    # ♡数・コメント数など、実際の反応実績は柴犬社長が手動入力する前提のため、
+    # サーバー側で架空の数値を事前入力していないことを確認する。
+    import re
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for cls in ("rc-hearts", "rc-comments", "rc-checked-date", "rc-genre",
+                "rc-product-name", "rc-product-url"):
+      for m in re.finditer(rf'class="{cls}"[^>]*', html):
+        self.assertNotIn("value=", m.group())
+    for m in re.finditer(r'<textarea class="rc-intro"[^>]*>([^<]*)</textarea>', html):
+      self.assertEqual(m.group(1), "")
+
+  def test_room_daily_candidates_is_linked_from_room_prep_section(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('href="/content-studio/room-daily-candidates"', html)
+    self.assertIn("楽天ROOM 毎日の投稿候補（下書き）を見る", html)
+
+  def test_room_daily_candidates_does_not_change_existing_pinterest_note_room_counts(self):
+    # 新機能の追加により、既存のPinterest・note・楽天ROOMの件数表示に
+    # 影響がないことを確認する(回帰確認)。
+    root_html = self.html
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿17件", revenue_html)
+    self.assertIn(
+        "楽天ROOMアカウント全体では商品投稿が30件あり、このうちAI Hiveで"
+        "追加・記録しているのは17件です。",
+        revenue_html,
+    )
 
 
 if __name__ == "__main__":
