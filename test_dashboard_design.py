@@ -4532,6 +4532,394 @@ class DashboardDesignTestCase(unittest.TestCase):
         revenue_html,
     )
 
+  # --- MISSION 061: 「紹介文とハッシュタグを作成」ボタン --------------------
+
+  def test_room_daily_candidates_has_generate_draft_button_per_card(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for slot in range(office_views.ROOM_CANDIDATE_MAX_PER_DAY):
+      card = html.split(f'<div class="room-candidate-card" data-slot="{slot}">', 1)[1]
+      card = card.split('<div class="room-candidate-card"', 1)[0]
+      self.assertIn(
+          f'<button type="button" class="room-candidate-generate-btn '
+          f'rc-generate-draft" data-slot="{slot}">紹介文とハッシュタグを作成</button>',
+          card,
+      )
+      # ボタンは反応実績の入力欄より後、紹介文欄より前に置く。
+      self.assertLess(
+          card.index("rc-generate-draft"), card.index('class="rc-intro"')
+      )
+
+  def test_room_daily_candidates_has_bulk_generate_button(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn(
+        '<button type="button" id="rc-generate-all">'
+        "入力済みの候補をまとめて下書きを作成</button>",
+        html,
+    )
+    # まとめてボタンは日付ナビゲーションの後、候補カードより前に配置する。
+    self.assertLess(
+        html.index('id="rc-generate-all"'),
+        html.index('class="room-candidate-card" data-slot="0"'),
+    )
+    self.assertGreater(
+        html.index('id="rc-generate-all"'), html.index('id="rc-date-input"')
+    )
+
+  def test_room_daily_candidates_generate_js_defines_core_functions(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for fn in (
+        "function generateIntro(",
+        "function generateHashtags(",
+        "function generateForSlot(",
+        "function generateForAllFilled(",
+        "function applyDraftToSlot(",
+        "function isFilledSlot(",
+        "function hasDraftContent(",
+    ):
+      self.assertIn(fn, html)
+    self.assertIn(
+        'document.querySelectorAll(".rc-generate-draft").forEach(btn=>{', html
+    )
+    self.assertIn(
+        'document.querySelector("#rc-generate-all")'
+        ".addEventListener(\"click\",generateForAllFilled);",
+        html,
+    )
+
+  def test_room_daily_candidates_generate_functions_make_no_external_calls(self):
+    # 生成機能を追加しても、外部API・AI API・楽天ROOM等への送信・ログインが
+    # 発生しないことを確認する(既存のlocalStorage限定チェックを再確認)。
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<form", html)
+    self.assertNotIn("<script src", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(
+        html.count("https://"), office_views.ROOM_CANDIDATE_MAX_PER_DAY
+    )
+
+  def test_room_daily_candidates_generate_overwrite_confirmation_present(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("window.confirm(", html)
+    self.assertIn(
+        "すでに入力されている紹介文・ハッシュタグを上書きします。よろしいですか？",
+        html,
+    )
+    self.assertIn(
+        "入力済みの候補の中に、すでに紹介文・ハッシュタグが入力されているものが"
+        "あります。上書きします。よろしいですか？",
+        html,
+    )
+    self.assertIn("window.alert(", html)
+    self.assertIn("ジャンルと商品名を入力してから作成してください。", html)
+    self.assertIn("ジャンルと商品名を入力した候補がありません。", html)
+
+  def test_room_daily_candidates_notice_discloses_generate_feature_constraints(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn(
+        "「紹介文とハッシュタグを作成」「まとめて下書きを作成」は、入力済みの"
+        "ジャンル・商品名・♡数・コメント数だけをもとに、このブラウザの中だけで"
+        "文章を組み立てる機能です。外部API・AI APIへの送信は行わず、実際に使用した・"
+        "購入した・効果があった・口コミで高評価・最安値といった、入力から確認できない"
+        "内容は書きません。すでに紹介文やハッシュタグが入力されている場合は、"
+        "上書き前に確認が表示されます。",
+        html,
+    )
+
+  def test_room_daily_candidates_intro_length_guidance_uses_220_to_300(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.ROOM_CANDIDATE_INTRO_MIN_LENGTH, 220)
+    self.assertEqual(office_views.ROOM_CANDIDATE_INTRO_TARGET_LENGTH, 300)
+    self.assertIn("紹介文下書き（220〜300字程度の目安", html)
+
+  def test_room_daily_candidates_hashtag_data_includes_base_tag_and_priority_genres(self):
+    import office_views
+    self.assertEqual(office_views.ROOM_CANDIDATE_BASE_HASHTAG, "#楽天ROOM")
+    for genre in office_views.ROOM_CANDIDATE_PRIORITY_GENRES:
+      self.assertIn(genre, office_views.ROOM_CANDIDATE_GENRE_HASHTAGS)
+      tags = office_views.ROOM_CANDIDATE_GENRE_HASHTAGS[genre]
+      self.assertGreaterEqual(len(tags), 1)
+      for tag in tags:
+        self.assertTrue(tag.startswith("#"))
+    self.assertGreaterEqual(len(office_views.ROOM_CANDIDATE_FALLBACK_HASHTAGS), 1)
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("const BASE_HASHTAG=", html)
+    self.assertIn("const GENRE_HASHTAGS=", html)
+    self.assertIn("const FALLBACK_HASHTAGS=", html)
+
+  def test_room_daily_candidates_generate_intro_js_has_no_fabricated_experience_claims(self):
+    # 生成される紹介文のテンプレート文言そのものに、確認できない体験・評価・
+    # 最安値の断定表現が含まれないことをソースレベルで確認する。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    script = html.split("function generateIntro(", 1)[1].split("function dispatchInput", 1)[0]
+    for forbidden in (
+        "購入しました", "使ってみました", "使用してみて", "口コミで高評価",
+        "レビューで人気", "最安値", "効果がありました", "おすすめです！",
+    ):
+      self.assertNotIn(forbidden, script)
+    self.assertIn(
+        "商品の価格や仕様、レビューの内容は、この下書きの時点では確認しておらず",
+        script,
+    )
+
+  def test_room_daily_candidates_existing_checkbox_semantics_unchanged(self):
+    # MISSION 061で生成ボタンを追加しても、「手動確認済み」「ROOMで投稿する」
+    # チェック欄の意味・手動投稿である旨は変わらないことを確認する(回帰確認)。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for slot in range(5):
+      self.assertIn(
+          f'<input type="checkbox" class="rc-manual-checked" data-slot="{slot}"> 手動確認済み',
+          html,
+      )
+      self.assertIn(
+          f'<input type="checkbox" class="rc-post-in-room" data-slot="{slot}">', html
+      )
+    self.assertIn(
+        "このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は"
+        "行われません。実際の投稿は利用者がROOM上で手動で行ってください。",
+        html,
+    )
+    for slot_html in html.split('class="rc-post-in-room"')[1:]:
+      self.assertNotIn("<button", slot_html[:400])
+
+  # --- MISSION 062: note「毎日2本の記事候補・下書き」機能 --------------------
+
+  def test_note_daily_candidates_page_loads(self):
+    res = self.client.get("/content-studio/note-daily-candidates")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("note記事候補（毎日2本の下書き）", html)
+    self.assertIn(
+        "<title>note記事候補（毎日2本の下書き） | AI Hive</title>", html
+    )
+
+  def test_note_daily_candidates_shows_exactly_two_candidate_slots(self):
+    import office_views
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.NOTE_CANDIDATE_MAX_PER_DAY, 2)
+    self.assertEqual(html.count('class="note-candidate-card"'), 2)
+    for slot in range(2):
+      self.assertIn(f'<h3>候補 {slot + 1}</h3>', html)
+
+  def test_note_daily_candidates_each_slot_has_all_required_fields(self):
+    import office_views
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    for slot in range(office_views.NOTE_CANDIDATE_MAX_PER_DAY):
+      card = html.split(f'<div class="note-candidate-card" data-slot="{slot}">', 1)[1]
+      card = card.split('<div class="note-candidate-card"', 1)[0]
+      self.assertIn(f'class="nc-title" data-slot="{slot}"', card)
+      self.assertIn(f'class="nc-audience" data-slot="{slot}"', card)
+      self.assertIn(f'class="nc-price-type" data-slot="{slot}"', card)
+      self.assertIn(f'class="nc-intro" data-slot="{slot}"', card)
+      self.assertEqual(
+          card.count(f'class="nc-heading" data-slot="{slot}"'),
+          office_views.NOTE_CANDIDATE_HEADING_MAX,
+      )
+      self.assertIn(f'class="nc-body" data-slot="{slot}"', card)
+      self.assertIn("1200〜1800字程度の目安", card)
+      self.assertEqual(
+          card.count(f'class="nc-hashtag" data-slot="{slot}"'),
+          office_views.NOTE_CANDIDATE_HASHTAG_COUNT,
+      )
+      self.assertIn(
+          f'<input type="checkbox" class="nc-manual-checked" data-slot="{slot}"> 手動確認済み',
+          card,
+      )
+      self.assertIn(
+          f'<input type="checkbox" class="nc-post-in-note" data-slot="{slot}">', card
+      )
+
+  def test_note_daily_candidates_price_type_defaults_to_free_and_has_paid_option(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertEqual(html.count('<option value="free">無料記事</option>'), 2)
+    self.assertEqual(
+        html.count(
+            '<option value="paid-candidate">有料記事候補'
+            "（複数の無料記事の反応を確認できたテーマのみ）</option>"
+        ),
+        2,
+    )
+    self.assertIn(
+        "有料記事候補は、無料記事を複数公開して反応が確認できた"
+        "テーマだけを対象にしてください。この画面から自動で有料公開されることは"
+        "ありません。",
+        html,
+    )
+    # <select>にvalue="paid-candidate"を選択済みにするselected属性がないこと
+    # (自動で有料記事候補が選ばれていないこと)を確認する。
+    self.assertNotIn('value="paid-candidate" selected', html)
+    self.assertNotIn('value="free" selected', html)
+
+  def test_note_daily_candidates_post_in_note_is_a_checkbox_not_a_button(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertIn('class="nc-post-in-note"', html)
+    for slot_html in html.split('class="nc-post-in-note"')[1:]:
+      self.assertNotIn("<button", slot_html[:400])
+    self.assertIn(
+        "このチェックは手動公開の確認記録であり、ここからnoteへの投稿・送信は"
+        "行われません。実際の公開は利用者がnote上で手動で行ってください。",
+        html,
+    )
+
+  def test_note_daily_candidates_has_date_navigation(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertIn('id="nc-date-input"', html)
+    self.assertIn('id="nc-prev-day"', html)
+    self.assertIn('id="nc-next-day"', html)
+    self.assertIn('id="nc-today"', html)
+    self.assertIn('type="date"', html)
+
+  def test_note_daily_candidates_has_generate_today_button(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertIn(
+        '<button type="button" id="nc-generate-today">今日の2記事候補を作成</button>',
+        html,
+    )
+    self.assertLess(
+        html.index('id="nc-generate-today"'),
+        html.index('class="note-candidate-card" data-slot="0"'),
+    )
+
+  def test_note_daily_candidates_generate_js_defines_core_functions(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    for fn in (
+        "function themeForSlot(",
+        "function buildIntro(",
+        "function buildBody(",
+        "function buildHashtags(",
+        "function applyThemeToSlot(",
+        "function generateToday(",
+        "function hasDraftContent(",
+    ):
+      self.assertIn(fn, html)
+    self.assertIn(
+        'document.querySelector("#nc-generate-today")'
+        '.addEventListener("click",generateToday);',
+        html,
+    )
+
+  def test_note_daily_candidates_overwrite_confirmation_present(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertIn("window.confirm(", html)
+    self.assertIn(
+        "入力済みのタイトル・本文・見出し・ハッシュタグがある候補は上書きされます。"
+        "よろしいですか？",
+        html,
+    )
+
+  def test_note_daily_candidates_uses_local_storage_only_no_external_calls(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertIn("window.localStorage", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<form", html)
+    self.assertNotIn("<script src", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+
+  def test_note_daily_candidates_no_image_upload_or_external_service_mentions(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertNotIn('type="file"', html)
+    self.assertNotIn("<img", html)
+    self.assertIn(
+        "noteへのログイン・下書き保存・公開・送信・外部API通信・ブラウザ自動操作は"
+        "一切行いません。Pinterest・Threads・楽天ROOM・楽天アフィリエイトへの"
+        "アクセス・送信・ログイン・投稿も一切行いません。",
+        html,
+    )
+
+  def test_note_daily_candidates_fields_have_no_prefilled_fabricated_values(self):
+    import re
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    for cls in ("nc-title", "nc-audience", "nc-heading", "nc-hashtag"):
+      for m in re.finditer(rf'class="{cls}"[^>]*', html):
+        self.assertNotIn("value=", m.group())
+    for m in re.finditer(r'<textarea class="nc-(intro|body)"[^>]*>([^<]*)</textarea>', html):
+      self.assertEqual(m.group(2), "")
+
+  def test_note_daily_candidates_is_linked_from_content_studio_index(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('href="/content-studio/note-daily-candidates"', html)
+    self.assertIn("note記事候補（毎日2本の下書き）を見る", html)
+
+  def test_note_daily_candidates_theme_data_covers_five_topics_without_duplicating_existing_articles(self):
+    import office_views
+    self.assertEqual(len(office_views.NOTE_CANDIDATE_THEMES), 5)
+    expected_labels = {
+        "AI初心者の文章作成",
+        "AIに調べ物を頼む前の準備",
+        "タスク整理・優先順位付け",
+        "スマホでのAI活用",
+        "メール下書き・仕事の時短",
+    }
+    self.assertEqual(
+        {t["label"] for t in office_views.NOTE_CANDIDATE_THEMES}, expected_labels
+    )
+    existing_titles = {
+        office_views.NOTE_FIRST_ARTICLE["title"],
+        office_views.NOTE_SECOND_ARTICLE_DRAFT["title"],
+        office_views.NOTE_THIRD_ARTICLE_DRAFT["title"],
+    }
+    for theme in office_views.NOTE_CANDIDATE_THEMES:
+      self.assertNotIn(theme["title"], existing_titles)
+      self.assertGreaterEqual(len(theme["headings"]), office_views.NOTE_CANDIDATE_HEADING_MIN)
+      self.assertLessEqual(len(theme["headings"]), office_views.NOTE_CANDIDATE_HEADING_MAX)
+      self.assertGreaterEqual(len(theme["hashtags"]), 1)
+
+  def test_note_daily_candidates_body_length_guidance_uses_1200_to_1800(self):
+    import office_views
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.NOTE_CANDIDATE_BODY_MIN_LENGTH, 1200)
+    self.assertEqual(office_views.NOTE_CANDIDATE_BODY_MAX_LENGTH, 1800)
+    self.assertIn("下書き本文（1200〜1800字程度の目安", html)
+
+  def test_note_daily_candidates_generated_body_template_has_no_fabricated_or_absolute_claims(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    script = html.split("function buildBody(theme){", 1)[1].split("function buildHashtags", 1)[0]
+    for forbidden in (
+        "購入しました", "使ってみました", "口コミで人気", "売上が上がりました",
+        "絶対に", "投資すべき", "治ります",
+    ):
+      self.assertNotIn(forbidden, script)
+    self.assertIn("効果や成果を保証", script)
+    self.assertIn("価格・投資・法律・医療・健康について断定的な判断は", script)
+
+  def test_note_daily_candidates_hashtags_include_base_tag(self):
+    import office_views
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.NOTE_CANDIDATE_BASE_HASHTAG, "#AI活用")
+    self.assertIn("const BASE_HASHTAG=", html)
+    for theme in office_views.NOTE_CANDIDATE_THEMES:
+      for tag in theme["hashtags"]:
+        self.assertTrue(tag.startswith("#"))
+
+  def test_note_daily_candidates_does_not_change_existing_note_pinterest_room_content(self):
+    # 新機能の追加により、既存のnote初回記事・投稿企画工場・楽天ROOM表示に
+    # 影響がないことを確認する(回帰確認)。
+    import office_views
+    html = self.client.get("/content-studio/note-first-article").get_data(as_text=True)
+    self.assertIn(office_views.NOTE_FIRST_ARTICLE["title"], html)
+    self.assertIn(office_views.NOTE_SECOND_ARTICLE_DRAFT["title"], html)
+    self.assertIn(office_views.NOTE_THIRD_ARTICLE_DRAFT["title"], html)
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
 
 if __name__ == "__main__":
   unittest.main()

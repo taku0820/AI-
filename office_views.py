@@ -4,6 +4,7 @@
 社長室の会話も保存されないローカルの定型リアクションである。
 """
 
+import json
 import os
 
 from flask import render_template_string
@@ -238,7 +239,39 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .room-candidate-checks{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:1.5;padding-top:8px;border-top:1px dashed var(--edge)}
 .room-candidate-checks label{display:flex;align-items:flex-start;gap:8px}
 .room-candidate-intro-count{color:var(--sub);font-weight:400}
-@media(max-width:760px){.room-candidate-date-nav{flex-direction:column;align-items:stretch}.room-candidate-reaction-inputs{flex-direction:column}.room-candidate-reaction-inputs input{width:100%}}
+.room-candidate-generate-row{margin-bottom:10px}
+.room-candidate-generate-btn{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.room-candidate-generate-btn:hover,.room-candidate-generate-btn:focus-visible{border-color:var(--blue);color:var(--blue)}
+.room-candidate-bulk-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;background:var(--panel);border:1px solid var(--blue);border-radius:12px;padding:10px 14px}
+.room-candidate-bulk-actions button{background:#142039;color:var(--ink);border:1px solid var(--blue);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.room-candidate-bulk-actions button:hover,.room-candidate-bulk-actions button:focus-visible{background:#1b2d4b}
+.room-candidate-bulk-actions p{margin:0;font-size:11px;color:var(--sub);line-height:1.6}
+@media(max-width:760px){.room-candidate-date-nav{flex-direction:column;align-items:stretch}.room-candidate-reaction-inputs{flex-direction:column}.room-candidate-reaction-inputs input{width:100%}.room-candidate-bulk-actions{flex-direction:column;align-items:stretch}}
+.note-candidate-board{max-width:900px;margin:0 auto}
+.note-candidate-date-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:10px 14px}
+.note-candidate-date-nav input[type="date"]{background:#0b1120;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:6px 10px;font-family:inherit}
+.note-candidate-date-nav button{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+.note-candidate-date-nav button:hover,.note-candidate-date-nav button:focus-visible{border-color:var(--blue);color:var(--blue)}
+.note-candidate-generate-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;background:var(--panel);border:1px solid var(--blue);border-radius:12px;padding:10px 14px}
+.note-candidate-generate-actions button{background:#142039;color:var(--ink);border:1px solid var(--blue);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.note-candidate-generate-actions button:hover,.note-candidate-generate-actions button:focus-visible{background:#1b2d4b}
+.note-candidate-generate-actions p{margin:0;font-size:11px;color:var(--sub);line-height:1.6}
+.note-candidate-card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:14px 16px;margin-bottom:14px}
+.note-candidate-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.note-candidate-head h3{margin:0;font-size:14px}
+.note-candidate-field{margin-bottom:10px}
+.note-candidate-field label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px}
+.note-candidate-field input[type="text"],.note-candidate-field textarea,.note-candidate-field select{width:100%;background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;box-sizing:border-box}
+.note-candidate-field textarea{resize:vertical}
+.note-candidate-headings{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:10px}
+.note-candidate-headings input{background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;box-sizing:border-box}
+.note-candidate-hashtags{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:10px}
+.note-candidate-hashtags input{background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;box-sizing:border-box}
+.note-candidate-checks{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:1.5;padding-top:8px;border-top:1px dashed var(--edge)}
+.note-candidate-checks label{display:flex;align-items:flex-start;gap:8px}
+.note-candidate-count{color:var(--sub);font-weight:400}
+.note-candidate-price-note{font-size:11px;color:var(--sub);margin:4px 0 0;line-height:1.6}
+@media(max-width:760px){.note-candidate-date-nav{flex-direction:column;align-items:stretch}.note-candidate-generate-actions{flex-direction:column;align-items:stretch}}
 </style>
 """
 
@@ -774,6 +807,8 @@ def _render_content_studio_scene(
       '→ 投稿キューを見る（社長承認待ち）</a> '
       '<a class="cs-first-post-link" href="/content-studio/note-first-article">'
       '→ note初回記事を見る</a> '
+      '<a class="cs-first-post-link" href="/content-studio/note-daily-candidates">'
+      '→ note記事候補（毎日2本の下書き）を見る</a> '
       '<a class="cs-first-post-link" href="/revenue#room-prep">'
       '→ 楽天ROOM投稿準備を見る</a>'
       + plan_cards
@@ -1483,11 +1518,27 @@ def _render_room_prep_section(
 ROOM_CANDIDATE_HEART_THRESHOLD = 10
 ROOM_CANDIDATE_MAX_PER_DAY = 5
 ROOM_CANDIDATE_HASHTAG_COUNT = 5
+ROOM_CANDIDATE_INTRO_MIN_LENGTH = 220
 ROOM_CANDIDATE_INTRO_TARGET_LENGTH = 300
 # 現在、♡10以上の投稿が確認できている有力ジャンル(社長確認済みの事実)。
 # 具体的な♡数・コメント数は、候補ごとに柴犬社長が手動入力するため、ここ
 # には含めない(架空の数値を書かないため)。
 ROOM_CANDIDATE_PRIORITY_GENRES = ["バッグの中の整理", "スマホ周辺の持ち運び収納"]
+
+# MISSION 061: 「紹介文とハッシュタグを作成」ボタン用のテンプレート辞書。
+# 入力済みのジャンル・商品名・♡数・コメント数「だけ」から紹介文と
+# ハッシュタグをその場で組み立てる(=クライアント側JSのテンプレート
+# 生成であり、外部API・AI APIへの送信は一切ない)。実際に使用した・
+# 購入した・効果があった・口コミで高評価・最安値といった、入力から
+# 確認できない事実は書かない。価格・商品仕様・レビュー数・商品ページの
+# 内容をURLから取得することもしない。ジャンルに合わせたハッシュタグ候補
+# はこの辞書にないジャンルではROOM_CANDIDATE_FALLBACK_HASHTAGSを使う。
+ROOM_CANDIDATE_GENRE_HASHTAGS = {
+    "バッグの中の整理": ["#バッグの中身", "#持ち物整理", "#収納アイデア"],
+    "スマホ周辺の持ち運び収納": ["#スマホ収納", "#ガジェット収納", "#持ち運びグッズ"],
+}
+ROOM_CANDIDATE_FALLBACK_HASHTAGS = ["#暮らしを整える", "#便利グッズ", "#収納アイデア"]
+ROOM_CANDIDATE_BASE_HASHTAG = "#楽天ROOM"
 
 
 def _render_room_daily_candidates_scene():
@@ -1541,8 +1592,13 @@ def _render_room_daily_candidates_scene():
         f'<label>確認日<input type="date" class="rc-checked-date" data-slot="{slot}"></label>'
         '</div>'
         '</div>'
+        '<div class="room-candidate-generate-row">'
+        f'<button type="button" class="room-candidate-generate-btn rc-generate-draft" '
+        f'data-slot="{slot}">紹介文とハッシュタグを作成</button>'
+        '</div>'
         '<div class="room-candidate-field">'
-        '<label>紹介文下書き（300字程度の目安。実際に使用していない商品について、'
+        f'<label>紹介文下書き（{ROOM_CANDIDATE_INTRO_MIN_LENGTH}〜'
+        f'{ROOM_CANDIDATE_INTRO_TARGET_LENGTH}字程度の目安。実際に使用していない商品について、'
         '断定的な使用体験・口コミは書かないでください）'
         f'<span class="room-candidate-intro-count" data-slot="{slot}">0字</span></label>'
         f'<textarea class="rc-intro" data-slot="{slot}" rows="5" maxlength="600"></textarea>'
@@ -1580,6 +1636,12 @@ def _render_room_daily_candidates_scene():
       '<li>商品画像の取得・生成画像の自動アップロード・#オリジナル写真の自動付与は'
       '行いません。実際に使用していない商品についての購入・使用体験や口コミは'
       '書かないでください。</li>'
+      '<li>「紹介文とハッシュタグを作成」「まとめて下書きを作成」は、入力済みの'
+      'ジャンル・商品名・♡数・コメント数だけをもとに、このブラウザの中だけで'
+      '文章を組み立てる機能です。外部API・AI APIへの送信は行わず、実際に使用した・'
+      '購入した・効果があった・口コミで高評価・最安値といった、入力から確認できない'
+      '内容は書きません。すでに紹介文やハッシュタグが入力されている場合は、'
+      '上書き前に確認が表示されます。</li>'
       '</ul>'
       '</div>'
       '<div class="room-candidate-rules">'
@@ -1600,6 +1662,11 @@ def _render_room_daily_candidates_scene():
       '<button type="button" id="rc-next-day">翌日 →</button>'
       '<span id="rc-date-label"></span>'
       '</div>'
+      '<div class="room-candidate-bulk-actions">'
+      '<button type="button" id="rc-generate-all">入力済みの候補をまとめて下書きを作成</button>'
+      '<p>ジャンルと商品名を入力した候補すべてに、紹介文とハッシュタグをまとめて'
+      '自動入力します。入力済みの紹介文・ハッシュタグは確認のうえ上書きされます。</p>'
+      '</div>'
       f'{candidate_cards}'
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の下書き'
       'ツールです。楽天ROOM・楽天アフィリエイト・Pinterest・note・Threadsへの投稿・'
@@ -1609,6 +1676,9 @@ def _render_room_daily_candidates_scene():
       'const MAX_SLOTS=' + str(ROOM_CANDIDATE_MAX_PER_DAY) + ';'
       'const HEART_THRESHOLD=' + str(ROOM_CANDIDATE_HEART_THRESHOLD) + ';'
       'const HASHTAG_COUNT=' + str(ROOM_CANDIDATE_HASHTAG_COUNT) + ';'
+      'const BASE_HASHTAG=' + json.dumps(ROOM_CANDIDATE_BASE_HASHTAG) + ';'
+      'const GENRE_HASHTAGS=' + json.dumps(ROOM_CANDIDATE_GENRE_HASHTAGS, ensure_ascii=False) + ';'
+      'const FALLBACK_HASHTAGS=' + json.dumps(ROOM_CANDIDATE_FALLBACK_HASHTAGS, ensure_ascii=False) + ';'
       'const STORAGE_PREFIX="ai-hive-room-candidate:";'
       'const dateInput=document.querySelector("#rc-date-input");'
       'const dateLabel=document.querySelector("#rc-date-label");'
@@ -1687,6 +1757,99 @@ def _render_room_daily_candidates_scene():
       'updateVerifyingBadge(slot,fields);'
       'updateIntroCount(slot,fields);'
       '}'
+      'function isFilledSlot(fields){'
+      'return Boolean(fields.genre.value.trim())&&Boolean(fields.productName.value.trim());'
+      '}'
+      'function hasDraftContent(fields){'
+      'return Boolean(fields.intro.value.trim())||fields.hashtags.some(el=>el.value.trim());'
+      '}'
+      'function generateHashtags(genre){'
+      'const tags=[BASE_HASHTAG];'
+      'const g=(genre||"").trim();'
+      'if(g){'
+      'const cleaned=g.replace(/[\\s#]+/g,"");'
+      'if(cleaned&&!tags.includes("#"+cleaned))tags.push("#"+cleaned);'
+      '}'
+      'const extra=GENRE_HASHTAGS[g]||FALLBACK_HASHTAGS;'
+      'for(const t of extra){'
+      'if(tags.length>=HASHTAG_COUNT)break;'
+      'if(!tags.includes(t))tags.push(t);'
+      '}'
+      'let i=0;'
+      'while(tags.length<HASHTAG_COUNT&&i<FALLBACK_HASHTAGS.length){'
+      'if(!tags.includes(FALLBACK_HASHTAGS[i]))tags.push(FALLBACK_HASHTAGS[i]);'
+      'i++;'
+      '}'
+      'return tags.slice(0,HASHTAG_COUNT);'
+      '}'
+      'function generateIntro(genre,productName,hearts,comments){'
+      'const g=genre||"気になるジャンル";'
+      'const p=productName||"この商品";'
+      'let reaction;'
+      'if(hearts!==""&&hearts!==undefined&&hearts!==null){'
+      'reaction="ROOM上ではこのジャンルの投稿に♡が"+hearts+"件";'
+      'if(comments!==""&&comments!==undefined&&comments!==null){'
+      'reaction+="、コメントが"+comments+"件";'
+      '}'
+      'reaction+="ついており、関心を持って見てくださっている方がいるようです。";'
+      '}else{'
+      'reaction="まだ反応実績は記録できていませんが、今後ROOM上での様子を確認していく候補です。";'
+      '}'
+      'const lines=['
+      '"『"+g+"』が気になる方へ。",'
+      '"『"+p+"』を投稿候補として記録しています。",'
+      '"気になる方はチェックしてみてください。",'
+      '];'
+      'const body=reaction+'
+      '"商品の価格や仕様、レビューの内容は、この下書きの時点では確認しておらず、"+'
+      '"実際に使用した体験や口コミの評価についてもここでは触れていません。"+'
+      '"気になる方は、楽天ROOMの商品ページでサイズ・素材・価格などの詳細をご自身で"+'
+      '"ご確認のうえ、ご検討ください。";'
+      'return lines.join("\\n")+"\\n"+body;'
+      '}'
+      'function dispatchInput(el){el.dispatchEvent(new Event("input",{bubbles:true}));}'
+      'function applyDraftToSlot(slot,fields){'
+      'const genre=fields.genre.value.trim();'
+      'const productName=fields.productName.value.trim();'
+      'fields.intro.value=generateIntro(genre,productName,fields.hearts.value,fields.comments.value);'
+      'const tags=generateHashtags(genre);'
+      'fields.hashtags.forEach((el,i)=>{el.value=tags[i]||"";});'
+      'dispatchInput(fields.intro);'
+      'fields.hashtags.forEach(dispatchInput);'
+      'saveSlot(dateInput.value,slot);'
+      '}'
+      'function generateForSlot(slot){'
+      'const fields=fieldsForSlot(slot);'
+      'if(!isFilledSlot(fields)){'
+      'window.alert("ジャンルと商品名を入力してから作成してください。");'
+      'return;'
+      '}'
+      'if(hasDraftContent(fields)){'
+      'const ok=window.confirm('
+      '"すでに入力されている紹介文・ハッシュタグを上書きします。よろしいですか？");'
+      'if(!ok)return;'
+      '}'
+      'applyDraftToSlot(slot,fields);'
+      '}'
+      'function generateForAllFilled(){'
+      'const targets=[];'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){'
+      'const fields=fieldsForSlot(slot);'
+      'if(isFilledSlot(fields))targets.push({slot:slot,fields:fields});'
+      '}'
+      'if(targets.length===0){'
+      'window.alert("ジャンルと商品名を入力した候補がありません。");'
+      'return;'
+      '}'
+      'const hasExisting=targets.some(t=>hasDraftContent(t.fields));'
+      'if(hasExisting){'
+      'const ok=window.confirm('
+      '"入力済みの候補の中に、すでに紹介文・ハッシュタグが入力されているものが'
+      'あります。上書きします。よろしいですか？");'
+      'if(!ok)return;'
+      '}'
+      'targets.forEach(t=>applyDraftToSlot(t.slot,t.fields));'
+      '}'
       'function loadAllSlots(){'
       'const iso=dateInput.value;'
       'dateLabel.textContent=iso;'
@@ -1722,6 +1885,437 @@ def _render_room_daily_candidates_scene():
       'loadAllSlots();'
       '});'
       'dateInput.addEventListener("change",loadAllSlots);'
+      'document.querySelectorAll(".rc-generate-draft").forEach(btn=>{'
+      'btn.addEventListener("click",()=>generateForSlot(Number(btn.dataset.slot)));'
+      '});'
+      'document.querySelector("#rc-generate-all")'
+      '.addEventListener("click",generateForAllFilled);'
+      '})();'
+      '</script>'
+      '</section>'
+  )
+
+
+# MISSION 062: note向け「毎日2本の記事候補・下書き」機能。
+#
+# AI初心者向けnoteのテーマから、1日あたり最大2本の記事候補(タイトル・想定
+# 読者・無料/有料区分・導入3行・見出し・1,200〜1,800字の下書き・ハッシュ
+# タグ5個)を下書きできるようにする。「今日の2記事候補を作成」ボタンは、
+# テーマ一覧(NOTE_CANDIDATE_THEMES)から日付に応じて2件を選び、固定の
+# テンプレート文からブラウザ内だけで文章を組み立てる(外部API・AI APIへの
+# 送信は一切ない)。実際の購入・使用・収益・売上・体験談・口コミ・成果は
+# 書かず、価格・投資・法律・医療・健康について断定的な表現も使わない。
+# 他者の記事・画像・文章のコピーも行わない。「無料記事か、有料記事候補か」
+# は生成時は常に「無料記事」を選択し、自動で有料記事候補にすることはない
+# (有料記事候補にするかどうかは、複数の無料記事を公開して反応を確認した
+# あとに利用者が手動で選び直す運用)。入力内容はブラウザのlocalStorageに
+# のみ保存し(このアプリのDB・バックアップ・サーバーへの送信は一切ない。
+# ブラウザを変える/localStorageを消すと内容は失われる)、note・Pinterest・
+# Threads・楽天ROOM・楽天アフィリエイトへのアクセス・送信・ログイン・
+# 投稿・外部API通信・ブラウザ自動操作は一切行わない。「noteで手動公開する」
+# はチェック欄であり、外部への公開を実行するボタンではない(実際の公開は
+# 利用者がnote上で手動で行う)。
+NOTE_CANDIDATE_MAX_PER_DAY = 2
+NOTE_CANDIDATE_HEADING_MIN = 3
+NOTE_CANDIDATE_HEADING_MAX = 5
+NOTE_CANDIDATE_BODY_MIN_LENGTH = 1200
+NOTE_CANDIDATE_BODY_MAX_LENGTH = 1800
+NOTE_CANDIDATE_HASHTAG_COUNT = 5
+NOTE_CANDIDATE_BASE_HASHTAG = "#AI活用"
+# 既存の公開・下書き済みnote記事(NOTE_FIRST_ARTICLE、NOTE_SECOND_ARTICLE_
+# DRAFT、NOTE_THIRD_ARTICLE_DRAFT)と題材が重ならないよう選んだ5テーマ。
+# 具体的な記事本文はテンプレート生成時にJS側で組み立てるため、ここには
+# タイトル・想定読者・見出し・ハッシュタグという「編集可能な下書きの型」
+# だけを置き、架空の実績・体験談は一切含めない。
+NOTE_CANDIDATE_THEMES = [
+    {
+        "key": "writing-basics",
+        "label": "AI初心者の文章作成",
+        "title": "AIに文章を書いてもらう前に、初心者が決めておきたいこと",
+        "audience": "AIを使って文章を書いたことがなく、何から始めればいいか分からない人",
+        "headings": [
+            "文章作成でAIが助けてくれること",
+            "AIに頼む前に決めておきたいこと",
+            "実際に試すときの簡単な手順",
+            "うまくいかないときの見直し方",
+        ],
+        "hashtags": ["#AI初心者", "#文章作成", "#ライティング", "#仕事の効率化"],
+    },
+    {
+        "key": "research-prep",
+        "label": "AIに調べ物を頼む前の準備",
+        "title": "AIに調べ物を頼む前に、確認しておきたいこと",
+        "audience": "AIに情報収集や下調べを手伝ってもらいたいが、使い方に不安がある人",
+        "headings": [
+            "AIに調べ物を頼むときに起こりやすいこと",
+            "頼む前に整理しておきたいこと",
+            "結果を受け取ったあとの確認ポイント",
+            "次に試したいステップ",
+        ],
+        "hashtags": ["#AI初心者", "#情報収集", "#リサーチ", "#仕事の効率化"],
+    },
+    {
+        "key": "task-priority",
+        "label": "タスク整理・優先順位付け",
+        "title": "AIと一緒にタスクを整理し、優先順位を考える方法",
+        "audience": "やることが多くて何から手をつければいいか迷いやすい人",
+        "headings": [
+            "タスクが増えると起きやすいこと",
+            "AIに整理を手伝ってもらう考え方",
+            "優先順位をつけるときの視点",
+            "整理したあとに気をつけたいこと",
+        ],
+        "hashtags": ["#タスク管理", "#優先順位", "#仕事術", "#AI初心者"],
+    },
+    {
+        "key": "smartphone-ai",
+        "label": "スマホでのAI活用",
+        "title": "スマートフォンでAIを使うときに意識したいポイント",
+        "audience": "パソコンよりスマートフォンでAIを使う機会が多い人",
+        "headings": [
+            "スマホでAIを使う場面の広がり",
+            "画面が小さいからこそ意識したいこと",
+            "入力や確認をラクにする工夫",
+            "外出先で使うときの注意点",
+        ],
+        "hashtags": ["#スマホ活用", "#AI初心者", "#仕事術", "#外出先での活用"],
+    },
+    {
+        "key": "email-time-saving",
+        "label": "メール下書き・仕事の時短",
+        "title": "AIでメール作成の時間を短くするための考え方",
+        "audience": "毎日のメール作成に時間がかかっていると感じる会社員",
+        "headings": [
+            "メール作成に時間がかかる理由",
+            "AIに下書きを頼むときの考え方",
+            "時短につながる使い方の工夫",
+            "送信前に必ず確認したいこと",
+        ],
+        "hashtags": ["#メール術", "#時短", "#仕事の効率化", "#AI初心者"],
+    },
+]
+
+
+def _render_note_daily_candidates_scene():
+  """note向け「毎日2本の記事候補・下書き」画面のHTMLを組み立てる。
+
+  純粋な表示用マークアップ+クライアント側JSのみで構成する。DB・API・
+  note・Pinterest・Threads・楽天ROOM・楽天アフィリエイトへの通信は一切
+  行わない。入力値の保存先はブラウザのlocalStorageのみで、フォーム
+  送信(<form method="POST">等)や外部へのfetch/XHRは一切使わない。
+  「noteで手動公開する」はチェックボックスであり、クリックしても外部公開は
+  発生しない。
+  """
+  theme_items = "".join(
+      f'<li>{theme["label"]}</li>' for theme in NOTE_CANDIDATE_THEMES
+  )
+
+  def _candidate_card(slot):
+    heading_inputs = "".join(
+        f'<input type="text" class="nc-heading" data-slot="{slot}" '
+        f'data-heading-index="{i}" placeholder="見出し{i + 1}">'
+        for i in range(NOTE_CANDIDATE_HEADING_MAX)
+    )
+    hashtag_inputs = "".join(
+        f'<input type="text" class="nc-hashtag" data-slot="{slot}" '
+        f'data-hashtag-index="{i}" placeholder="#タグ{i + 1}">'
+        for i in range(NOTE_CANDIDATE_HASHTAG_COUNT)
+    )
+    return (
+        f'<div class="note-candidate-card" data-slot="{slot}">'
+        '<div class="note-candidate-head">'
+        f'<h3>候補 {slot + 1}</h3>'
+        '</div>'
+        '<div class="note-candidate-field">'
+        '<label>記事タイトル</label>'
+        f'<input type="text" class="nc-title" data-slot="{slot}" placeholder="記事タイトルを入力">'
+        '</div>'
+        '<div class="note-candidate-field">'
+        '<label>想定読者</label>'
+        f'<input type="text" class="nc-audience" data-slot="{slot}" placeholder="想定読者を入力">'
+        '</div>'
+        '<div class="note-candidate-field">'
+        '<label>無料記事か、有料記事候補か</label>'
+        f'<select class="nc-price-type" data-slot="{slot}">'
+        '<option value="free">無料記事</option>'
+        '<option value="paid-candidate">有料記事候補（複数の無料記事の反応を確認できたテーマのみ）</option>'
+        '</select>'
+        '<p class="note-candidate-price-note">有料記事候補は、無料記事を複数公開して反応が確認できた'
+        'テーマだけを対象にしてください。この画面から自動で有料公開されることはありません。</p>'
+        '</div>'
+        '<div class="note-candidate-field">'
+        '<label>導入3行</label>'
+        f'<textarea class="nc-intro" data-slot="{slot}" rows="3" maxlength="600"></textarea>'
+        '</div>'
+        '<div class="note-candidate-field">'
+        f'<label>見出し（{NOTE_CANDIDATE_HEADING_MIN}〜{NOTE_CANDIDATE_HEADING_MAX}個）</label>'
+        f'<div class="note-candidate-headings">{heading_inputs}</div>'
+        '</div>'
+        '<div class="note-candidate-field">'
+        f'<label>下書き本文（{NOTE_CANDIDATE_BODY_MIN_LENGTH}〜'
+        f'{NOTE_CANDIDATE_BODY_MAX_LENGTH}字程度の目安。実際の購入・使用・収益・売上・'
+        '体験談・口コミ・成果は書かず、価格・投資・法律・医療・健康について断定的な'
+        '表現は使わないでください。他者の記事・画像・文章はコピーしないでください）'
+        f'<span class="note-candidate-count" data-slot="{slot}">0字</span></label>'
+        f'<textarea class="nc-body" data-slot="{slot}" rows="10" maxlength="4000"></textarea>'
+        '</div>'
+        '<div class="note-candidate-field">'
+        f'<label>ハッシュタグ（{NOTE_CANDIDATE_HASHTAG_COUNT}個）</label>'
+        f'<div class="note-candidate-hashtags">{hashtag_inputs}</div>'
+        '</div>'
+        '<div class="note-candidate-checks">'
+        f'<label><input type="checkbox" class="nc-manual-checked" data-slot="{slot}"> 手動確認済み</label>'
+        f'<label><input type="checkbox" class="nc-post-in-note" data-slot="{slot}"> noteで手動公開する'
+        '（このチェックは手動公開の確認記録であり、ここからnoteへの投稿・送信は'
+        '行われません。実際の公開は利用者がnote上で手動で行ってください。）</label>'
+        '</div>'
+        '</div>'
+    )
+
+  candidate_cards = "".join(
+      _candidate_card(slot) for slot in range(NOTE_CANDIDATE_MAX_PER_DAY)
+  )
+
+  return (
+      '<section class="note-candidate-board" aria-label="note記事候補（毎日2本の下書き）">'
+      '<div class="room-prep-notice">'
+      '<b>この画面はローカルのみで動作する下書きツールです。</b>'
+      '<ul>'
+      '<li>noteへのログイン・下書き保存・公開・送信・外部API通信・ブラウザ自動操作は'
+      '一切行いません。Pinterest・Threads・楽天ROOM・楽天アフィリエイトへのアクセス・'
+      '送信・ログイン・投稿も一切行いません。</li>'
+      '<li>「noteで手動公開する」はチェック欄であり、外部公開を実行するボタンでは'
+      'ありません。実際の公開は、利用者がnote上で内容を確認したうえで手動で'
+      '行ってください。</li>'
+      '<li>入力内容はお使いのブラウザのlocalStorageにのみ保存されます。このアプリの'
+      'データベース・バックアップへは保存されず、どこにも送信されません。ブラウザや'
+      '端末を変えたり、ブラウザのデータを消去すると内容は失われます。</li>'
+      '<li>実際の購入・使用・収益・売上・体験談・口コミ・成果は架空で書きません。'
+      '価格・投資・法律・医療・健康について断定的な判断は行いません。他者の記事・'
+      '画像・文章はコピーしません。</li>'
+      '<li>「有料記事候補」は、無料記事を複数公開して反応が確認できたテーマだけを'
+      '対象にする運用です。この画面が自動で有料記事を公開することはありません。</li>'
+      '</ul>'
+      '</div>'
+      '<div class="room-candidate-rules">'
+      '<b>候補のテーマについて</b>'
+      '「今日の2記事候補を作成」を押すと、次の5つのテーマから、既存のnote記事と'
+      '題材が重ならないように選んだ2つをもとに下書きを作成します（具体的な'
+      'タイトル・見出し・本文は候補ごとに編集できます）。'
+      f'<ul>{theme_items}</ul>'
+      '</div>'
+      '<div class="note-candidate-date-nav">'
+      '<button type="button" id="nc-prev-day">← 前日</button>'
+      '<label for="nc-date-input" class="sr-only">対象日</label>'
+      '<input type="date" id="nc-date-input">'
+      '<button type="button" id="nc-today">今日</button>'
+      '<button type="button" id="nc-next-day">翌日 →</button>'
+      '<span id="nc-date-label"></span>'
+      '</div>'
+      '<div class="note-candidate-generate-actions">'
+      '<button type="button" id="nc-generate-today">今日の2記事候補を作成</button>'
+      '<p>表示中の日付のテーマにもとづいて、2件の候補にタイトル・想定読者・導入・'
+      '見出し・下書き本文・ハッシュタグをまとめて自動入力します。入力済みの内容は'
+      '確認のうえ上書きされます。</p>'
+      '</div>'
+      f'{candidate_cards}'
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の下書き'
+      'ツールです。note・Pinterest・Threads・楽天ROOM・楽天アフィリエイトへの投稿・'
+      '送信・ログインは行われません。</p>'
+      '<script>'
+      '(function(){'
+      'const MAX_SLOTS=' + str(NOTE_CANDIDATE_MAX_PER_DAY) + ';'
+      'const HEADING_MAX=' + str(NOTE_CANDIDATE_HEADING_MAX) + ';'
+      'const HASHTAG_COUNT=' + str(NOTE_CANDIDATE_HASHTAG_COUNT) + ';'
+      'const BASE_HASHTAG=' + json.dumps(NOTE_CANDIDATE_BASE_HASHTAG) + ';'
+      'const THEMES=' + json.dumps(NOTE_CANDIDATE_THEMES, ensure_ascii=False) + ';'
+      'const STORAGE_PREFIX="ai-hive-note-candidate:";'
+      'const dateInput=document.querySelector("#nc-date-input");'
+      'const dateLabel=document.querySelector("#nc-date-label");'
+      'function toIsoDate(d){'
+      'const y=d.getFullYear();'
+      'const m=String(d.getMonth()+1).padStart(2,"0");'
+      'const day=String(d.getDate()).padStart(2,"0");'
+      'return y+"-"+m+"-"+day;'
+      '}'
+      'function dayIndexForDate(iso){'
+      'const parts=iso.split("-").map(Number);'
+      'return Math.floor(Date.UTC(parts[0],parts[1]-1,parts[2])/86400000);'
+      '}'
+      'function themeForSlot(iso,slot){'
+      'const n=THEMES.length;'
+      'const idx=((dayIndexForDate(iso)+slot)%n+n)%n;'
+      'return THEMES[idx];'
+      '}'
+      'function fieldsForSlot(slot){'
+      'return {'
+      'title:document.querySelector(\'.nc-title[data-slot="\'+slot+\'"]\'),'
+      'audience:document.querySelector(\'.nc-audience[data-slot="\'+slot+\'"]\'),'
+      'priceType:document.querySelector(\'.nc-price-type[data-slot="\'+slot+\'"]\'),'
+      'intro:document.querySelector(\'.nc-intro[data-slot="\'+slot+\'"]\'),'
+      'body:document.querySelector(\'.nc-body[data-slot="\'+slot+\'"]\'),'
+      'manualChecked:document.querySelector(\'.nc-manual-checked[data-slot="\'+slot+\'"]\'),'
+      'postInNote:document.querySelector(\'.nc-post-in-note[data-slot="\'+slot+\'"]\'),'
+      'headings:Array.from(document.querySelectorAll(\'.nc-heading[data-slot="\'+slot+\'"]\'))'
+      '.sort((a,b)=>Number(a.dataset.headingIndex)-Number(b.dataset.headingIndex)),'
+      'hashtags:Array.from(document.querySelectorAll(\'.nc-hashtag[data-slot="\'+slot+\'"]\'))'
+      '.sort((a,b)=>Number(a.dataset.hashtagIndex)-Number(b.dataset.hashtagIndex)),'
+      '};'
+      '}'
+      'function storageKey(iso,slot){return STORAGE_PREFIX+iso+":"+slot;}'
+      'function updateBodyCount(slot,fields){'
+      'const counter=document.querySelector(\'.note-candidate-count[data-slot="\'+slot+\'"]\');'
+      'if(!counter)return;'
+      'counter.textContent=(fields.body.value||"").length+"字";'
+      '}'
+      'function loadSlot(iso,slot){'
+      'const fields=fieldsForSlot(slot);'
+      'let saved={};'
+      'try{'
+      'const raw=window.localStorage.getItem(storageKey(iso,slot));'
+      'saved=raw?JSON.parse(raw):{};'
+      '}catch(e){saved={};}'
+      'fields.title.value=saved.title||"";'
+      'fields.audience.value=saved.audience||"";'
+      'fields.priceType.value=saved.priceType||"free";'
+      'fields.intro.value=saved.intro||"";'
+      'fields.body.value=saved.body||"";'
+      'fields.manualChecked.checked=Boolean(saved.manualChecked);'
+      'fields.postInNote.checked=Boolean(saved.postInNote);'
+      'const savedHeadings=saved.headings||[];'
+      'fields.headings.forEach((el,i)=>{el.value=savedHeadings[i]||"";});'
+      'const savedHashtags=saved.hashtags||[];'
+      'fields.hashtags.forEach((el,i)=>{el.value=savedHashtags[i]||"";});'
+      'updateBodyCount(slot,fields);'
+      '}'
+      'function saveSlot(iso,slot){'
+      'const fields=fieldsForSlot(slot);'
+      'const data={'
+      'title:fields.title.value,'
+      'audience:fields.audience.value,'
+      'priceType:fields.priceType.value,'
+      'intro:fields.intro.value,'
+      'body:fields.body.value,'
+      'manualChecked:fields.manualChecked.checked,'
+      'postInNote:fields.postInNote.checked,'
+      'headings:fields.headings.map(el=>el.value),'
+      'hashtags:fields.hashtags.map(el=>el.value),'
+      '};'
+      'try{'
+      'window.localStorage.setItem(storageKey(iso,slot),JSON.stringify(data));'
+      '}catch(e){/* localStorageが使えない環境でも画面は壊さない */}'
+      'updateBodyCount(slot,fields);'
+      '}'
+      'function loadAllSlots(){'
+      'const iso=dateInput.value;'
+      'dateLabel.textContent=iso;'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){loadSlot(iso,slot);}'
+      '}'
+      'function bindSlotEvents(){'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){'
+      'const fields=fieldsForSlot(slot);'
+      'const inputs=[fields.title,fields.audience,fields.priceType,fields.intro,'
+      'fields.body,fields.manualChecked,fields.postInNote,'
+      '...fields.headings,...fields.hashtags];'
+      'inputs.forEach(el=>{'
+      'if(!el)return;'
+      'el.addEventListener("input",()=>saveSlot(dateInput.value,slot));'
+      'el.addEventListener("change",()=>saveSlot(dateInput.value,slot));'
+      '});'
+      '}'
+      '}'
+      'function hasDraftContent(fields){'
+      'return Boolean(fields.title.value.trim())||Boolean(fields.intro.value.trim())||'
+      'Boolean(fields.body.value.trim())||fields.headings.some(el=>el.value.trim())||'
+      'fields.hashtags.some(el=>el.value.trim());'
+      '}'
+      'function dispatchInput(el){el.dispatchEvent(new Event("input",{bubbles:true}));}'
+      'function buildIntro(theme){'
+      'return ['
+      '"『"+theme.title+"』というテーマの記事候補です。",'
+      '"想定読者は、"+theme.audience+"です。",'
+      '"この下書きは社内確認用であり、内容は公開前に必ずご確認ください。",'
+      '].join("\\n");'
+      '}'
+      'function buildBody(theme){'
+      'const opening=theme.label+"について、これから試してみたい方に向けて、基本的な"+'
+      '"考え方を整理します。ここでは、実際に使ってみた結果や成果をお約束するもの"+'
+      '"ではなく、考え方の整理を目的としています。";'
+      'const sections=theme.headings.map(function(h){'
+      'return "■"+h+"\\n"+h+"について考えるときは、まず自分の状況や目的を整理して"+'
+      '"みることが出発点になります。AIに任せる部分と、自分で判断する部分を分けて"+'
+      '"考えると、進め方のイメージがつかみやすくなります。最初から完璧な結果を"+'
+      '"求めるのではなく、小さく試して様子を見ながら調整していく進め方のほうが、"+'
+      '"無理なく続けやすいと考えられます。うまくいかないと感じたときは、一度に"+'
+      '"多くを求めすぎていないか、伝え方や前提が足りているかを見直すことも役立ち"+'
+      '"ます。焦って結論を急ぐよりも、自分のペースで少しずつ試していく姿勢を"+'
+      '"大切にしてみてください。";'
+      '}).join("\\n\\n");'
+      'const closing="この記事は情報提供を目的とした下書きであり、効果や成果を保証"+'
+      '"するものではありません。価格・投資・法律・医療・健康について断定的な判断は"+'
+      '"行っておらず、実際の購入・使用・収益に関する体験談や口コミも含んでいません。"+'
+      '"内容は公開前に必ず読み返し、必要に応じて手直ししたうえでnoteへ手動で"+'
+      '"公開してください。";'
+      'return opening+"\\n\\n"+sections+"\\n\\n"+closing;'
+      '}'
+      'function buildHashtags(theme){'
+      'const tags=[BASE_HASHTAG];'
+      'theme.hashtags.forEach(function(t){'
+      'if(tags.length<HASHTAG_COUNT&&!tags.includes(t))tags.push(t);'
+      '});'
+      'return tags.slice(0,HASHTAG_COUNT);'
+      '}'
+      'function applyThemeToSlot(slot,theme){'
+      'const fields=fieldsForSlot(slot);'
+      'fields.title.value=theme.title;'
+      'fields.audience.value=theme.audience;'
+      'fields.priceType.value="free";'
+      'fields.intro.value=buildIntro(theme);'
+      'fields.body.value=buildBody(theme);'
+      'const headings=theme.headings;'
+      'fields.headings.forEach((el,i)=>{el.value=headings[i]||"";});'
+      'const tags=buildHashtags(theme);'
+      'fields.hashtags.forEach((el,i)=>{el.value=tags[i]||"";});'
+      'dispatchInput(fields.title);'
+      'dispatchInput(fields.intro);'
+      'dispatchInput(fields.body);'
+      'fields.headings.forEach(dispatchInput);'
+      'fields.hashtags.forEach(dispatchInput);'
+      'saveSlot(dateInput.value,slot);'
+      '}'
+      'function generateToday(){'
+      'const iso=dateInput.value;'
+      'const targets=[];'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){'
+      'targets.push({slot:slot,fields:fieldsForSlot(slot),theme:themeForSlot(iso,slot)});'
+      '}'
+      'const hasExisting=targets.some(t=>hasDraftContent(t.fields));'
+      'if(hasExisting){'
+      'const ok=window.confirm('
+      '"入力済みのタイトル・本文・見出し・ハッシュタグがある候補は上書きされます。'
+      'よろしいですか？");'
+      'if(!ok)return;'
+      '}'
+      'targets.forEach(t=>applyThemeToSlot(t.slot,t.theme));'
+      '}'
+      'function shiftDate(days){'
+      'const current=dateInput.value?new Date(dateInput.value+"T00:00:00"):new Date();'
+      'current.setDate(current.getDate()+days);'
+      'dateInput.value=toIsoDate(current);'
+      'loadAllSlots();'
+      '}'
+      'const today=new Date();'
+      'dateInput.value=toIsoDate(today);'
+      'bindSlotEvents();'
+      'loadAllSlots();'
+      'document.querySelector("#nc-prev-day").addEventListener("click",()=>shiftDate(-1));'
+      'document.querySelector("#nc-next-day").addEventListener("click",()=>shiftDate(1));'
+      'document.querySelector("#nc-today").addEventListener("click",()=>{'
+      'dateInput.value=toIsoDate(new Date());'
+      'loadAllSlots();'
+      '});'
+      'dateInput.addEventListener("change",loadAllSlots);'
+      'document.querySelector("#nc-generate-today").addEventListener("click",generateToday);'
       '})();'
       '</script>'
       '</section>'
@@ -4648,6 +5242,17 @@ def register_office_views(app):
         "♡10以上の反応があるジャンルを参考に、1日あたり最大5件の投稿候補を"
         "下書きできる画面です。入力はブラウザ内にのみ保存され、楽天ROOMへの"
         "投稿・送信・ログインは一切行いません。",
+        scene,
+    )
+
+  @app.route("/content-studio/note-daily-candidates")
+  def content_studio_note_daily_candidates():
+    scene = _render_note_daily_candidates_scene()
+    return _page(
+        "content", "note記事候補（毎日2本の下書き）",
+        "AI初心者向けnoteのテーマから、1日あたり最大2本の記事候補を下書き"
+        "できる画面です。入力はブラウザ内にのみ保存され、noteへの投稿・"
+        "送信・ログインは一切行いません。",
         scene,
     )
 
