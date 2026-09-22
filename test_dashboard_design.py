@@ -4725,7 +4725,7 @@ class DashboardDesignTestCase(unittest.TestCase):
           office_views.NOTE_CANDIDATE_HEADING_MAX,
       )
       self.assertIn(f'class="nc-body" data-slot="{slot}"', card)
-      self.assertIn("1200〜1800字程度の目安", card)
+      self.assertIn("2500〜3500字程度の目安", card)
       self.assertEqual(
           card.count(f'class="nc-hashtag" data-slot="{slot}"'),
           office_views.NOTE_CANDIDATE_HASHTAG_COUNT,
@@ -4881,23 +4881,65 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertLessEqual(len(theme["headings"]), office_views.NOTE_CANDIDATE_HEADING_MAX)
       self.assertGreaterEqual(len(theme["hashtags"]), 1)
 
-  def test_note_daily_candidates_body_length_guidance_uses_1200_to_1800(self):
+  def test_note_daily_candidates_body_length_guidance_uses_2500_to_3500(self):
     import office_views
     html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
-    self.assertEqual(office_views.NOTE_CANDIDATE_BODY_MIN_LENGTH, 1200)
-    self.assertEqual(office_views.NOTE_CANDIDATE_BODY_MAX_LENGTH, 1800)
-    self.assertIn("下書き本文（1200〜1800字程度の目安", html)
+    self.assertEqual(office_views.NOTE_CANDIDATE_BODY_MIN_LENGTH, 2500)
+    self.assertEqual(office_views.NOTE_CANDIDATE_BODY_MAX_LENGTH, 3500)
+    self.assertIn("下書き本文（2500〜3500字程度の目安", html)
+
+  def test_note_daily_candidates_headings_use_five_to_seven_and_fixed_structure(self):
+    import office_views
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.NOTE_CANDIDATE_HEADING_MIN, 5)
+    self.assertEqual(office_views.NOTE_CANDIDATE_HEADING_MAX, 7)
+    self.assertIn("見出し（5〜7個）", html)
+    for theme in office_views.NOTE_CANDIDATE_THEMES:
+      self.assertEqual(len(theme["headings"]), 7)
+      self.assertIn("悩み", theme["headings"][0])
+      self.assertEqual(theme["headings"][1], "うまくいかない原因")
+      self.assertEqual(theme["headings"][2], "今日からできる手順")
+      self.assertEqual(theme["headings"][3], "AIに伝えるときの具体例")
+      self.assertEqual(theme["headings"][4], "よくある失敗と避け方")
+      self.assertEqual(theme["headings"][6], "まとめと最初の一歩")
+      self.assertIn("action_noun", theme)
+      self.assertIn("example_task", theme)
+
+  def test_note_daily_candidates_generate_js_defines_seven_section_functions(self):
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    for fn in (
+        "function sectionWorry(",
+        "function sectionCause(",
+        "function sectionSteps(",
+        "function sectionExample(",
+        "function sectionMistakes(",
+        "function sectionMindset(",
+        "function sectionSummary(",
+        "function buildBody(",
+    ):
+      self.assertIn(fn, html)
+    self.assertIn(
+        "sectionWorry(theme),sectionCause(theme),sectionSteps(theme),", html
+    )
+    self.assertIn(
+        "sectionExample(theme),sectionMistakes(theme),sectionMindset(theme),", html
+    )
 
   def test_note_daily_candidates_generated_body_template_has_no_fabricated_or_absolute_claims(self):
     html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
-    script = html.split("function buildBody(theme){", 1)[1].split("function buildHashtags", 1)[0]
+    script = html.split("function sectionWorry(theme){", 1)[1].split(
+        "function buildHashtags", 1
+    )[0]
     for forbidden in (
         "購入しました", "使ってみました", "口コミで人気", "売上が上がりました",
         "絶対に", "投資すべき", "治ります",
     ):
       self.assertNotIn(forbidden, script)
     self.assertIn("効果や成果を保証", script)
-    self.assertIn("価格・投資・法律・医療・健康について断定的な判断は", script)
+    self.assertIn("価格・投資・法律・", script)
+    self.assertIn("医療・健康について断定的な判断は行っておらず", script)
+    self.assertIn("実際の購入・使用・収益に関する体験談や", script)
+    self.assertIn("口コミも含んでいません", script)
 
   def test_note_daily_candidates_hashtags_include_base_tag(self):
     import office_views
