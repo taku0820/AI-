@@ -335,6 +335,7 @@ def index():
                 <a class="btn-top" href="/office" style="text-decoration:none;">ライブオフィスを見る</a>
                 <a class="btn-top" href="/revenue" style="text-decoration:none;">収益化ボードを見る</a>
                 <a class="btn-top" href="/command-center" style="text-decoration:none;">運用司令室を見る</a>
+                <a class="btn-top" href="/ai-office" style="text-decoration:none;">AIオフィスを見る</a>
                 <button class="btn-top" type="button" id="details-toggle" aria-expanded="false" aria-controls="details-panel">詳細を表示</button>
             </div>
         </div>

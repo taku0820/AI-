@@ -5156,6 +5156,222 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("5件公開済み", root_html)
     self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
 
+  # --- MISSION 067: AIオフィス(/ai-office) --------------------------------
+
+  def test_ai_office_page_loads(self):
+    res = self.client.get("/ai-office")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("AIオフィス", html)
+    self.assertIn("<title>AIオフィス | AI Hive</title>", html)
+
+  def test_ai_office_is_in_nav_tabs_on_every_office_page(self):
+    for path in ("/office", "/office/break-room", "/office/ceo-office",
+                 "/revenue", "/content-studio", "/command-center", "/ai-office"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('href="/ai-office"', html)
+        self.assertIn(">AIオフィス<", html)
+
+  def test_ai_office_demo_banner_and_role_diff_present(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn(
+        "AI社員が実際に自動稼働しているわけではありません。", html
+    )
+    self.assertIn(
+        "運用司令室</b>（/command-center）は、数字の確認・判断・記録を行う"
+        "画面です。",
+        html,
+    )
+    self.assertIn(
+        "AIオフィス</b>（このページ）は、役割・進行状況・活動を見える化する"
+        "画面であり、役割は重複していません。",
+        html,
+    )
+
+  def test_ai_office_no_action_buttons_or_forms(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("<button", html)
+    self.assertNotIn("<form", html)
+    self.assertNotIn("<input", html)
+    self.assertIn(
+        "このページには、投稿・公開・送信・ログイン・削除を行うボタンは"
+        "一切ありません。すべての実行判断は利用者本人が行います。",
+        html,
+    )
+
+  def test_ai_office_floor_has_five_desks_matching_departments(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(len(office_views.AI_OFFICE_DEPARTMENTS), 5)
+    self.assertEqual(html.count('class="ai-office-desk"'), 5)
+    expected = [
+        ("operations_lead", "指令デスク", "運用責任者"),
+        ("room", "ROOM運用席", "ROOM担当"),
+        ("note", "note編集席", "note担当"),
+        ("pinterest", "Pinterest企画席", "Pinterest担当"),
+        ("analytics", "分析ラボ", "分析担当"),
+    ]
+    self.assertEqual(
+        [(d["key"], d["desk_label"], d["role_label"]) for d in office_views.AI_OFFICE_DEPARTMENTS],
+        expected,
+    )
+    for key, desk_label, role_label in expected:
+      self.assertIn(desk_label, html)
+      self.assertIn(role_label, html)
+
+  def test_ai_office_desk_scope_statement_present_and_consistent(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(
+        office_views.AI_OFFICE_SCOPE_STATEMENT,
+        "提案・下書き・記録まで。最終承認と外部公開は利用者本人。",
+    )
+    self.assertEqual(
+        html.count(office_views.AI_OFFICE_SCOPE_STATEMENT),
+        len(office_views.AI_OFFICE_DEPARTMENTS),
+    )
+
+  def test_ai_office_desk_summaries_do_not_contradict_department_docs(self):
+    import office_views
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      self.assertNotIn("投稿します", d["role_summary"])
+      self.assertNotIn("公開します", d["role_summary"])
+      self.assertNotIn("送信します", d["role_summary"])
+      self.assertNotIn("自動で", d["role_summary"])
+
+  def test_ai_office_desk_status_badges_show_demo_labels(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    valid_statuses = set(office_views.AI_OFFICE_STATUS_LABELS)
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      self.assertIn(d["demo_status"], valid_statuses)
+      label = office_views.AI_OFFICE_STATUS_LABELS[d["demo_status"]]
+      self.assertIn(f"{label}（デモ表示）", html)
+
+  def test_ai_office_today_tasks_tagged_as_demo(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(len(office_views.AI_OFFICE_TODAY_TASKS), 4)
+    task_section = html.split("今日のタスク（デモ）", 1)[1].split(
+        "動いている仕事と結果（デモ）", 1
+    )[0]
+    for t in office_views.AI_OFFICE_TODAY_TASKS:
+      self.assertIn(t["text"], task_section)
+    self.assertGreaterEqual(task_section.count("ai-office-demo-tag"), 4)
+
+  def test_ai_office_running_work_statuses_are_not_fabricated_real_activity(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for w in office_views.AI_OFFICE_RUNNING_WORK:
+      self.assertIn(w["status"], office_views.AI_OFFICE_STATUS_LABELS)
+      self.assertIn(w["item"], html)
+    self.assertNotIn("実行中", html)
+    self.assertNotIn("自動実行", html)
+
+  def test_ai_office_chat_is_static_demo_no_external_api(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("AIとのチャット窓口（デモ）", html)
+    for m in office_views.AI_OFFICE_CHAT_DEMO_MESSAGES:
+      self.assertIn(m["text"], html)
+    self.assertIn(
+        "この窓口は現在デモの会話表示のみで、次の段階で接続を予定しています。",
+        html,
+    )
+    self.assertIn(
+        "外部AI APIへの送信や自動応答は行っていません。", html
+    )
+
+  def test_ai_office_source_freshness_shows_five_channels_unconnected_demo(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(
+        office_views.AI_OFFICE_SOURCE_CHANNELS,
+        ["楽天ROOM", "楽天アフィリエイト", "note", "Pinterest", "Threads"],
+    )
+    self.assertEqual(html.count('class="ai-office-freshness-card"'), 5)
+    # 5枚のカード分 + 注記文中の1回 = 6回。
+    self.assertEqual(html.count("未接続・デモ"), 6)
+    self.assertIn(
+        "実際の取得日時は表示していません（未実装）。", html
+    )
+    # 実際の取得日時らしき表記(日付や「◯分前」等)が含まれないことを確認する。
+    import re
+    self.assertIsNone(re.search(r"\d{4}-\d{2}-\d{2}\s*\d{1,2}:\d{2}", html))
+    self.assertNotIn("分前", html)
+    self.assertNotIn("時間前", html)
+
+  def test_ai_office_deliverables_link_to_real_pages_only(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(len(office_views.AI_OFFICE_DELIVERABLES), 4)
+    for d in office_views.AI_OFFICE_DELIVERABLES:
+      self.assertIn(d["label"], html)
+      if d["href"]:
+        self.assertIn(f'href="{d["href"]}"', html)
+        # リンク先が実在のルートであることを確認する。
+        linked_res = self.client.get(d["href"])
+        self.assertEqual(linked_res.status_code, 200)
+    self.assertIn("company_knowledge/", html)
+
+  def test_ai_office_activity_feed_prefixed_with_demo(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(len(office_views.AI_OFFICE_ACTIVITY_FEED), 3)
+    for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
+      self.assertTrue(entry.startswith("デモ："))
+      self.assertIn(entry, html)
+    self.assertIn(
+        "これはデモの表示であり、実際のAI作業ログではありません。", html
+    )
+
+  def test_ai_office_has_no_scripts_or_local_storage_it_is_pure_display(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    scene_only = html.split('aria-label="AIオフィス"', 1)[1]
+    self.assertNotIn("<script", scene_only)
+    self.assertNotIn("localStorage", scene_only)
+
+  def test_ai_office_no_external_calls_or_credentials(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<script src", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertNotIn("<img", html)
+
+  def test_ai_office_linked_from_dashboard(self):
+    html = self.html
+    self.assertIn('href="/ai-office"', html)
+    self.assertIn("AIオフィスを見る", html)
+
+  def test_ai_office_does_not_change_existing_pages(self):
+    # 新画面の追加により、既存の主要ページの表示に影響がないことを確認する
+    # (回帰確認)。
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
 
 if __name__ == "__main__":
   unittest.main()

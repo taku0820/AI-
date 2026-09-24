@@ -307,6 +307,41 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cc-decision-log-entry{background:#0b1120;border:1px solid #253651;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12px;line-height:1.7}
 .cc-decision-log-entry b{color:var(--blue);display:inline-block;min-width:5.5em}
 @media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}
+.ai-office{max-width:1160px;margin:0 auto;--cyan:#22d3ee}
+.ai-office-demo-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#3d3106;border:1px solid #7a5c0a;color:#fbbf24;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12px;font-weight:700}
+.ai-office-demo-banner span{font-weight:400;color:#f4d98b}
+.ai-office-role-diff{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--sub);line-height:1.7}
+.ai-office-role-diff b{color:var(--ink)}
+.ai-office-section{margin:24px 0}
+.ai-office-section h2{font-size:15px;margin:0 0 10px;color:var(--ink);border-left:4px solid var(--cyan);padding-left:10px}
+.ai-office-section:first-of-type h2{margin-top:0}
+.ai-office-floor{position:relative;padding:18px;border-radius:20px;border:1px solid var(--edge);background:linear-gradient(160deg,#0d1626 0%,#0a121f 65%),repeating-linear-gradient(115deg,#16233b 0 2px,transparent 2px 46px)}
+.ai-office-floor-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
+.ai-office-desk{background:linear-gradient(180deg,#101a2f,#0c1524);border:1px solid var(--edge);border-top:3px solid var(--cyan);border-radius:14px;padding:14px 16px}
+.ai-office-desk-symbol{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#1c3a52,#0b1a2b);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--cyan);margin-bottom:10px}
+.ai-office-desk h3{margin:0 0 2px;font-size:14px;color:var(--ink)}
+.ai-office-desk-role{font-size:11px;color:var(--cyan);margin:0 0 8px;font-weight:700}
+.ai-office-desk-summary{font-size:11px;color:var(--sub);line-height:1.6;margin:0 0 8px}
+.ai-office-desk-scope{font-size:10px;color:var(--sub);line-height:1.6;margin:0 0 10px;padding-top:8px;border-top:1px dashed var(--edge)}
+.ai-office-status-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:999px}
+.ai-office-status-waiting{background:#142039;color:var(--sub)}
+.ai-office-status-pending{background:#3d3106;color:#fbbf24}
+.ai-office-status-demo_done{background:#0b3d2e;color:#34d399}
+.ai-office-task-list,.ai-office-work-list,.ai-office-deliverables-list,.ai-office-activity-feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ai-office-task-list li,.ai-office-work-list li,.ai-office-deliverables-list li{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.ai-office-task-dept{color:var(--cyan);font-weight:700;font-size:11px;margin-right:8px}
+.ai-office-demo-tag{display:inline-block;font-size:10px;font-weight:700;color:#fbbf24;background:#3d3106;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.ai-office-activity-feed li{padding:8px 10px;background:#0b1120;border:1px solid #253651;border-radius:8px;font-size:12px;color:var(--sub)}
+.ai-office-chat-demo{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:14px 16px}
+.ai-office-chat-demo .log{height:auto;max-height:none}
+.ai-office-chat-note{margin:10px 0 0;font-size:11px;color:var(--sub);line-height:1.6;padding-top:10px;border-top:1px dashed var(--edge)}
+.ai-office-freshness-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.ai-office-freshness-card{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;text-align:center;font-size:12px}
+.ai-office-freshness-card b{display:block;margin-bottom:6px;color:var(--ink)}
+.ai-office-freshness-status{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:#142039;color:var(--sub)}
+.ai-office-freshness-note{font-size:11px;color:var(--sub);margin:10px 0 0;line-height:1.6}
+.ai-office-deliverables-list a{margin-left:6px;font-size:11px}
+@media(max-width:760px){.ai-office-floor-grid,.ai-office-freshness-grid{grid-template-columns:1fr}.ai-office-task-list li,.ai-office-work-list li{flex-direction:column;align-items:flex-start}}
 </style>
 """
 
@@ -384,6 +419,7 @@ def _page(room, title, lead, scene):
       ("revenue", "/revenue", "収益化ボード"),
       ("content", "/content-studio", "投稿企画工場"),
       ("command", "/command-center", "運用司令室"),
+      ("aioffice", "/ai-office", "AIオフィス"),
   ]
   nav = "".join(
       f'<a class="{"active" if key == room else ""}" href="{href}" '
@@ -5375,6 +5411,279 @@ def _render_command_center_scene():
   )
 
 
+# MISSION 067: AIオフィス(/ai-office)。
+#
+# 資料室(company_knowledge/)と担当チーム(company_knowledge/departments/)が、
+# どの役割で何を確認し、どこまで進んでいるかを見える化する「デモ表示のみ」
+# の画面。運用司令室(/command-center)が「数字の確認・判断・記録」の場で
+# あるのに対し、AIオフィスは「役割・進行状況・活動の見える化」に役割を
+# 絞っており、内容は重複させない。
+#
+# この段階では実データ接続・外部サービスへのアクセス・ログイン・投稿・
+# 送信・削除・ブラウザ自動操作・API連携・外部AIへの問い合わせは一切実装
+# しない。画面内のすべての数値・状態・チャット・活動フィードは、あらかじめ
+# 用意した明示的なデモデータであり、実際のROOM・楽天アフィリエイト・note・
+# Pinterest・Threadsの実績・反応・取得日時を捏造しない(常に「デモ」「未接続」
+# であることが分かる表示にする)。フォーム・入力欄・投稿/公開/送信/ログイン/
+# 削除を行うボタンは置かず、localStorageへの保存も行わない(このページは
+# 完全に表示専用)。
+#
+# 5部署の役割・「提案・下書き・記録まで。最終承認と外部公開は利用者本人」
+# という範囲は、company_knowledge/departments/*.mdの内容と矛盾しないように
+# 保つこと。
+AI_OFFICE_SCOPE_STATEMENT = "提案・下書き・記録まで。最終承認と外部公開は利用者本人。"
+
+# 各担当の状態(demo_status)は、後の段階で確認AI等の読み取り結果と連携できる
+# よう、"waiting"(待機中)/"pending"(確認待ち)/"demo_done"(デモ完了)という
+# 固定キーで表現する(表示文言はAI_OFFICE_STATUS_LABELSで一元管理)。
+AI_OFFICE_STATUS_LABELS = {
+    "waiting": "待機中",
+    "pending": "確認待ち",
+    "demo_done": "デモ完了",
+}
+
+AI_OFFICE_DEPARTMENTS = [
+    {
+        "key": "operations_lead",
+        "desk_label": "指令デスク",
+        "role_label": "運用責任者",
+        "symbol": "指令",
+        "role_summary": "各担当の状況を横断的に確認し、今日・今週の優先順位を整理します。",
+        "demo_status": "waiting",
+    },
+    {
+        "key": "room",
+        "desk_label": "ROOM運用席",
+        "role_label": "ROOM担当",
+        "symbol": "ROOM",
+        "role_summary": "商品数・♡・コメントを確認し、反応のあるジャンルを候補として提案します。",
+        "demo_status": "pending",
+    },
+    {
+        "key": "note",
+        "desk_label": "note編集席",
+        "role_label": "note担当",
+        "symbol": "note",
+        "role_summary": "記事候補やPV・スキを整理し、次のテーマ候補をまとめます。",
+        "demo_status": "waiting",
+    },
+    {
+        "key": "pinterest",
+        "desk_label": "Pinterest企画席",
+        "role_label": "Pinterest担当",
+        "symbol": "Pin",
+        "role_summary": "Pinの表示・保存・リンククリックを記録し、導線候補を提案します。",
+        "demo_status": "demo_done",
+    },
+    {
+        "key": "analytics",
+        "desk_label": "分析ラボ",
+        "role_label": "分析担当",
+        "symbol": "分析",
+        "role_summary": "媒体ごとの数字を比較し、確認済みの事実と推測を分けて判断案を作ります。",
+        "demo_status": "waiting",
+    },
+]
+
+# パーツ1: 今日のタスク(デモ)。実在の投稿・売上・作業結果ではないことを
+# 画面上で常に明示する(_render_ai_office_scene内でデモタグを添える)。
+AI_OFFICE_TODAY_TASKS = [
+    {"department": "room", "text": "楽天ROOMの反応が良いジャンルを確認する"},
+    {"department": "note", "text": "note記事候補の見出し構成を確認する"},
+    {"department": "pinterest", "text": "Pinterestの保存数を記録する"},
+    {"department": "analytics", "text": "今週の数字を比較して判断メモ案を作る"},
+]
+
+# パーツ2: 動いている仕事と結果(デモ)。statusはAI_OFFICE_STATUS_LABELSの
+# キーを使い、実稼働・自動実行を装わない。
+AI_OFFICE_RUNNING_WORK = [
+    {"department": "room", "item": "ROOM候補ジャンルの確認", "status": "pending"},
+    {"department": "note", "item": "note下書きの見出し確認", "status": "waiting"},
+    {"department": "pinterest", "item": "Pin導線候補の整理", "status": "demo_done"},
+    {"department": "analytics", "item": "週次比較のデモ判断案", "status": "waiting"},
+]
+
+# パーツ3: AIとのチャット窓口(デモ)。外部AI APIへの送信・自動応答は行わず、
+# あらかじめ用意した会話例を静的に表示するだけ。
+AI_OFFICE_CHAT_DEMO_MESSAGES = [
+    {"speaker": "you", "text": "今日確認することを教えて。"},
+    {
+        "speaker": "boss",
+        "text": "（デモ）ROOMの反応確認とnote見出しの整理が候補です。実際の"
+                "やり取りはまだ接続されていません。",
+    },
+]
+
+# パーツ4: 情報源の鮮度モニター(デモ)。実際の取得日時は表示せず、全項目を
+# 「未接続・デモ」で統一する。
+AI_OFFICE_SOURCE_CHANNELS = ["楽天ROOM", "楽天アフィリエイト", "note", "Pinterest", "Threads"]
+
+# パーツ5: 成果物一覧。実在するページ・フォルダだけを案内し、実在しない
+# ファイルを実在するように見せない。hrefがNoneの項目はFlaskで配信していない
+# リポジトリ内フォルダ(資料室)であることを示す。
+AI_OFFICE_DELIVERABLES = [
+    {
+        "label": "資料室",
+        "description": "会社の共通ルールと担当チームの仕事マニュアル"
+                        "（company_knowledge/ フォルダ内）",
+        "href": None,
+    },
+    {
+        "label": "ROOM投稿候補の下書き",
+        "description": "楽天ROOM 毎日の投稿候補（下書き）画面",
+        "href": "/content-studio/room-daily-candidates",
+    },
+    {
+        "label": "note記事候補の下書き",
+        "description": "note記事候補（毎日2本の下書き）画面",
+        "href": "/content-studio/note-daily-candidates",
+    },
+    {
+        "label": "判断メモ",
+        "description": "運用司令室の判断メモ（記録ログ）",
+        "href": "/command-center",
+    },
+]
+
+# パーツ6: 活動フィード(デモ)。実際のAI作業ログではないことを明記する。
+AI_OFFICE_ACTIVITY_FEED = [
+    "デモ：担当チームの役割を読み込みました",
+    "デモ：資料室のルールを確認しました",
+    "デモ：今日のタスク候補を表示しました",
+]
+
+
+def _render_ai_office_scene():
+  """AIオフィス(/ai-office)画面のHTMLを組み立てる(デモ表示のみ)。
+
+  純粋な表示用マークアップのみで構成し、JS・フォーム・localStorageへの
+  保存は一切使わない。DB・API・楽天ROOM・楽天アフィリエイト・note・
+  Pinterest・Threadsへの通信・アクセス・ログイン・投稿・送信・削除は
+  一切行わない。投稿・公開・送信・ログイン・削除を実行するボタンは置かない。
+  """
+  department_by_key = {d["key"]: d for d in AI_OFFICE_DEPARTMENTS}
+
+  def _desk_card(dept):
+    status_key = dept["demo_status"]
+    status_label = AI_OFFICE_STATUS_LABELS[status_key]
+    return (
+        f'<div class="ai-office-desk" data-department="{dept["key"]}">'
+        f'<div class="ai-office-desk-symbol">{dept["symbol"]}</div>'
+        f'<h3>{dept["desk_label"]}</h3>'
+        f'<p class="ai-office-desk-role">{dept["role_label"]}</p>'
+        f'<p class="ai-office-desk-summary">{dept["role_summary"]}</p>'
+        f'<p class="ai-office-desk-scope">{AI_OFFICE_SCOPE_STATEMENT}</p>'
+        f'<span class="ai-office-status-badge ai-office-status-{status_key}">'
+        f'{status_label}（デモ表示）</span>'
+        '</div>'
+    )
+
+  desk_cards = "".join(_desk_card(d) for d in AI_OFFICE_DEPARTMENTS)
+
+  task_items = "".join(
+      '<li>'
+      f'<span><span class="ai-office-task-dept">'
+      f'{department_by_key[t["department"]]["desk_label"]}</span>{t["text"]}</span>'
+      '<span class="ai-office-demo-tag">デモ</span>'
+      '</li>'
+      for t in AI_OFFICE_TODAY_TASKS
+  )
+
+  work_items = "".join(
+      '<li>'
+      f'<span><span class="ai-office-task-dept">'
+      f'{department_by_key[w["department"]]["desk_label"]}</span>{w["item"]}</span>'
+      f'<span class="ai-office-status-badge ai-office-status-{w["status"]}">'
+      f'{AI_OFFICE_STATUS_LABELS[w["status"]]}</span>'
+      '</li>'
+      for w in AI_OFFICE_RUNNING_WORK
+  )
+
+  chat_bubbles = "".join(
+      f'<p class="{"you" if m["speaker"] == "you" else "boss"}">{m["text"]}</p>'
+      for m in AI_OFFICE_CHAT_DEMO_MESSAGES
+  )
+
+  freshness_cards = "".join(
+      f'<div class="ai-office-freshness-card"><b>{ch}</b>'
+      '<span class="ai-office-freshness-status">未接続・デモ</span></div>'
+      for ch in AI_OFFICE_SOURCE_CHANNELS
+  )
+
+  deliverable_items = "".join(
+      '<li>'
+      f'<span><b>{d["label"]}</b>：{d["description"]}'
+      + (f'<a href="{d["href"]}">→ 開く</a>' if d["href"] else "")
+      + '</span>'
+      '</li>'
+      for d in AI_OFFICE_DELIVERABLES
+  )
+
+  activity_items = "".join(f"<li>{a}</li>" for a in AI_OFFICE_ACTIVITY_FEED)
+
+  return (
+      '<section class="ai-office" aria-label="AIオフィス">'
+      '<div class="ai-office-demo-banner">デモ表示・実データ未接続'
+      '<span>この画面の数値・状態・チャット・活動フィードはすべて、あらかじめ'
+      '用意したデモデータです。AI社員が実際に自動稼働しているわけではあり'
+      'ません。</span></div>'
+      '<div class="ai-office-role-diff">'
+      '<p><b>運用司令室</b>（/command-center）は、数字の確認・判断・記録を'
+      '行う画面です。<b>AIオフィス</b>（このページ）は、役割・進行状況・'
+      '活動を見える化する画面であり、役割は重複していません。</p>'
+      '<p>このページには、投稿・公開・送信・ログイン・削除を行うボタンは'
+      '一切ありません。すべての実行判断は利用者本人が行います。</p>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>フロアマップ（5部署）</h2>'
+      f'<div class="ai-office-floor"><div class="ai-office-floor-grid">{desk_cards}</div></div>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>今日のタスク（デモ）</h2>'
+      f'<ul class="ai-office-task-list">{task_items}</ul>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>動いている仕事と結果（デモ）</h2>'
+      f'<ul class="ai-office-work-list">{work_items}</ul>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>AIとのチャット窓口（デモ）</h2>'
+      f'<div class="ai-office-chat-demo"><div class="log">{chat_bubbles}</div>'
+      '<p class="ai-office-chat-note">この窓口は現在デモの会話表示のみで、'
+      '次の段階で接続を予定しています。外部AI APIへの送信や自動応答は'
+      '行っていません。</p></div>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>情報源の鮮度モニター（デモ）</h2>'
+      f'<div class="ai-office-freshness-grid">{freshness_cards}</div>'
+      '<p class="ai-office-freshness-note">実際の取得日時は表示していません'
+      '（未実装）。すべて「未接続・デモ」の表示です。</p>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>成果物一覧</h2>'
+      f'<ul class="ai-office-deliverables-list">{deliverable_items}</ul>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>活動フィード（デモ）</h2>'
+      f'<ul class="ai-office-activity-feed">{activity_items}</ul>'
+      '<p class="ai-office-chat-note">これはデモの表示であり、実際のAI'
+      '作業ログではありません。</p>'
+      '</div>'
+
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の'
+      'デモ画面です。楽天ROOM・楽天アフィリエイト・note・Pinterest・Threads'
+      'への投稿・送信・ログイン・削除は行われません。</p>'
+      '</section>'
+  )
+
+
 def register_office_views(app):
   """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
@@ -5787,5 +6096,16 @@ def register_office_views(app):
         "状況・担当チーム状況・判断メモを見渡す画面です。入力はブラウザ内に"
         "のみ保存され、外部サービスへの投稿・送信・ログイン・削除は一切"
         "行いません。",
+        scene,
+    )
+
+  @app.route("/ai-office")
+  def ai_office():
+    scene = _render_ai_office_scene()
+    return _page(
+        "aioffice", "AIオフィス",
+        "資料室と担当チームの役割・進行状況・活動をデモ表示で見える化する"
+        "画面です。実データ接続・外部サービスへのアクセス・ログイン・投稿・"
+        "送信・削除は一切行っていません。",
         scene,
     )
