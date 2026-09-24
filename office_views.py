@@ -272,6 +272,41 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .note-candidate-count{color:var(--sub);font-weight:400}
 .note-candidate-price-note{font-size:11px;color:var(--sub);margin:4px 0 0;line-height:1.6}
 @media(max-width:760px){.note-candidate-date-nav{flex-direction:column;align-items:stretch}.note-candidate-generate-actions{flex-direction:column;align-items:stretch}}
+.command-center{max-width:1100px;margin:0 auto}
+.cc-topbar{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--sub);line-height:1.7}
+.cc-topbar b{color:var(--ink)}
+.cc-topbar .cc-approver{color:var(--green);font-weight:700}
+.cc-section-title{font-size:15px;margin:22px 0 10px;color:var(--ink);border-left:4px solid var(--blue);padding-left:10px}
+.cc-section-title:first-of-type{margin-top:0}
+.cc-check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.cc-check-category{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:12px 14px}
+.cc-check-category h3{margin:0 0 10px;font-size:13px;color:var(--blue)}
+.cc-check-fields{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.cc-check-fields label{font-size:11px;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+.cc-check-fields input{background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:7px 9px;font-family:inherit;font-size:13px;box-sizing:border-box}
+.cc-confirmed-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding-top:8px;border-top:1px dashed var(--edge);color:var(--sub)}
+.cc-pending-box{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:14px 16px;margin-bottom:6px}
+.cc-pending-empty{color:var(--sub);font-size:12px;margin:0 0 10px}
+.cc-pending-box textarea{width:100%;background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical}
+.cc-pending-note{font-size:11px;color:var(--sub);margin:10px 0 0;line-height:1.6}
+.cc-dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.cc-dept-card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:12px 14px}
+.cc-dept-card h3{margin:0 0 6px;font-size:13px;color:var(--blue)}
+.cc-dept-card p{margin:0;font-size:12px;color:var(--sub);line-height:1.6}
+.cc-dept-note{font-size:11px;color:var(--sub);margin:10px 0 14px;line-height:1.6}
+.cc-decision-box{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:14px 16px;margin-bottom:6px}
+.cc-decision-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px}
+.cc-decision-fields label{font-size:11px;color:var(--sub);display:block;margin-bottom:4px}
+.cc-decision-fields input,.cc-decision-fields select,.cc-decision-fields textarea{width:100%;background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:7px 9px;font-family:inherit;font-size:13px;box-sizing:border-box}
+.cc-decision-fields textarea{resize:vertical}
+.cc-decision-add-btn{background:#142039;color:var(--ink);border:1px solid var(--blue);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.cc-decision-add-btn:hover,.cc-decision-add-btn:focus-visible{background:#1b2d4b}
+.cc-decision-note{font-size:11px;color:var(--sub);margin:10px 0 0;line-height:1.6}
+.cc-decision-log-list{margin-top:14px;padding-top:12px;border-top:1px dashed var(--edge)}
+.cc-decision-log-empty{color:var(--sub);font-size:12px;margin:0}
+.cc-decision-log-entry{background:#0b1120;border:1px solid #253651;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12px;line-height:1.7}
+.cc-decision-log-entry b{color:var(--blue);display:inline-block;min-width:5.5em}
+@media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}
 </style>
 """
 
@@ -348,6 +383,7 @@ def _page(room, title, lead, scene):
       ("ceo", "/office/ceo-office", "社長室"),
       ("revenue", "/revenue", "収益化ボード"),
       ("content", "/content-studio", "投稿企画工場"),
+      ("command", "/command-center", "運用司令室"),
   ]
   nav = "".join(
       f'<a class="{"active" if key == room else ""}" href="{href}" '
@@ -4988,6 +5024,357 @@ def _render_note_third_article_draft_scene(article):
   )
 
 
+# MISSION 066: 運用司令室(/command-center)。
+#
+# 資料室(company_knowledge/)と担当チーム(company_knowledge/departments/)で
+# 定めた運用ルールを、毎日の確認・判断・記録として見える化するローカル専用
+# 画面。楽天ROOM・楽天アフィリエイト・note・Pinterest・Threadsへのアクセス・
+# ログイン・投稿・送信・削除は一切行わない。実数値の初期値は空欄で開始し、
+# 実績・売上・反応を捏造しない(company_knowledge/00_company_rules.mdの
+# 「数字や実績を推測で入力しない」に対応)。入力内容はブラウザのlocalStorage
+# にのみ保存し、このアプリのDB・バックアップへは一切保存しない。ブラウザや
+# 端末を変えたり、ブラウザのデータを消去すると内容は失われる。
+#
+# 「今日の確認ボード」の各媒体・「担当チーム状況」の5担当・「判断メモ」の
+# 媒体選択肢は、company_knowledge/01_channels.md・04_metrics.md・
+# departments/*.md の内容と矛盾しないように保つ。担当カードの説明文は
+# departments/*.md の役割説明の要約であり、実在の人間や自動稼働のプログラム
+# ではなく「仮想チーム」であることを明記する。
+COMMAND_CENTER_CHECK_CATEGORIES = [
+    {
+        "key": "room",
+        "label": "楽天ROOM",
+        "confirm_label": "確認済み",
+        "fields": [
+            ("item_count", "商品数"),
+            ("hearts", "♡"),
+            ("comments", "コメント"),
+        ],
+    },
+    {
+        "key": "affiliate",
+        "label": "楽天アフィリエイト",
+        "confirm_label": "確認済み",
+        "fields": [
+            ("clicks", "クリック数"),
+            ("sales", "売上"),
+            ("commission", "成果報酬"),
+        ],
+    },
+    {
+        "key": "note",
+        "label": "note",
+        "confirm_label": "確認済み",
+        "fields": [
+            ("pv", "PV"),
+            ("likes", "スキ"),
+            ("followers", "フォロワー"),
+        ],
+    },
+    {
+        "key": "pinterest",
+        "label": "Pinterest",
+        "confirm_label": "確認済み",
+        "fields": [
+            ("monthly_views", "月間表示"),
+            ("saves", "保存"),
+            ("link_clicks", "リンククリック"),
+        ],
+    },
+    {
+        "key": "threads",
+        "label": "Threads",
+        "confirm_label": "20時投稿を確認した",
+        "fields": [],
+    },
+]
+
+# company_knowledge/departments/*.md の内容と矛盾しない範囲で要約した説明文。
+# 各担当は「仮想チーム」であり、提案・下書き・記録までを担う(実際の外部公開・
+# 送信・ログイン・削除は行わない)ことを、カードの説明文とは別に明記する。
+COMMAND_CENTER_DEPARTMENT_CARDS = [
+    {
+        "key": "operations_lead",
+        "label": "運用責任者",
+        "summary": "各担当の状況を横断的に確認し、今日・今週の確認項目と優先順位を"
+                   "整理します。投稿の最終実行は行いません。",
+    },
+    {
+        "key": "room",
+        "label": "ROOM担当",
+        "summary": "商品数・♡・コメントを確認し、反応のあるジャンルを候補として"
+                   "提案します。実際の投稿は行いません。",
+    },
+    {
+        "key": "note",
+        "label": "note担当",
+        "summary": "記事候補や公開済み記事のPV・スキを整理し、次のテーマ候補を"
+                   "まとめます。記事の公開は行いません。",
+    },
+    {
+        "key": "pinterest",
+        "label": "Pinterest担当",
+        "summary": "Pinの表示・保存・リンククリックを記録し、note記事などへの"
+                   "導線候補を提案します。Pinの投稿は行いません。",
+    },
+    {
+        "key": "analytics",
+        "label": "分析担当",
+        "summary": "媒体ごとの数字を比較し、確認済みの事実と推測を分けて週次の"
+                   "判断案を作ります。",
+    },
+]
+
+# company_knowledge/05_decision_log.md の様式(日付・媒体・観測した数字・判断・
+# 次にすること・保留理由)に対応する媒体の選択肢。01_channels.mdの並びに揃える。
+COMMAND_CENTER_DECISION_MEDIA_OPTIONS = [
+    "楽天ROOM", "楽天アフィリエイト", "note", "Pinterest", "Threads",
+]
+
+
+def _render_command_center_scene():
+  """運用司令室(/command-center)画面のHTMLを組み立てる。
+
+  純粋な表示用マークアップ+クライアント側JSのみで構成する。DB・API・
+  楽天ROOM・楽天アフィリエイト・note・Pinterest・Threadsへの通信・アクセス・
+  ログイン・投稿・送信・削除は一切行わない。入力値の保存先はブラウザの
+  localStorageのみで、フォーム送信(<form method="POST">等)や外部への
+  fetch/XHRは一切使わない。
+  """
+
+  def _check_category_card(cat):
+    field_inputs = "".join(
+        f'<label>{label}<input type="text" class="cc-check-field" '
+        f'data-category="{cat["key"]}" data-field="{key}"></label>'
+        for key, label in cat["fields"]
+    )
+    fields_block = f'<div class="cc-check-fields">{field_inputs}</div>' if cat["fields"] else ""
+    return (
+        f'<div class="cc-check-category" data-category="{cat["key"]}">'
+        f'<h3>{cat["label"]}</h3>'
+        f'{fields_block}'
+        '<label class="cc-confirmed-row">'
+        f'<input type="checkbox" class="cc-check-confirmed" data-category="{cat["key"]}"> '
+        f'{cat["confirm_label"]}</label>'
+        '</div>'
+    )
+
+  check_cards = "".join(
+      _check_category_card(cat) for cat in COMMAND_CENTER_CHECK_CATEGORIES
+  )
+
+  dept_cards = "".join(
+      f'<div class="cc-dept-card"><h3>{d["label"]}</h3><p>{d["summary"]}</p></div>'
+      for d in COMMAND_CENTER_DEPARTMENT_CARDS
+  )
+
+  media_options = "".join(
+      f'<option value="{m}">{m}</option>' for m in COMMAND_CENTER_DECISION_MEDIA_OPTIONS
+  )
+
+  return (
+      '<section class="command-center" aria-label="運用司令室">'
+      '<div class="cc-topbar">'
+      '<p><span class="cc-approver">最終承認者：利用者本人</span></p>'
+      '<p><b>この画面はローカルのみで動作する確認・記録・判断用の画面です。</b> '
+      '楽天ROOM・楽天アフィリエイト・note・Pinterest・Threadsへのアクセス・'
+      'ログイン・投稿・送信・削除は一切行いません。</p>'
+      '<p>入力内容はお使いのブラウザのlocalStorageにのみ保存されます。この'
+      'アプリのデータベース・バックアップへは保存されません。ブラウザや端末を'
+      '変えたり、ブラウザのデータを消去すると内容は失われます。</p>'
+      '</div>'
+
+      '<h2 class="cc-section-title">今日の確認ボード</h2>'
+      '<p class="cc-pending-note">各項目は空欄から始まります。実際にそれぞれの'
+      '管理画面で確認した数字だけを入力してください。確認したら「確認済み」に'
+      'チェックを入れてください。</p>'
+      f'<div class="cc-check-grid">{check_cards}</div>'
+
+      '<h2 class="cc-section-title">承認待ち・投稿状況</h2>'
+      '<div class="cc-pending-box">'
+      '<p class="cc-pending-empty" id="cc-pending-empty">現在、承認待ちの項目は'
+      'ありません。</p>'
+      '<label for="cc-pending-memo" class="sr-only">承認待ち・投稿状況メモ</label>'
+      '<textarea id="cc-pending-memo" rows="4" maxlength="2000" '
+      'placeholder="承認待ちの項目や、投稿状況について気になることがあれば、'
+      'ここに短くメモしてください。"></textarea>'
+      '<p class="cc-pending-note">提案・下書き・確認まで。公開操作は利用者'
+      '本人が行う。</p>'
+      '</div>'
+
+      '<h2 class="cc-section-title">担当チーム状況</h2>'
+      '<p class="cc-dept-note">以下はAI Hive OS内の仮想チームです。実在する'
+      '人物や自動で稼働するプログラムではなく、提案・下書き・記録までを担当'
+      'します。外部サービスへの実際の投稿・送信・ログイン・削除は行わず、'
+      '最終判断・実行は利用者本人が行います。</p>'
+      f'<div class="cc-dept-grid">{dept_cards}</div>'
+
+      '<h2 class="cc-section-title">判断メモ</h2>'
+      '<div class="cc-decision-box">'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-decision-date">日付</label>'
+      '<input type="date" id="cc-decision-date"></div>'
+      '<div><label for="cc-decision-media">媒体</label>'
+      f'<select id="cc-decision-media"><option value="">選択してください</option>{media_options}</select></div>'
+      '</div>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-decision-observed">観測した数字</label>'
+      '<textarea id="cc-decision-observed" rows="2" maxlength="600" '
+      'placeholder="実際に確認できた数字だけを書いてください（未確認の項目は'
+      '「未確認」と書く）"></textarea></div>'
+      '<div><label for="cc-decision-judgement">判断</label>'
+      '<textarea id="cc-decision-judgement" rows="2" maxlength="600" '
+      'placeholder="数字から受け取った気づきや状況の整理（断定は避ける）">'
+      '</textarea></div>'
+      '</div>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-decision-next">次にすること</label>'
+      '<textarea id="cc-decision-next" rows="2" maxlength="600"></textarea></div>'
+      '<div><label for="cc-decision-hold">保留理由</label>'
+      '<textarea id="cc-decision-hold" rows="2" maxlength="600" '
+      'placeholder="判断・実行を保留する場合の理由（該当する場合のみ）">'
+      '</textarea></div>'
+      '</div>'
+      '<button type="button" class="cc-decision-add-btn" id="cc-decision-add">'
+      'この判断メモを記録に追加する</button>'
+      '<p class="cc-decision-note">推測と確認済み事実を分けて記録する。数字は'
+      '未確認のまま断定的な判断を書かないでください。</p>'
+      '<div class="cc-decision-log-list" id="cc-decision-log-list">'
+      '<p class="cc-decision-log-empty" id="cc-decision-log-empty">まだ記録は'
+      'ありません。</p>'
+      '</div>'
+      '</div>'
+
+      '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の'
+      '確認・記録・判断ツールです。楽天ROOM・楽天アフィリエイト・note・'
+      'Pinterest・Threadsへの投稿・送信・ログイン・削除は行われません。</p>'
+      '<script>'
+      '(function(){'
+      'const STORAGE_PREFIX="ai-hive-command-center:";'
+      'function safeGet(key){'
+      'try{return window.localStorage.getItem(key);}catch(e){return null;}'
+      '}'
+      'function safeSet(key,value){'
+      'try{window.localStorage.setItem(key,value);}'
+      'catch(e){/* localStorageが使えない環境でも画面は壊さない */}'
+      '}'
+      # --- 今日の確認ボード ---
+      'function checkStorageKey(category){return STORAGE_PREFIX+"check:"+category;}'
+      'function loadCheckCategory(el){'
+      'const category=el.dataset.category;'
+      'let saved={};'
+      'try{'
+      'const raw=safeGet(checkStorageKey(category));'
+      'saved=raw?JSON.parse(raw):{};'
+      '}catch(e){saved={};}'
+      'el.querySelectorAll(".cc-check-field").forEach(function(input){'
+      'input.value=(saved.fields&&saved.fields[input.dataset.field])||"";'
+      '});'
+      'const confirmedBox=el.querySelector(".cc-check-confirmed");'
+      'if(confirmedBox)confirmedBox.checked=Boolean(saved.confirmed);'
+      '}'
+      'function saveCheckCategory(el){'
+      'const category=el.dataset.category;'
+      'const fields={};'
+      'el.querySelectorAll(".cc-check-field").forEach(function(input){'
+      'fields[input.dataset.field]=input.value;'
+      '});'
+      'const confirmedBox=el.querySelector(".cc-check-confirmed");'
+      'const data={fields:fields,confirmed:confirmedBox?confirmedBox.checked:false};'
+      'safeSet(checkStorageKey(category),JSON.stringify(data));'
+      '}'
+      'document.querySelectorAll(".cc-check-category").forEach(function(el){'
+      'loadCheckCategory(el);'
+      'el.querySelectorAll(".cc-check-field,.cc-check-confirmed").forEach(function(input){'
+      'input.addEventListener("input",function(){saveCheckCategory(el);});'
+      'input.addEventListener("change",function(){saveCheckCategory(el);});'
+      '});'
+      '});'
+      # --- 承認待ち・投稿状況メモ ---
+      'const pendingKey=STORAGE_PREFIX+"pending-memo";'
+      'const pendingMemo=document.querySelector("#cc-pending-memo");'
+      'const pendingEmpty=document.querySelector("#cc-pending-empty");'
+      'function updatePendingEmptyState(){'
+      'pendingEmpty.hidden=Boolean(pendingMemo.value.trim());'
+      '}'
+      'pendingMemo.value=safeGet(pendingKey)||"";'
+      'updatePendingEmptyState();'
+      'pendingMemo.addEventListener("input",function(){'
+      'safeSet(pendingKey,pendingMemo.value);'
+      'updatePendingEmptyState();'
+      '});'
+      # --- 判断メモ（決定ログ） ---
+      'const decisionLogKey=STORAGE_PREFIX+"decision-log";'
+      'const decisionDate=document.querySelector("#cc-decision-date");'
+      'const decisionMedia=document.querySelector("#cc-decision-media");'
+      'const decisionObserved=document.querySelector("#cc-decision-observed");'
+      'const decisionJudgement=document.querySelector("#cc-decision-judgement");'
+      'const decisionNext=document.querySelector("#cc-decision-next");'
+      'const decisionHold=document.querySelector("#cc-decision-hold");'
+      'const decisionLogList=document.querySelector("#cc-decision-log-list");'
+      'const decisionLogEmpty=document.querySelector("#cc-decision-log-empty");'
+      'function loadDecisionLog(){'
+      'try{'
+      'const raw=safeGet(decisionLogKey);'
+      'return raw?JSON.parse(raw):[];'
+      '}catch(e){return [];}'
+      '}'
+      'function escapeHtml(s){'
+      'return String(s==null?"":s)'
+      '.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");'
+      '}'
+      'function renderDecisionLog(){'
+      'const entries=loadDecisionLog();'
+      'decisionLogList.querySelectorAll(".cc-decision-log-entry").forEach(function(el){el.remove();});'
+      'if(entries.length===0){'
+      'decisionLogEmpty.hidden=false;'
+      'return;'
+      '}'
+      'decisionLogEmpty.hidden=true;'
+      'entries.slice().reverse().forEach(function(entry){'
+      'const div=document.createElement("div");'
+      'div.className="cc-decision-log-entry";'
+      'div.innerHTML='
+      '"<div><b>日付：</b>"+escapeHtml(entry.date||"未入力")+"</div>"+'
+      '"<div><b>媒体：</b>"+escapeHtml(entry.media||"未選択")+"</div>"+'
+      '"<div><b>観測した数字：</b>"+escapeHtml(entry.observed||"未確認")+"</div>"+'
+      '"<div><b>判断：</b>"+escapeHtml(entry.judgement||"")+"</div>"+'
+      '"<div><b>次にすること：</b>"+escapeHtml(entry.next||"")+"</div>"+'
+      '"<div><b>保留理由：</b>"+escapeHtml(entry.hold||"")+"</div>";'
+      'decisionLogList.appendChild(div);'
+      '});'
+      '}'
+      'document.querySelector("#cc-decision-add").addEventListener("click",function(){'
+      'const entry={'
+      'date:decisionDate.value,'
+      'media:decisionMedia.value,'
+      'observed:decisionObserved.value,'
+      'judgement:decisionJudgement.value,'
+      'next:decisionNext.value,'
+      'hold:decisionHold.value,'
+      '};'
+      'const hasContent=entry.date||entry.media||entry.observed.trim()||'
+      'entry.judgement.trim()||entry.next.trim()||entry.hold.trim();'
+      'if(!hasContent){'
+      'window.alert("記録する内容を、いずれかの項目に入力してください。");'
+      'return;'
+      '}'
+      'const entries=loadDecisionLog();'
+      'entries.push(entry);'
+      'safeSet(decisionLogKey,JSON.stringify(entries));'
+      'renderDecisionLog();'
+      'decisionObserved.value="";'
+      'decisionJudgement.value="";'
+      'decisionNext.value="";'
+      'decisionHold.value="";'
+      '});'
+      'renderDecisionLog();'
+      '})();'
+      '</script>'
+      '</section>'
+  )
+
+
 def register_office_views(app):
   """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
@@ -5389,4 +5776,16 @@ def register_office_views(app):
         f'{second_draft_scene}'
         '<h2 class="fp-section-title">公開済みのnote記事</h2>'
         f'{third_draft_scene}',
+    )
+
+  @app.route("/command-center")
+  def command_center():
+    scene = _render_command_center_scene()
+    return _page(
+        "command", "運用司令室",
+        "資料室と担当チームのルールにもとづいて、今日の確認・承認待ちの"
+        "状況・担当チーム状況・判断メモを見渡す画面です。入力はブラウザ内に"
+        "のみ保存され、外部サービスへの投稿・送信・ログイン・削除は一切"
+        "行いません。",
+        scene,
     )

@@ -4962,6 +4962,200 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("5件公開済み", root_html)
     self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
 
+  # --- MISSION 066: 運用司令室(/command-center) --------------------------
+
+  def test_command_center_page_loads(self):
+    res = self.client.get("/command-center")
+    self.assertEqual(res.status_code, 200)
+    html = res.get_data(as_text=True)
+    self.assertIn("運用司令室", html)
+    self.assertIn("<title>運用司令室 | AI Hive</title>", html)
+
+  def test_command_center_is_in_nav_tabs_on_every_office_page(self):
+    for path in ("/office", "/office/break-room", "/office/ceo-office",
+                 "/revenue", "/content-studio", "/command-center"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('href="/command-center"', html)
+        self.assertIn(">運用司令室<", html)
+
+  def test_command_center_header_shows_approver_and_no_external_note(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn("最終承認者：利用者本人", html)
+    self.assertIn(
+        "楽天ROOM・楽天アフィリエイト・note・Pinterest・Threadsへのアクセス・"
+        "ログイン・投稿・送信・削除は一切行いません。",
+        html,
+    )
+    self.assertIn("← ダッシュボードへ戻る", html)
+
+  def test_command_center_check_board_has_five_categories_with_correct_fields(self):
+    import office_views
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertEqual(len(office_views.COMMAND_CENTER_CHECK_CATEGORIES), 5)
+    self.assertEqual(html.count('class="cc-check-category"'), 5)
+    expected = {
+        "room": ["item_count", "hearts", "comments"],
+        "affiliate": ["clicks", "sales", "commission"],
+        "note": ["pv", "likes", "followers"],
+        "pinterest": ["monthly_views", "saves", "link_clicks"],
+        "threads": [],
+    }
+    for cat in office_views.COMMAND_CENTER_CHECK_CATEGORIES:
+      self.assertEqual([f[0] for f in cat["fields"]], expected[cat["key"]])
+      card = html.split(f'data-category="{cat["key"]}">', 1)[1]
+      card = card.split('<div class="cc-check-category"', 1)[0]
+      for field_key, field_label in cat["fields"]:
+        self.assertIn(
+            f'<input type="text" class="cc-check-field" '
+            f'data-category="{cat["key"]}" data-field="{field_key}">',
+            card,
+        )
+        self.assertIn(field_label, card)
+      self.assertIn(
+          f'<input type="checkbox" class="cc-check-confirmed" '
+          f'data-category="{cat["key"]}">',
+          card,
+      )
+      self.assertIn(cat["confirm_label"], card)
+    self.assertIn("20時投稿を確認した", html)
+
+  def test_command_center_check_fields_start_empty_no_fabricated_values(self):
+    import re
+    html = self.client.get("/command-center").get_data(as_text=True)
+    for m in re.finditer(r'class="cc-check-field"[^>]*', html):
+      self.assertNotIn("value=", m.group())
+
+  def test_command_center_pending_section_shows_empty_message_and_memo_field(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn(
+        '<p class="cc-pending-empty" id="cc-pending-empty">現在、承認待ちの'
+        "項目はありません。</p>",
+        html,
+    )
+    self.assertIn('id="cc-pending-memo"', html)
+    import re
+    m = re.search(
+        r'<textarea id="cc-pending-memo"[^>]*>([^<]*)</textarea>', html
+    )
+    self.assertIsNotNone(m)
+    self.assertEqual(m.group(1), "")
+    self.assertIn(
+        "提案・下書き・確認まで。公開操作は利用者本人が行う。", html
+    )
+
+  def test_command_center_department_cards_match_five_departments(self):
+    import office_views
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertEqual(len(office_views.COMMAND_CENTER_DEPARTMENT_CARDS), 5)
+    expected_labels = ["運用責任者", "ROOM担当", "note担当", "Pinterest担当", "分析担当"]
+    self.assertEqual(
+        [d["label"] for d in office_views.COMMAND_CENTER_DEPARTMENT_CARDS],
+        expected_labels,
+    )
+    for d in office_views.COMMAND_CENTER_DEPARTMENT_CARDS:
+      self.assertIn(
+          f'<div class="cc-dept-card"><h3>{d["label"]}</h3><p>{d["summary"]}</p></div>',
+          html,
+      )
+    self.assertIn(
+        "以下はAI Hive OS内の仮想チームです。実在する人物や自動で稼働する"
+        "プログラムではなく、提案・下書き・記録までを担当します。",
+        html,
+    )
+
+  def test_command_center_department_summaries_do_not_contradict_department_docs(self):
+    # departments/*.mdで明記した「やってはいけないこと」と矛盾する表現
+    # (実際に投稿・公開する、など)がカード説明文に含まれないことを確認する。
+    import office_views
+    for d in office_views.COMMAND_CENTER_DEPARTMENT_CARDS:
+      self.assertNotIn("投稿します", d["summary"])
+      self.assertNotIn("公開します", d["summary"])
+      self.assertNotIn("送信します", d["summary"])
+
+  def test_command_center_decision_memo_has_required_fields_and_media_options(self):
+    import office_views
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('id="cc-decision-date"', html)
+    self.assertIn('id="cc-decision-media"', html)
+    self.assertIn('id="cc-decision-observed"', html)
+    self.assertIn('id="cc-decision-judgement"', html)
+    self.assertIn('id="cc-decision-next"', html)
+    self.assertIn('id="cc-decision-hold"', html)
+    self.assertIn('id="cc-decision-add"', html)
+    self.assertEqual(
+        office_views.COMMAND_CENTER_DECISION_MEDIA_OPTIONS,
+        ["楽天ROOM", "楽天アフィリエイト", "note", "Pinterest", "Threads"],
+    )
+    for media in office_views.COMMAND_CENTER_DECISION_MEDIA_OPTIONS:
+      self.assertIn(f'<option value="{media}">{media}</option>', html)
+    self.assertIn(
+        "推測と確認済み事実を分けて記録する。数字は未確認のまま断定的な判断を"
+        "書かないでください。",
+        html,
+    )
+    self.assertIn(
+        '<p class="cc-decision-log-empty" id="cc-decision-log-empty">まだ記録は'
+        "ありません。</p>",
+        html,
+    )
+
+  def test_command_center_decision_log_js_defines_core_functions(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    for fn in (
+        "function loadDecisionLog(",
+        "function renderDecisionLog(",
+        "function loadCheckCategory(",
+        "function saveCheckCategory(",
+        "function updatePendingEmptyState(",
+    ):
+      self.assertIn(fn, html)
+
+  def test_command_center_uses_local_storage_only_no_external_calls(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn("window.localStorage", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<form", html)
+    self.assertNotIn("<script src", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertNotIn("<img", html)
+    self.assertNotIn('type="file"', html)
+
+  def test_command_center_storage_key_prefix_is_isolated_from_other_features(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('STORAGE_PREFIX="ai-hive-command-center:"', html)
+
+  def test_command_center_linked_from_dashboard(self):
+    html = self.html
+    self.assertIn('href="/command-center"', html)
+    self.assertIn("運用司令室を見る", html)
+
+  def test_command_center_does_not_change_existing_pages(self):
+    # 新画面の追加により、既存の主要ページの表示に影響がないことを確認する
+    # (回帰確認)。
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
 
 if __name__ == "__main__":
   unittest.main()
