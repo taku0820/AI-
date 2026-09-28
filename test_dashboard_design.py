@@ -5191,8 +5191,15 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_ai_office_no_action_buttons_or_forms(self):
+    # MISSION 070: 「アニメーションを停止」ボタンのみを許可する
+    # (投稿・公開・送信・ログイン・削除を行うボタンではない)。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("<button", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertIn(
+        '<button type="button" class="ai-office-anim-toggle" '
+        'id="ai-office-anim-toggle">アニメーションを停止</button>',
+        html,
+    )
     self.assertNotIn("<form", html)
     self.assertNotIn("<input", html)
     self.assertIn(
@@ -5202,10 +5209,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_ai_office_floor_has_five_desks_matching_departments(self):
+    # MISSION 073: 「社員名簿」カードは12人分へ拡張されたが、5部署
+    # (AI_OFFICE_DEPARTMENTS)の内容自体は変わっていないことを確認する。
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertEqual(len(office_views.AI_OFFICE_DEPARTMENTS), 5)
-    self.assertEqual(html.count('class="ai-office-desk"'), 5)
+    self.assertEqual(len(office_views.AI_OFFICE_EXTENDED_STAFF), 7)
+    self.assertEqual(html.count('class="ai-office-desk"'), 12)
     expected = [
         ("operations_lead", "指令デスク", "運用責任者"),
         ("room", "ROOM運用席", "ROOM担当"),
@@ -5228,9 +5238,11 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.AI_OFFICE_SCOPE_STATEMENT,
         "提案・下書き・記録まで。最終承認と外部公開は利用者本人。",
     )
+    # MISSION 073: 社員名簿カードは12人分になったため、範囲表明も12回
+    # 出現する(5部署 + 拡張担当7人)。
     self.assertEqual(
         html.count(office_views.AI_OFFICE_SCOPE_STATEMENT),
-        len(office_views.AI_OFFICE_DEPARTMENTS),
+        len(office_views.AI_OFFICE_DEPARTMENTS) + len(office_views.AI_OFFICE_EXTENDED_STAFF),
     )
 
   def test_ai_office_desk_summaries_do_not_contradict_department_docs(self):
@@ -5327,13 +5339,14 @@ class DashboardDesignTestCase(unittest.TestCase):
         "これはデモの表示であり、実際のAI作業ログではありません。", html
     )
 
-  def test_ai_office_has_no_scripts_or_local_storage_it_is_pure_display(self):
+  def test_ai_office_uses_no_local_storage(self):
+    # MISSION 070: フロアマップのデモアニメーションはローカルJSで動くが、
+    # localStorageへの保存は行わず、再読み込みで初期状態に戻る。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    scene_only = html.split('aria-label="AIオフィス"', 1)[1]
-    self.assertNotIn("<script", scene_only)
-    self.assertNotIn("localStorage", scene_only)
+    self.assertNotIn("localStorage", html)
 
   def test_ai_office_no_external_calls_or_credentials(self):
+    import re
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertNotIn("fetch(", html)
     self.assertNotIn("XMLHttpRequest", html)
@@ -5346,7 +5359,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("AI_HIVE_", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
-    self.assertNotIn("<img", html)
+    # MISSION 069/072: フロアマップ画像1枚だけがローカルの/static配下から
+    # 読み込まれていることを確認する(外部URL・新規スクリプトは追加しない)。
+    # MISSION 072で、表示する背景をロボット無しのempty版へ差し替えた。
+    img_srcs = re.findall(r'<img[^>]*\ssrc="([^"]+)"', html)
+    self.assertEqual(img_srcs, ["/static/images/ai-office-floor-map-empty.png"])
 
   def test_ai_office_linked_from_dashboard(self):
     html = self.html
@@ -5371,6 +5388,1846 @@ class DashboardDesignTestCase(unittest.TestCase):
     root_html = self.html
     self.assertIn("5件公開済み", root_html)
     self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 068: AIオフィスのオフィスフロアマップ強化 --------------------
+
+  def test_ai_office_floormap_status_strip_has_five_chips_matching_departments(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(html.count('class="ai-office-strip-chip"'), 5)
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      self.assertIn(f'data-department="{d["key"]}"', html)
+      self.assertIn(d["desk_label"], html)
+
+  def test_ai_office_floormap_image_appears_before_status_section(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertLess(
+        html.index("オフィスフロアマップ（デモ表示）"),
+        html.index("社員名簿（12人・状態一覧）"),
+    )
+    self.assertLess(
+        html.index('class="ai-office-floormap-image"'),
+        html.index('class="ai-office-desk"'),
+    )
+
+  def test_ai_office_floormap_each_chip_shows_department_and_status(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      chip = html.split(f'data-department="{d["key"]}">', 1)[1]
+      chip = chip.split('</li>', 1)[0]
+      self.assertIn(d["desk_label"], chip)
+      status_label = office_views.AI_OFFICE_STATUS_LABELS[d["demo_status"]]
+      self.assertIn(f"{status_label}（デモ）", chip)
+      self.assertIn(
+          f'ai-office-char-avatar-{d["demo_status"]}', chip
+      )
+      self.assertIn(d["symbol"], chip)
+
+  def test_ai_office_status_labels_include_four_states(self):
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_STATUS_LABELS,
+        {
+            "working": "稼働中",
+            "pending": "確認待ち",
+            "waiting": "待機中",
+            "demo_done": "デモ完了",
+        },
+    )
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      self.assertIn(d["demo_status"], office_views.AI_OFFICE_STATUS_LABELS)
+
+  def test_ai_office_floormap_css_defines_status_colors_for_strip_chips(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for cls in (
+        ".ai-office-char-avatar-working", ".ai-office-char-avatar-pending",
+        ".ai-office-char-avatar-waiting", ".ai-office-char-avatar-demo_done",
+        ".ai-office-floormap-status-strip", ".ai-office-strip-chip",
+        ".ai-office-floormap-image", ".ai-office-floormap-image-wrap",
+    ):
+      self.assertIn(cls, html)
+    # 発光(box-shadow)がキャラクターの状態別スタイルに定義されていることを
+    # 確認する(実際にAIが稼働しているように見せる新規JS/アニメーション追加
+    # ではなく、CSSだけで表現されていることを確認する)。
+    self.assertIn(
+        ".ai-office-char-avatar-working{border-color:var(--cyan);"
+        "box-shadow:0 0 12px 3px rgba(34,211,238,.55);"
+        "animation:ai-office-pulse 1.8s ease-in-out infinite}",
+        html,
+    )
+
+  def test_ai_office_floormap_uses_only_the_one_local_image_no_new_assets(self):
+    # MISSION 071/072: <img>はフロアマップ画像1枚のみ。MISSION 072で、
+    # 表示する背景をロボット無しのai-office-floor-map-empty.pngへ差し替えた
+    # (旧ai-office-floor-map.pngはファイルとして残すが、画面には使わない)。
+    # 社員スプライトはCSSのbackground-image(ローカルの/static配下)1個だけで
+    # 表現し、それ以外の新規画像アセット・外部リソースは追加しない。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(
+        office_views.AI_OFFICE_FLOOR_MAP_IMAGE_RELATIVE_PATH,
+        "images/ai-office-floor-map.png",
+    )
+    self.assertEqual(
+        office_views.AI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATH,
+        "images/ai-office-floor-map-empty.png",
+    )
+    # MISSION 073: 立体的な3Dキャラクター調スプライト(3列×4行、12人)へ
+    # 全面更新した。旧スプライト(images/ai-office-team-sprites.png)は
+    # ファイルとして残るが、画面には使わない。
+    self.assertEqual(
+        office_views.AI_OFFICE_SPRITE_SHEET_RELATIVE_PATH,
+        "images/ai-office-team-3d.png",
+    )
+    self.assertEqual(
+        office_views.AI_OFFICE_LEGACY_SPRITE_SHEET_RELATIVE_PATH,
+        "images/ai-office-team-sprites.png",
+    )
+    self.assertEqual(office_views.AI_OFFICE_SPRITE_COLS, 3)
+    self.assertEqual(office_views.AI_OFFICE_SPRITE_ROWS, 4)
+    self.assertNotIn(
+        f'url(/static/{office_views.AI_OFFICE_LEGACY_SPRITE_SHEET_RELATIVE_PATH})',
+        html,
+    )
+    self.assertEqual(html.count("<img"), 1)
+    self.assertIn(
+        f'src="/static/{office_views.AI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATH}"',
+        html,
+    )
+    # MISSION 074: フロアマップ上の社員本人(.ai-office-floormap-token)専用の
+    # スプライト参照が増えたため、background-image:url(の出現数は2箇所に
+    # なった(社員名簿の丸アイコン用+フロアマップの全身キャラ用)。いずれも
+    # 同じ新スプライトを指すことを確認する。
+    self.assertEqual(html.count("background-image:url("), 2)
+    self.assertEqual(
+        html.count(
+            f'background-image:url(/static/{office_views.AI_OFFICE_SPRITE_SHEET_RELATIVE_PATH})'
+        ),
+        2,
+    )
+    self.assertNotIn("<script src", html)
+
+  def test_ai_office_floormap_image_file_exists_and_is_not_the_protected_image(self):
+    import os
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-floor-map.png",
+    )
+    self.assertTrue(os.path.isfile(path))
+    # 既存の保護対象画像を上書きしていないことを確認する。
+    protected = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "note-ai-mismatch-hero.png",
+    )
+    self.assertNotEqual(os.path.abspath(path), os.path.abspath(protected))
+
+  def test_ai_office_floormap_image_alt_text_discloses_it_is_a_demo_illustration(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        "ピクセルアート風のイラスト（デモ表示）", html
+    )
+    self.assertIn(
+        "実際のオフィスの写真や、AIが実際に稼働している様子を撮影したもの"
+        "ではありません。",
+        html,
+    )
+
+  def test_ai_office_floormap_hint_text_present_without_click_functionality(self):
+    # MISSION 070: 「各部屋を選択すると…」という案内文は維持しつつ、実際に
+    # 部屋やキャラクターをクリックできる機能(onclick等)は追加していない
+    # ことを確認する。「アニメーションを停止」ボタンのための
+    # addEventListenerだけは許可する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("各部屋を選択すると下の詳細を確認できます。", html)
+    self.assertIn("今回はクリック操作・状態変更は実装しておらず", html)
+    self.assertNotIn("onclick", html)
+    self.assertEqual(html.count("addEventListener"), 1)
+    self.assertIn('toggleBtn.addEventListener("click"', html)
+
+  def test_ai_office_floormap_disclaims_demo_status_clearly(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        "しているものではなく、すべてデモの表示です。",
+        html,
+    )
+    self.assertIn(
+        "稼働中・移動中はシアン、確認待ちは黄色、待機中は"
+        "控えめな青、デモ完了は緑で状態を示しますが",
+        html,
+    )
+
+  def test_ai_office_existing_seven_parts_preserved_below_floormap(self):
+    # 既存の7パーツの見出し・リンク・注意書きが引き続き存在することを確認する
+    # (回帰確認)。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for heading in (
+        "社員名簿（12人・状態一覧）", "今日のタスク（デモ）",
+        "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
+        "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
+    ):
+      self.assertIn(heading, html)
+    self.assertEqual(
+        html.count(office_views.AI_OFFICE_SCOPE_STATEMENT),
+        len(office_views.AI_OFFICE_DEPARTMENTS) + len(office_views.AI_OFFICE_EXTENDED_STAFF),
+    )
+    self.assertIn("この窓口は現在デモの会話表示のみで", html)
+    self.assertIn("未接続・デモ", html)
+    for d in office_views.AI_OFFICE_DELIVERABLES:
+      self.assertIn(d["label"], html)
+    for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
+      self.assertIn(entry, html)
+
+  def test_ai_office_top_notice_still_states_demo_and_no_external_actions(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn(
+        "このページには、投稿・公開・送信・ログイン・削除を行うボタンは"
+        "一切ありません。すべての実行判断は利用者本人が行います。",
+        html,
+    )
+    self.assertIn(
+        "運用司令室</b>（/command-center）は、数字の確認・判断・記録を行う"
+        "画面です。",
+        html,
+    )
+
+  def test_ai_office_floormap_no_dangerous_actions_forms_or_external_calls(self):
+    # MISSION 070: フロアマップのデモアニメーション用に、ローカルの
+    # <script>と「アニメーションを停止」ボタン1個だけを許可する。
+    # フォーム・外部通信・localStorageは引き続き一切禁止のままであることを
+    # 確認する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertNotIn("<form", html)
+    self.assertNotIn("<input", html)
+    self.assertEqual(html.count("<script"), 1)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+
+  def test_ai_office_floormap_mobile_media_query_stacks_status_strip(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-floormap-status-strip{flex-direction:column;"
+        "align-items:stretch}",
+        html,
+    )
+    self.assertIn(
+        ".ai-office-floormap-image{display:block;width:100%;", html
+    )
+
+  def test_ai_office_does_not_change_existing_pages_after_floormap_addition(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 070: AIオフィスの仕事進行・報告デモアニメーション -----------
+
+  def test_ai_office_demo_animation_has_five_floor_tokens(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      self.assertIn(f'id="ai-office-token-{d["key"]}"', html)
+      pos = office_views.AI_OFFICE_FLOOR_POSITIONS[d["key"]]
+      self.assertIn(f'left:{pos["left"]}%;top:{pos["top"]}%', html)
+    # MISSION 076: 「中央の指令デスクへ結ぶ線」表現は廃止し、報告する
+    # 本人同士が対面する表示に変更したため、接続ライン要素は存在しない。
+    self.assertNotIn('ai-office-floormap-line', html)
+
+  def test_ai_office_demo_animation_has_bubble_speech_and_controls(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-floormap-bubble"', html)
+    self.assertIn('id="ai-office-floormap-speech"', html)
+    self.assertIn('aria-live="polite"', html)
+    self.assertIn(
+        '<button type="button" class="ai-office-anim-toggle" '
+        'id="ai-office-anim-toggle">アニメーションを停止</button>',
+        html,
+    )
+    self.assertIn(
+        "会話はすべてデモ用のデータであり、実際のAI稼働ログではありません。",
+        html,
+    )
+
+  def test_ai_office_report_routes_match_mission_076_text_and_no_fabricated_results(self):
+    # MISSION 076: 部署から指令デスクへの一律報告は廃止し、役割ごとの
+    # 対面報告ルート(mover→receiver)に置き換えた。
+    # MISSION 077: 凛→海・伊織→蓮・彩→悠の3ルートを追加し、11ルートに
+    # なった。
+    import office_views
+    routes = office_views.AI_OFFICE_REPORT_ROUTES
+    self.assertEqual(len(routes), 11)
+    by_key = {r["key"]: r for r in routes}
+    expected = {
+        "room_to_yu": ("room", "yu", "ROOM候補を整理しました",
+                       "受け取りました。次の確認へ進めます"),
+        "note_to_aya": ("note", "aya", "見出し構成をまとめました",
+                        "美咲にも共有して方向性をそろえます"),
+        "pinterest_to_aya": ("pinterest", "aya", "画像テーマ候補を用意しました",
+                             "noteの見出しと合わせて確認します"),
+        "sou_to_iori": ("sou", "iori", "画面表示を確認しました",
+                        "品質観点で確認します"),
+        "yui_to_analytics": ("yui", "analytics", "情報源の鮮度を確認しました",
+                             "比較メモへ反映します"),
+        "analytics_to_yu": ("analytics", "yu", "確認済みの数字を比較しました",
+                            "判断メモとして整理します"),
+        "yu_to_president": ("yu", "operations_lead", "各部署の報告をまとめました",
+                            "受け取りました。利用者の確認待ちにします"),
+        "ren_to_president": ("ren", "operations_lead", "安全・承認確認を終えました",
+                             "確認しました。外部操作は利用者判断です"),
+        "rin_to_note": ("rin", "note", "資料室の内容を確認しました",
+                        "確認ありがとう。記事に反映します"),
+        "iori_to_ren": ("iori", "ren", "表示内容の品質確認を終えました",
+                        "安全・承認の観点で確認します"),
+        "aya_to_yu": ("aya", "yu", "部署間の連携状況を共有しました",
+                      "進行管理に反映します"),
+    }
+    for key, (mover, receiver, mover_line, receiver_line) in expected.items():
+      route = by_key[key]
+      self.assertEqual(route["mover"], mover)
+      self.assertEqual(route["receiver"], receiver)
+      self.assertEqual(route["mover_line"], mover_line)
+      self.assertEqual(route["receiver_line"], receiver_line)
+      for forbidden in ("売上", "円", "件成約", "投稿完了", "公開しました", "送信しました"):
+        self.assertNotIn(forbidden, mover_line)
+        self.assertNotIn(forbidden, receiver_line)
+    # 柴犬社長へ直接報告するのは悠・蓮の2件だけ(全員が殺到する演出にしない)。
+    president_receivers = [r["mover"] for r in routes if r["receiver"] == "operations_lead"]
+    self.assertEqual(sorted(president_receivers), ["ren", "yu"])
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for route in routes:
+      self.assertIn(route["mover_line"], html)
+      self.assertIn(route["receiver_line"], html)
+      self.assertIn(route["feed_text"], html)
+
+  def test_ai_office_activity_feed_list_has_stable_id_for_js_updates(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-activity-feed-list"', html)
+    self.assertEqual(office_views.AI_OFFICE_ACTIVITY_FEED_MAX_ITEMS, 5)
+    # 初期状態(サーバー描画時点)は既存の3件のまま(回帰確認)。
+    self.assertEqual(html.count("<li>デモ："), 3)
+
+  def test_ai_office_demo_js_data_embeds_positions_and_report_routes_safely(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("var DATA=", html)
+    self.assertIn('"positions":', html)
+    self.assertIn('"reportRoutes":', html)
+    self.assertIn('"statusLabels":', html)
+    self.assertIn('"staffNames":', html)
+    self.assertIn('"interactions":', html)
+    self.assertIn('"visitorSlots":', html)
+    self.assertIn('"maxFeedItems":', html)
+    # 状態遷移に使うキー("working"/"pending"/"waiting"/"demo_done")が
+    # すべてJSへ渡っていることを確認する。
+    for status_key in office_views.AI_OFFICE_STATUS_LABELS:
+      self.assertIn(f'"{status_key}"', html)
+
+  def test_ai_office_demo_js_functions_implement_the_face_to_face_report_flow(self):
+    # MISSION 076: 「中央へ移動するだけ」の5ステップ(stepStart〜stepSettle)
+    # を、報告先の社員の前まで歩いて対面で会話する対面報告ルートへ
+    # 置き換えた(reportStepTravel〜reportStepSettle)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for fn in (
+        "function reportStepTravel(", "function reportStepArrive(",
+        "function reportStepReply(", "function reportStepReturn(",
+        "function reportStepSettle(", "function runReportRoute(",
+        "function pickNextReportRoute(",
+        "function setStatus(", "function showBubble(", "function hideBubble(",
+        "function showBubbleReceiver(", "function hideBubbleReceiver(",
+        "function showSpeech(", "function pushFeed(", "function moveToken(",
+        "function faceTowards(", "function resetFacing(", "function setPhase(",
+        "function scheduleNext(",
+    ):
+      self.assertIn(fn, html)
+
+  def test_ai_office_demo_toggle_button_pauses_and_resumes_locally(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('paused=!paused', html)
+    self.assertIn("アニメーションを再生", html)
+    self.assertIn("clearTimeout(pendingTimer)", html)
+
+  def test_ai_office_demo_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+
+  def test_ai_office_demo_animation_does_not_change_existing_seven_parts(self):
+    # 既存の7パーツの見出し・注意書きが引き続き存在することを確認する
+    # (回帰確認)。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for heading in (
+        "社員名簿（12人・状態一覧）", "今日のタスク（デモ）",
+        "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
+        "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
+    ):
+      self.assertIn(heading, html)
+    for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
+      self.assertIn(entry, html)
+    self.assertIn("デモ表示・実データ未接続", html)
+
+  def test_ai_office_demo_animation_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 071: 社員キャラクター本人が働き・歩き・報告・交流する演出 ---
+
+  def test_ai_office_staff_roster_matches_mission_names(self):
+    # MISSION 073: 12人体制(5部署 + 拡張担当7人)に更新した。
+    import office_views
+    dept_names = {d["key"]: d["staff_name"] for d in office_views.AI_OFFICE_DEPARTMENTS}
+    self.assertEqual(
+        dept_names,
+        {
+            "operations_lead": "柴犬社長",
+            "room": "里奈",
+            "note": "海",
+            "pinterest": "美咲",
+            "analytics": "葵",
+        },
+    )
+    extended_names = {s["key"]: s["name"] for s in office_views.AI_OFFICE_EXTENDED_STAFF}
+    self.assertEqual(
+        extended_names,
+        {
+            "sou": "蒼", "iori": "伊織", "aya": "彩", "rin": "凛",
+            "yu": "悠", "yui": "結", "ren": "蓮",
+        },
+    )
+    extended_roles = {s["key"]: s["role_label"] for s in office_views.AI_OFFICE_EXTENDED_STAFF}
+    self.assertEqual(
+        extended_roles,
+        {
+            "sou": "技術担当", "iori": "品質確認",
+            "aya": "連携担当（社内コーディネーター）",
+            "rin": "資料室管理", "yu": "進行管理",
+            "yui": "情報源の鮮度確認", "ren": "安全・承認確認",
+        },
+    )
+
+  def test_ai_office_sprite_sheet_constants_and_file_exists(self):
+    import os
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_SPRITE_SHEET_RELATIVE_PATH,
+        "images/ai-office-team-3d.png",
+    )
+    self.assertEqual(
+        office_views.AI_OFFICE_LEGACY_SPRITE_SHEET_RELATIVE_PATH,
+        "images/ai-office-team-sprites.png",
+    )
+    self.assertEqual(office_views.AI_OFFICE_SPRITE_COLS, 3)
+    self.assertEqual(office_views.AI_OFFICE_SPRITE_ROWS, 4)
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-team-3d.png",
+    )
+    self.assertTrue(os.path.isfile(path))
+    res = self.client.get("/static/images/ai-office-team-3d.png")
+    self.assertEqual(res.status_code, 200)
+    # MISSION 071の旧スプライトも、ファイルとしては削除せず残っている。
+    legacy_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-team-sprites.png",
+    )
+    self.assertTrue(os.path.isfile(legacy_path))
+
+  def test_ai_office_all_twelve_people_have_valid_unique_sprite_coordinates(self):
+    import office_views
+    people = list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF)
+    self.assertEqual(len(people), 12)
+    seen = set()
+    for p in people:
+      row, col = p["sprite"]["row"], p["sprite"]["col"]
+      self.assertGreaterEqual(row, 0)
+      self.assertLess(row, office_views.AI_OFFICE_SPRITE_ROWS)
+      self.assertGreaterEqual(col, 0)
+      self.assertLess(col, office_views.AI_OFFICE_SPRITE_COLS)
+      self.assertNotIn((row, col), seen)
+      seen.add((row, col))
+    # 12人でスプライトシートの12コマすべてを過不足なく使い切っている。
+    self.assertEqual(len(seen), office_views.AI_OFFICE_SPRITE_COLS * office_views.AI_OFFICE_SPRITE_ROWS)
+    # 柴犬社長だけが1行目・左(0,0)であること。
+    self.assertEqual(
+        [p["sprite"] for p in office_views.AI_OFFICE_DEPARTMENTS if p["key"] == "operations_lead"][0],
+        {"row": 0, "col": 0},
+    )
+    for p in people:
+      if p["key"] != "operations_lead":
+        self.assertNotEqual(p["sprite"], {"row": 0, "col": 0})
+
+  def test_ai_office_all_twelve_floor_tokens_rendered_with_nameplates(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(html.count('class="ai-office-floormap-token'), 12)
+    dept_keys = [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+    extended_keys = [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    for key in dept_keys + extended_keys:
+      self.assertIn(f'id="ai-office-token-{key}"', html)
+      self.assertIn(f'id="ai-office-nameplate-{key}"', html)
+      self.assertIn(f'id="ai-office-nameplate-dot-{key}"', html)
+    for d in office_views.AI_OFFICE_DEPARTMENTS:
+      self.assertIn(f'data-department="{d["key"]}"', html)
+    for name in ("蒼", "伊織", "彩", "凛", "悠", "結", "蓮"):
+      self.assertIn(name, html)
+
+  def test_ai_office_extended_staff_are_included_in_twelve_person_roster(self):
+    # MISSION 073: 拡張担当7人も「社員名簿」に統合され、12枚のカードで
+    # 一覧できることを確認する(以前の「5部署のみ」制約を撤廃)。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(len(office_views.AI_OFFICE_DEPARTMENTS), 5)
+    self.assertEqual(len(office_views.AI_OFFICE_EXTENDED_STAFF), 7)
+    self.assertEqual(html.count('class="ai-office-desk"'), 12)
+    for s in office_views.AI_OFFICE_EXTENDED_STAFF:
+      self.assertIn(f'data-department="{s["key"]}"', html)
+      self.assertIn(s["name"], html)
+      self.assertIn(s["zone_label"], html)
+
+  def test_ai_office_interaction_scenes_match_mission_examples(self):
+    # MISSION 076: 美咲・海(旧misaki_umi_pinterest)・伊織・蒼
+    # (旧iori_sou_desk)・悠の巡回(旧yu_progress_check)・結の情報源確認
+    # (旧yui_monitor_check)は対面報告ルート(AI_OFFICE_REPORT_ROUTES)へ
+    # 統合されたため、対面報告に該当しない彩(休憩スペース)・凛(資料室↔
+    # note)の2件だけが残る。
+    import office_views
+    scenes = office_views.AI_OFFICE_INTERACTION_SCENES
+    self.assertEqual(len(scenes), 2)
+    by_key = {s["key"]: s for s in scenes}
+    self.assertEqual(by_key["aya_lounge"]["mover"], "aya")
+    self.assertEqual(by_key["aya_lounge"]["location"], "lounge")
+    self.assertEqual(by_key["aya_lounge"]["line"], "ひと息ついたら続けます")
+    self.assertEqual(by_key["rin_note_visit"]["mover"], "rin")
+    self.assertEqual(by_key["rin_note_visit"]["location"], "note")
+    self.assertEqual(by_key["rin_note_visit"]["line"], "資料を確認して戻ります")
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for scene in scenes:
+      self.assertIn(scene["line"], html)
+
+  def test_ai_office_lounge_position_used_as_shared_gathering_spot(self):
+    import office_views
+    self.assertEqual(office_views.AI_OFFICE_LOUNGE_POSITION, {"left": 50, "top": 55})
+    positions = office_views._ai_office_all_positions()
+    self.assertIn("lounge", positions)
+    self.assertEqual(positions["lounge"], office_views.AI_OFFICE_LOUNGE_POSITION)
+    # 5部署 + 拡張担当7人 + lounge
+    self.assertEqual(len(positions), 5 + 7 + 1)
+
+  def test_ai_office_js_supports_working_moving_and_interaction_steps(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for fn in (
+        "function setStatus(", "function setWorking(", "function setMoving(",
+        "function setMonitorActive(", "function stepInteractionStart(",
+        "function stepInteractionTalk(", "function stepInteractionReturn(",
+        "function stepInteractionSettle(",
+        # MISSION 075: Track B(部署間交流)は、対面報告ルート(Track A)とは
+        # 独立して常時ループし続ける。
+        "function runTrackB(", "function pickNextSceneIdx(",
+        "function scheduleNextB(",
+    ):
+      self.assertIn(fn, html)
+    self.assertIn("trackBTalking", html)
+    # MISSION 076: mainActiveKey(単一キーの排他制御)は、報告者・受け手の
+    # 両方を予約できるbusy{}集合に置き換わった。
+    self.assertIn("var busy={};", html)
+    self.assertIn("function markBusy(", html)
+    self.assertIn("function isBusy(", html)
+
+  def test_ai_office_monitor_glow_elements_present_for_five_departments(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for key in ("room", "note", "pinterest", "analytics"):
+      self.assertIn(f'id="ai-office-monitor-{key}"', html)
+    self.assertNotIn('id="ai-office-monitor-operations_lead"', html)
+
+  def test_ai_office_walk_and_type_bob_css_present_and_respects_reduced_motion(self):
+    # MISSION 074: 作業中の上下動+発光は1つのkeyframe
+    # (ai-office-work-pulse)へ統合された(旧ai-office-type-bobは廃止)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("ai-office-walk-bob", html)
+    self.assertIn("ai-office-work-pulse", html)
+    self.assertNotIn("ai-office-type-bob", html)
+    self.assertIn(".ai-office-floormap-token.is-moving{animation:", html)
+    self.assertIn(".ai-office-floormap-token.is-working{animation:", html)
+    # 既存のグローバルなprefers-reduced-motionルールが引き続き存在し、
+    # すべてのアニメーション・トランジションを無効化することを確認する
+    # (回帰確認)。
+    self.assertIn(
+        "@media(prefers-reduced-motion:reduce){*,*::before,*::after{"
+        "animation-duration:.001ms!important;"
+        "animation-iteration-count:1!important;"
+        "transition-duration:.001ms!important}}",
+        html,
+    )
+
+  def test_ai_office_speech_uses_staff_name_and_quotation_format(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("STAFF_NAMES[personKey]", html)
+    self.assertIn('「"+text+"」（デモ会話）', html)
+    self.assertIn("柴犬社長", html)
+    self.assertIn("（デモ会話）", html)
+
+  def test_ai_office_demo_animation_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertEqual(html.count("<script"), 1)
+
+  def test_ai_office_demo_still_preserves_top_notice_and_seven_parts(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn(
+        "このページには、投稿・公開・送信・ログイン・削除を行うボタンは"
+        "一切ありません。すべての実行判断は利用者本人が行います。",
+        html,
+    )
+    for heading in (
+        "社員名簿（12人・状態一覧）", "今日のタスク（デモ）",
+        "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
+        "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
+    ):
+      self.assertIn(heading, html)
+    for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
+      self.assertIn(entry, html)
+
+  def test_ai_office_team_sprites_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 072: 社員表示の不具合修正(全員柴犬社長化・背景ロボット重複) ---
+
+  def test_ai_office_floormap_uses_empty_background_with_no_robots_drawn_in(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        f'src="/static/{office_views.AI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATH}"',
+        html,
+    )
+    self.assertNotIn(
+        f'src="/static/{office_views.AI_OFFICE_FLOOR_MAP_IMAGE_RELATIVE_PATH}"',
+        html,
+    )
+    self.assertIn("ロボットや人物は描かれていません", html)
+
+  def test_ai_office_old_floor_map_image_file_still_exists_unmodified(self):
+    # 旧ai-office-floor-map.pngはファイルとして残すが、画面には使わない。
+    import os
+    old_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-floor-map.png",
+    )
+    new_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-floor-map-empty.png",
+    )
+    self.assertTrue(os.path.isfile(old_path))
+    self.assertTrue(os.path.isfile(new_path))
+    res = self.client.get("/static/images/ai-office-floor-map-empty.png")
+    self.assertEqual(res.status_code, 200)
+
+  def test_ai_office_each_floor_token_has_a_distinct_sprite_position(self):
+    # 過去に発生した不具合(background-position:が抜けて全員柴犬社長の
+    # コマ(0% 0%)にフォールバックしていた)を防ぐ回帰テスト。MISSION 073で
+    # 12人体制になったが、引き続き全員が固有のbackground-positionを持ち、
+    # 柴犬社長以外が(0% 0%)を指していないことを確認する。
+    # MISSION 076: background-positionは、向き反転用に分離した内側の
+    # ai-office-floormap-sprite要素側に付与されている。
+    import re
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    people = list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF)
+    self.assertEqual(len(people), 12)
+    positions_seen = {}
+    for p in people:
+      key = p["key"]
+      m = re.search(
+          rf'id="ai-office-sprite-{key}"[^>]*style="([^"]*)"', html
+      )
+      self.assertIsNotNone(m, f"sprite style not found for {key}")
+      style = m.group(1)
+      self.assertIn("background-position:", style)
+      bp_match = re.search(r"background-position:([^;\"]+)", style)
+      self.assertIsNotNone(bp_match)
+      positions_seen[key] = bp_match.group(1)
+    # 12人すべてのbackground-positionが互いに異なること(重複=不具合の再発)。
+    self.assertEqual(len(set(positions_seen.values())), 12)
+    # 柴犬社長(operations_lead)だけが(0.00% 0.00%)であること。
+    self.assertEqual(positions_seen["operations_lead"], "0.00% 0.00%")
+    for key, pos in positions_seen.items():
+      if key != "operations_lead":
+        self.assertNotEqual(pos, "0.00% 0.00%", f"{key} still shows 柴犬社長's frame")
+
+  def test_ai_office_sprite_avatar_style_helper_includes_property_name(self):
+    # _sprite_avatar_style_attrとフロアトークンの両方が、有効なCSS宣言
+    # ("background-position:"というプロパティ名つき)を出力していることを
+    # 確認する。
+    import office_views
+    dept = office_views.AI_OFFICE_DEPARTMENTS[1]
+    pos_value = office_views._ai_office_sprite_position(dept["sprite"])
+    self.assertNotIn("background-position:", pos_value)
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for p in list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF):
+      expected_decl = (
+          f'background-position:{office_views._ai_office_sprite_position(p["sprite"])}'
+      )
+      self.assertIn(expected_decl, html)
+
+  def test_ai_office_eight_people_positioned_per_mission_room_layout(self):
+    import office_views
+    positions = office_views._ai_office_all_positions()
+    # 左上=指令デスク(柴犬社長)、右上=技術席(蒼)、左下=Pinterest企画席(美咲)、
+    # 左中央=note編集席(海)、右中央=ROOM運用席(里奈)、右下=分析ラボ(葵)。
+    self.assertLess(positions["operations_lead"]["left"], 50)
+    self.assertLess(positions["operations_lead"]["top"], 50)
+    self.assertGreater(positions["sou"]["left"], 50)
+    self.assertLess(positions["sou"]["top"], 50)
+    self.assertLess(positions["pinterest"]["left"], 50)
+    self.assertGreater(positions["pinterest"]["top"], 50)
+    self.assertLess(positions["note"]["left"], 50)
+    self.assertLess(positions["note"]["top"], 50)
+    self.assertGreater(positions["room"]["left"], 50)
+    self.assertGreater(positions["analytics"]["left"], 50)
+    self.assertGreater(positions["analytics"]["top"], 50)
+    # 8人全員(+休憩スペース)の座標が0〜100%の範囲内で、互いに十分離れて
+    # おり重ならないことを確認する(最小距離8%以上)。
+    import math
+    keys = list(positions.keys())
+    for i in range(len(keys)):
+      for j in range(i + 1, len(keys)):
+        p1, p2 = positions[keys[i]], positions[keys[j]]
+        dist = math.hypot(p1["left"] - p2["left"], p1["top"] - p2["top"])
+        self.assertGreaterEqual(
+            dist, 8, f"{keys[i]} and {keys[j]} are too close ({dist:.1f})"
+        )
+
+  def test_ai_office_mission072_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 073: 立体的な3Dキャラクター12人体制への全面更新 -----------
+
+  def test_ai_office_sprite_avatar_css_uses_3d_sheet_with_correct_background_size(self):
+    # 過去に発生した不具合(CSSルールにスプライト画像URLが直書きされたまま
+    # 更新されておらず、background-sizeも列数変更(2列→3列)に追随して
+    # いなかった)を防ぐ回帰テスト。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-sprite-avatar{"
+        "background-image:url(/static/images/ai-office-team-3d.png);"
+        "background-repeat:no-repeat;background-size:300% 400%;",
+        html,
+    )
+    self.assertNotIn("ai-office-team-sprites.png", html)
+
+  def test_ai_office_twelve_person_placement_matches_mission_zones(self):
+    import office_views
+    positions = office_views._ai_office_all_positions()
+    zone_by_key = {d["key"]: d["desk_label"] for d in office_views.AI_OFFICE_DEPARTMENTS}
+    zone_by_key.update({s["key"]: s["zone_label"] for s in office_views.AI_OFFICE_EXTENDED_STAFF})
+    self.assertEqual(
+        zone_by_key,
+        {
+            "operations_lead": "指令デスク",
+            "yu": "指令デスク",
+            "ren": "指令デスク",
+            "room": "ROOM運用席",
+            "note": "note編集席",
+            "rin": "note編集席",
+            "pinterest": "Pinterest企画席",
+            "aya": "Pinterest企画席",
+            "sou": "技術・品質スペース",
+            "iori": "技術・品質スペース",
+            "analytics": "分析ラボ",
+            "yui": "分析ラボ",
+        },
+    )
+    # 指令デスクの3人(柴犬社長・悠・蓮)が互いに8%以上離れていること。
+    import math
+    for a, b in (("operations_lead", "yu"), ("operations_lead", "ren"), ("yu", "ren")):
+      dist = math.hypot(
+          positions[a]["left"] - positions[b]["left"],
+          positions[a]["top"] - positions[b]["top"],
+      )
+      self.assertGreaterEqual(dist, 8)
+
+  def test_ai_office_all_twelve_people_positions_do_not_overlap(self):
+    import math
+    import office_views
+    positions = office_views._ai_office_all_positions()
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    self.assertEqual(len(people_keys), 12)
+    for i in range(len(people_keys)):
+      for j in range(i + 1, len(people_keys)):
+        p1, p2 = positions[people_keys[i]], positions[people_keys[j]]
+        dist = math.hypot(p1["left"] - p2["left"], p1["top"] - p2["top"])
+        self.assertGreaterEqual(
+            dist, 8,
+            f"{people_keys[i]} and {people_keys[j]} are too close ({dist:.1f})",
+        )
+    for key in people_keys:
+      pos = positions[key]
+      self.assertGreaterEqual(pos["left"], 0)
+      self.assertLessEqual(pos["left"], 100)
+      self.assertGreaterEqual(pos["top"], 0)
+      self.assertLessEqual(pos["top"], 100)
+
+  def test_ai_office_ren_safety_check_is_a_face_to_face_report_to_president(self):
+    # MISSION 076: 蓮の安全・承認確認は、指令デスクでの静的な表示から、
+    # 柴犬社長への対面報告ルート(ren_to_president)へ変更した。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    route = next(
+        r for r in office_views.AI_OFFICE_REPORT_ROUTES if r["key"] == "ren_to_president"
+    )
+    self.assertEqual(route["mover"], "ren")
+    self.assertEqual(route["receiver"], "operations_lead")
+    self.assertEqual(route["mover_line"], "安全・承認確認を終えました")
+    self.assertEqual(route["receiver_line"], "確認しました。外部操作は利用者判断です")
+    self.assertIn(route["mover_line"], html)
+    self.assertIn(route["receiver_line"], html)
+    self.assertIn(route["feed_text"], html)
+
+  def test_ai_office_aya_role_reflects_coordinator_description(self):
+    import office_views
+    aya = next(s for s in office_views.AI_OFFICE_EXTENDED_STAFF if s["key"] == "aya")
+    self.assertIn("社内コーディネーター", aya["role_label"])
+    self.assertIn("確認待ちを整理", aya["role_summary"])
+    self.assertIn("外部サービスへの投稿・送信・判断は行いません", aya["role_summary"])
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(aya["role_summary"], html)
+
+  def test_ai_office_legacy_sprite_file_untouched_and_still_on_disk(self):
+    import os
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-team-sprites.png",
+    )
+    self.assertTrue(os.path.isfile(path))
+    new_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-team-3d.png",
+    )
+    self.assertTrue(os.path.isfile(new_path))
+    self.assertNotEqual(os.path.abspath(path), os.path.abspath(new_path))
+
+  def test_ai_office_mission073_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 074: 全身の立体3Dキャラクターへの表示方式修正 -------------
+
+  def test_ai_office_floormap_token_has_no_black_icon_box_styling(self):
+    # フロアマップ上の社員トークンは、黒いアイコン枠(円形カード・境界線・
+    # 塗りつぶし背景)を使わない。
+    # MISSION 079: 単純な楕円のmask-imageでは、体・持ち物の外側にある
+    # スプライトの暗い背景が見えてしまっていたため、人物ごとの輪郭に
+    # 沿ったclip-pathへ置き換えた(mask-imageは使わない)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-floormap-token{position:absolute;width:112px;"
+        "height:126px;transform:translate(-50%,-78%);",
+        html,
+    )
+    sprite_rule = html.split(".ai-office-floormap-sprite{")[1].split("}")[0]
+    self.assertNotIn("mask-image", sprite_rule)
+    self.assertIn("clip-path:polygon(", html)
+    self.assertIn("-webkit-clip-path:polygon(", html)
+    # 旧デザイン(円形カード+塗りつぶし背景色)のクラスの組み合わせが
+    # フロアトークンには付与されていないことを確認する。
+    self.assertNotIn('class="ai-office-floormap-token ai-office-char-avatar', html)
+    self.assertNotIn("ai-office-char-avatar.ai-office-floormap-token", html)
+
+  def test_ai_office_floormap_token_uses_ring_glow_per_status_not_character_blur(self):
+    # MISSION 078: キャラクター全体を光らせるfilter:drop-shadow(の状態別
+    # グロー)は完全に廃止し、足元の細いリング(ai-office-report-ring)の
+    # 色だけで状態を示す。MISSION 075で常時のアイドルモーション用クラス
+    # (ai-office-idle-*)が基本クラスと状態クラスの間に追加されたため、
+    # 完全一致ではなく個別クラスの存在を確認する。
+    import re
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for status_key in office_views.AI_OFFICE_STATUS_LABELS:
+      self.assertNotIn(f".ai-office-floormap-token-{status_key}{{filter:drop-shadow(", html)
+      self.assertIn(f".ai-office-floormap-token-{status_key} .ai-office-report-ring{{", html)
+    self.assertIn("ai-office-work-pulse", html)
+    m = re.search(
+        r'<span class="([^"]*)" id="ai-office-token-operations_lead"', html
+    )
+    self.assertIsNotNone(m)
+    classes = m.group(1).split()
+    self.assertIn("ai-office-floormap-token", classes)
+    self.assertIn("ai-office-floormap-token-working", classes)
+
+  def test_ai_office_floormap_token_is_roughly_three_times_larger_than_old_icon(self):
+    # 旧デザイン(44×33px)に対し、2〜3倍以上の視認性を目安に拡大した。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("width:112px;", html)
+    self.assertIn("height:126px;", html)
+    old_area = 44 * 33
+    new_area = 112 * 126
+    self.assertGreaterEqual(new_area / old_area, 3)
+
+  def test_ai_office_twelve_person_positions_still_do_not_overlap_at_larger_size(self):
+    # MISSION 074でキャラクターが大幅に大きくなったため、座標間隔を
+    # 見直した。実際のキャラクターサイズ(112×126px、正方形の
+    # フロアマップ画像に対する概算の百分率)を踏まえた余裕を持った間隔で、
+    # 12人が重ならないことを確認する。
+    import math
+    import office_views
+    positions = office_views._ai_office_all_positions()
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    self.assertEqual(len(people_keys), 12)
+    for i in range(len(people_keys)):
+      for j in range(i + 1, len(people_keys)):
+        p1, p2 = positions[people_keys[i]], positions[people_keys[j]]
+        dx = abs(p1["left"] - p2["left"])
+        dy = abs(p1["top"] - p2["top"])
+        self.assertTrue(
+            dx >= 16 or dy >= 18,
+            f"{people_keys[i]} and {people_keys[j]} are too close (dx={dx},dy={dy})",
+        )
+    for key in people_keys:
+      pos = positions[key]
+      self.assertGreaterEqual(pos["left"], 0)
+      self.assertLessEqual(pos["left"], 100)
+      self.assertGreaterEqual(pos["top"], 0)
+      self.assertLessEqual(pos["top"], 100)
+
+  def test_ai_office_mobile_media_query_shrinks_character_and_keeps_aspect(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        "@media(max-width:480px){.ai-office-floormap-token{width:72px;height:81px}",
+        html,
+    )
+
+  def test_ai_office_bubble_and_nameplate_still_move_with_character(self):
+    # 吹き出しはJSでキャラクターの座標に合わせて位置を更新し(showBubble)、
+    # 名前札・状態ドットはトークンの子要素として一緒に配置される
+    # (=キャラクター本人と一緒に動く)ことを確認する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function showBubble(text,atKey){", html)
+    self.assertIn('bubbleEl.style.left=pos.left+"%";', html)
+    self.assertIn('bubbleEl.style.top=pos.top+"%";', html)
+    import re
+    for m in re.finditer(
+        r'<span class="ai-office-floormap-token[^"]*"[^>]*id="ai-office-token-(\w+)"[^>]*>(.*?)</span>\s*</span>',
+        html,
+    ):
+      inner = m.group(2)
+      self.assertIn("ai-office-footstep", inner)
+      self.assertIn("ai-office-nameplate", inner)
+
+  def test_ai_office_five_departments_and_extended_staff_data_unchanged_names(self):
+    # MISSION 073の12人名簿・役割は変更していないことを確認する
+    # (今回は表示方式のみの修正)。
+    import office_views
+    dept_names = {d["key"]: d["staff_name"] for d in office_views.AI_OFFICE_DEPARTMENTS}
+    self.assertEqual(
+        dept_names,
+        {
+            "operations_lead": "柴犬社長", "room": "里奈", "note": "海",
+            "pinterest": "美咲", "analytics": "葵",
+        },
+    )
+    extended_names = {s["key"]: s["name"] for s in office_views.AI_OFFICE_EXTENDED_STAFF}
+    self.assertEqual(
+        extended_names,
+        {
+            "sou": "蒼", "iori": "伊織", "aya": "彩", "rin": "凛",
+            "yu": "悠", "yui": "結", "ren": "蓮",
+        },
+    )
+
+  def test_ai_office_mission074_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 075: 常に少しずつ動いている、生きた会社への強化 ---------
+
+  def test_ai_office_all_twelve_people_have_idle_type_assigned(self):
+    import office_views
+    people = list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF)
+    self.assertEqual(len(people), 12)
+    valid_types = set(office_views.AI_OFFICE_IDLE_ANIMATION_BY_TYPE.keys())
+    self.assertEqual(valid_types, {"typing", "reading", "analyzing", "waiting"})
+    for p in people:
+      self.assertIn(p["idle_type"], valid_types)
+
+  def test_ai_office_idle_animation_classes_and_keyframes_present(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    import office_views
+    for idle_type, class_name in office_views.AI_OFFICE_IDLE_ANIMATION_BY_TYPE.items():
+      self.assertIn(f".{class_name}{{animation:{class_name} ", html)
+      self.assertIn(f"@keyframes {class_name}{{", html)
+      self.assertIn(f'data-idle="{idle_type}"', html)
+
+  def test_ai_office_idle_classes_appear_before_working_moving_rules_in_source(self):
+    # is-working/is-moving(2クラス、後発)が、ai-office-idle-*(2クラス)より
+    # CSS宣言順で後に来ることを確認する回帰テスト。同じ詳細度の場合、
+    # ソース順が後のルールが勝つため、実際に稼働・移動中はアイドル
+    # モーションより優先して表示される。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    idle_pos = html.index(".ai-office-idle-typing{animation:")
+    working_pos = html.index(".ai-office-floormap-token.is-working{animation:")
+    moving_pos = html.index(".ai-office-floormap-token.is-moving{animation:")
+    self.assertLess(idle_pos, working_pos)
+    self.assertLess(idle_pos, moving_pos)
+
+  def test_ai_office_all_twelve_tokens_have_staggered_animation_timing(self):
+    # 全員が同じ周期で動くと不自然なので、animation-delay/durationが
+    # 人物ごとに異なることを確認する。
+    import re
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    delays = set()
+    for key in people_keys:
+      m = re.search(
+          rf'id="ai-office-token-{key}"[^>]*style="([^"]*)"', html
+      )
+      self.assertIsNotNone(m)
+      style = m.group(1)
+      self.assertIn("animation-delay:", style)
+      self.assertIn("animation-duration:", style)
+      delay_match = re.search(r"animation-delay:(-?[0-9.]+s)", style)
+      self.assertIsNotNone(delay_match)
+      delays.add(delay_match.group(1))
+    # 12人全員が同じ遅延を使っていない(=ずらしてある)ことを確認する。
+    self.assertGreater(len(delays), 1)
+
+  def test_ai_office_ambient_monitor_glow_extended_to_tech_and_analytics_desks(self):
+    # MISSION 075: モニターの控えめな明滅を、技術席(蒼)・分析ラボ担当(結)
+    # にも拡張した。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for key in ("room", "note", "pinterest", "analytics", "sou", "yui"):
+      self.assertIn(f'id="ai-office-monitor-{key}"', html)
+    self.assertIn("ai-office-monitor-glow-ambient", html)
+    self.assertIn("@keyframes ai-office-monitor-idle-flicker{", html)
+
+  def test_ai_office_lounge_has_coffee_steam_decoration_css_only(self):
+    # 新規画像・外部ライブラリを使わず、CSSのみで湯気を表現する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("ai-office-lounge-decor", html)
+    self.assertIn("ai-office-lounge-cup", html)
+    self.assertIn("ai-office-lounge-steam", html)
+    self.assertIn("@keyframes ai-office-lounge-steam-rise{", html)
+    self.assertNotIn("<img", html.split("ai-office-lounge-decor")[1][:400])
+
+  def test_ai_office_command_desk_has_notification_pulse_on_report_arrival(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-command-pulse"', html)
+    self.assertIn("@keyframes ai-office-command-pulse-ring{", html)
+    self.assertIn("function pulseCommandDesk(){", html)
+    self.assertIn("pulseCommandDesk();", html)
+
+  def test_ai_office_progress_board_shows_live_status_counts(self):
+    # 指令デスクの「本日の進行状況」ミニボードが、「今のオフィス」の
+    # 短いステータス行(稼働中・移動中・相談中の人数)を兼ねる。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("本日の進行状況", html)
+    self.assertIn('id="ai-office-progress-board-line"', html)
+    self.assertIn("function refreshOfficeStatusLine(){", html)
+    self.assertIn("稼働中", html)
+    self.assertIn("相談中", html)
+
+  def test_ai_office_pause_button_freezes_all_css_animations_via_overlay_class(self):
+    # MISSION 075: 停止ボタンは、常時のアイドルモーション・モニター明滅・
+    # 湯気・通知光を含む、フロアマップ内の全CSSアニメーションを一括で
+    # 停止する(animation-play-state:pausedをoverlay配下すべてに適用)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-floormap-overlay"', html)
+    self.assertIn(
+        ".ai-office-floormap-overlay.is-paused,"
+        ".ai-office-floormap-overlay.is-paused *{"
+        "animation-play-state:paused!important}",
+        html,
+    )
+    self.assertIn('overlayEl.classList.toggle("is-paused",paused);', html)
+
+  def test_ai_office_track_b_runs_independently_of_report_routes(self):
+    # Track A(対面報告ルート)とTrack B(部署間交流)は、それぞれ専用の
+    # 予約タイマー(pendingTimer/pendingTimerB)を持ち、停止ボタンの
+    # クリックで両方が止まる。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("var pendingFnB=null,pendingTimerB=null;", html)
+    self.assertIn("if(pendingTimerB){clearTimeout(pendingTimerB);pendingTimerB=null;}", html)
+    self.assertIn("scheduleNextB(runTrackB,3500);", html)
+    self.assertIn("scheduleNext(runReportRoute,900);", html)
+
+  def test_ai_office_new_short_conversation_lines_present(self):
+    # MISSION 076で指定された、対面報告の会話例が実際に使われていることを
+    # 確認する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for line in (
+        "ROOM候補を整理しました", "受け取りました。次の確認へ進めます",
+        "見出し構成をまとめました", "美咲にも共有して方向性をそろえます",
+        "画像テーマ候補を用意しました", "noteの見出しと合わせて確認します",
+        "画面表示を確認しました", "品質観点で確認します",
+        "情報源の鮮度を確認しました", "比較メモへ反映します",
+        "確認済みの数字を比較しました", "判断メモとして整理します",
+        "各部署の報告をまとめました",
+        "受け取りました。利用者の確認待ちにします",
+        "安全・承認確認を終えました",
+        "確認しました。外部操作は利用者判断です",
+    ):
+      self.assertIn(line, html)
+
+  def test_ai_office_second_bubble_element_for_concurrent_track(self):
+    # Track A・Track Bが同時に別の場所で吹き出しを出せるよう、
+    # 吹き出し要素を複数用意している。MISSION 076で、対面報告の受け手用に
+    # さらにもう1つ(bubbleElReceiver、配色違い)を追加した。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(html.count('class="ai-office-floormap-bubble"'), 2)
+    self.assertIn('id="ai-office-floormap-bubble"', html)
+    self.assertIn(
+        'class="ai-office-floormap-bubble ai-office-floormap-bubble-receiver" '
+        'id="ai-office-floormap-bubble-receiver"',
+        html,
+    )
+    self.assertIn('id="ai-office-floormap-bubble-b"', html)
+    self.assertIn("function showBubbleB(text,atKey){", html)
+    self.assertIn("function hideBubbleB(){", html)
+    self.assertIn("function showBubbleReceiver(text,atKey){", html)
+    self.assertIn("function hideBubbleReceiver(){", html)
+
+  def test_ai_office_reduced_motion_rule_still_covers_new_animations(self):
+    # 新規追加したアイドル・モニター明滅・湯気・通知光のCSSアニメーションも、
+    # 既存のグローバルなprefers-reduced-motionルール(*,*::before,*::after)
+    # で自動的に無効化される(個別対応不要)ことを確認する回帰テスト。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        "@media(prefers-reduced-motion:reduce){*,*::before,*::after{"
+        "animation-duration:.001ms!important;"
+        "animation-iteration-count:1!important;"
+        "transition-duration:.001ms!important}}",
+        html,
+    )
+
+  def test_ai_office_mission075_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  def test_ai_office_mission075_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertEqual(html.count("<script"), 1)
+
+  # --- MISSION 076: 対面報告(位置・向き・会話で報告関係を示す) -----------
+
+  def test_ai_office_report_routes_cover_the_required_receivers(self):
+    # 通常報告は悠・彩・伊織・蓮など役割ごとの受け手へ行き、柴犬社長は
+    # 悠・蓮からのまとめ報告だけを受ける(全員が指令デスクへ殺到しない)。
+    # MISSION 077: 凛→海・伊織→蓮・彩→悠の3ルートが加わった。
+    import office_views
+    routes = office_views.AI_OFFICE_REPORT_ROUTES
+    movers = [r["mover"] for r in routes]
+    receivers = {r["mover"]: r["receiver"] for r in routes}
+    self.assertEqual(
+        set(movers),
+        {"room", "note", "pinterest", "sou", "yui", "analytics", "yu", "ren",
+         "rin", "iori", "aya"},
+    )
+    self.assertEqual(receivers["room"], "yu")
+    self.assertEqual(receivers["note"], "aya")
+    self.assertEqual(receivers["pinterest"], "aya")
+    self.assertEqual(receivers["sou"], "iori")
+    self.assertEqual(receivers["yui"], "analytics")
+    self.assertEqual(receivers["analytics"], "yu")
+    self.assertEqual(receivers["yu"], "operations_lead")
+    self.assertEqual(receivers["ren"], "operations_lead")
+    self.assertEqual(receivers["rin"], "note")
+    self.assertEqual(receivers["iori"], "ren")
+    self.assertEqual(receivers["aya"], "yu")
+
+  def test_ai_office_report_visitor_slots_defined_for_every_receiver(self):
+    # 対面報告の受け手(悠・彩・伊織・分析ラボ・柴犬社長・note・蓮)ごとに、
+    # 本人の座席と重ならない訪問者スロットが定義されていることを確認する。
+    import office_views
+    receivers = {r["receiver"] for r in office_views.AI_OFFICE_REPORT_ROUTES}
+    self.assertEqual(
+        receivers, {"yu", "aya", "iori", "analytics", "operations_lead", "note", "ren"}
+    )
+    for key in receivers:
+      self.assertIn(key, office_views.AI_OFFICE_VISITOR_SLOTS)
+
+  def test_ai_office_report_visitor_slots_do_not_overlap_any_seat(self):
+    # 訪問者スロットに立った報告者本人が、その部屋の他の在席者(受け手を
+    # 含む)と重ならないことを確認する回帰テスト(MISSION 075と同じ間隔
+    # 基準: 列は16%以上または行は18%以上)。
+    import office_views
+    positions = office_views._ai_office_all_positions()
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    for slot_key, slot_pos in office_views.AI_OFFICE_VISITOR_SLOTS.items():
+      for person_key in people_keys:
+        dx = abs(slot_pos["left"] - positions[person_key]["left"])
+        dy = abs(slot_pos["top"] - positions[person_key]["top"])
+        self.assertTrue(
+            dx >= 14 or dy >= 15,
+            f"visitor slot for {slot_key} too close to {person_key} "
+            f"(dx={dx},dy={dy})",
+        )
+
+  def test_ai_office_floormap_token_has_inner_sprite_for_facing(self):
+    # MISSION 076: 対面報告時に向き(スプライトの反転)を変えられるよう、
+    # background-image/maskを担う内側のスプライト要素を分離した。外側の
+    # トークンは位置・常時アニメーションの担当を維持する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(".ai-office-floormap-sprite{position:absolute;inset:0;", html)
+    self.assertIn(".ai-office-floormap-sprite.is-facing-left{transform:scaleX(-1)}", html)
+    token_rule_body = html.split(".ai-office-floormap-token{")[1].split("}")[0]
+    self.assertNotIn("background-image", token_rule_body)
+    self.assertNotIn("mask-image", token_rule_body)
+    self.assertIn("function faceTowards(personKey,refLeft){", html)
+    self.assertIn("function resetFacing(personKey){", html)
+
+  def test_ai_office_nameplate_phase_label_present_for_all_twelve(self):
+    # MISSION 076: 「移動中」「帰席中」を名前札で分かるようにする、
+    # ai-office-nameplate-phase要素が全員に存在する。
+    # MISSION 077: 対面報告中は、単に「対面報告中」「応答中」と表示する
+    # のではなく、「{相手}へ報告中」「{相手}の報告を確認中」という、
+    # 誰と対面しているかまで分かる具体的な文言に変更した。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    for key in people_keys:
+      self.assertIn(f'id="ai-office-nameplate-phase-{key}"', html)
+    self.assertIn("function setPhase(personKey,text){", html)
+    for phase in ("移動中", "帰席中"):
+      self.assertIn(phase, html)
+    self.assertIn('shortName(route.receiver)+"へ報告中"', html)
+    self.assertIn('STAFF_NAMES[route.mover]+"の報告を確認中"', html)
+
+  def test_ai_office_report_step_chain_sets_phases_in_order(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('setPhase(route.mover,"移動中");', html)
+    self.assertIn(
+        'setPhase(route.mover,shortName(route.receiver)+"へ報告中");', html
+    )
+    self.assertIn(
+        'setPhase(route.receiver,STAFF_NAMES[route.mover]+"の報告を確認中");',
+        html,
+    )
+    self.assertIn('setPhase(route.mover,"帰席中");', html)
+
+  def test_ai_office_report_step_chain_uses_busy_set_not_a_single_key(self):
+    # MISSION 076: 報告者・受け手の両方を同時に予約できるよう、単一キーの
+    # mainActiveKeyから、複数人を保持できるbusy{}集合へ置き換えた。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("markBusy(route.mover,true);", html)
+    self.assertIn("markBusy(route.receiver,true);", html)
+    self.assertIn("markBusy(route.mover,false);", html)
+    self.assertIn("markBusy(route.receiver,false);", html)
+    self.assertIn("if(!isBusy(r.mover)&&!isBusy(r.receiver))return idx;", html)
+
+  def test_ai_office_command_pulse_only_for_president_routes(self):
+    # 指令デスク(柴犬社長)への報告(悠・蓮からのまとめ報告)のときだけ
+    # 通知光が点灯する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        'if(route.receiver==="operations_lead")pulseCommandDesk();', html
+    )
+
+  def test_ai_office_no_thin_connecting_lines_between_reporters(self):
+    # 「報告中の2人を細いシアンの線で結ぶだけ」の表現をやめ、本人同士が
+    # 対面する表示に変更したため、接続ライン用のCSS・要素は存在しない。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("ai-office-floormap-line", html)
+    self.assertNotIn('id="ai-office-line-', html)
+
+  def test_ai_office_receiver_bubble_uses_different_color_than_mover_bubble(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(".ai-office-floormap-bubble-receiver{border-color:#34d399}", html)
+    self.assertIn(
+        ".ai-office-floormap-bubble-receiver:after{border-color:#34d399 "
+        "transparent transparent}",
+        html,
+    )
+
+  def test_ai_office_mission076_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  def test_ai_office_mission076_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertEqual(html.count("<script"), 1)
+
+  # --- MISSION 077: 誰が社長へ報告しているか一目で分かる表示 + 彩の女性化 ---
+
+  def test_ai_office_sprite_sheet_still_three_by_four_after_swap(self):
+    # 彩の3D画像を差し替えても、スプライト格子(3列×4行)・彩自身の
+    # コマ位置(2行目・右=row1,col2)・他11人のコマ位置は変わらない。
+    import os
+    import office_views
+    self.assertEqual(office_views.AI_OFFICE_SPRITE_COLS, 3)
+    self.assertEqual(office_views.AI_OFFICE_SPRITE_ROWS, 4)
+    aya = next(s for s in office_views.AI_OFFICE_EXTENDED_STAFF if s["key"] == "aya")
+    self.assertEqual(aya["sprite"], {"row": 1, "col": 2})
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "images", "ai-office-team-3d.png",
+    )
+    self.assertTrue(os.path.isfile(path))
+    res = self.client.get("/static/images/ai-office-team-3d.png")
+    self.assertEqual(res.status_code, 200)
+
+  def test_ai_office_eleven_report_routes_and_president_receives_only_two(self):
+    # MISSION 077: 通常報告(9件)はすべて悠・彩・伊織・蓮のいずれかへ行き、
+    # 柴犬社長への最終報告は悠・蓮の2件だけ。
+    import office_views
+    routes = office_views.AI_OFFICE_REPORT_ROUTES
+    self.assertEqual(len(routes), 11)
+    president_routes = [r for r in routes if r["receiver"] == "operations_lead"]
+    self.assertEqual(len(president_routes), 2)
+    self.assertEqual(sorted(r["mover"] for r in president_routes), ["ren", "yu"])
+    normal_receivers = {r["receiver"] for r in routes if r["receiver"] != "operations_lead"}
+    self.assertEqual(normal_receivers, {"yu", "aya", "iori", "analytics", "note", "ren"})
+
+  def test_ai_office_report_banner_shows_mover_role_and_receiver_role(self):
+    # フロアマップ最上部の進行バナーに、報告者・受け手それぞれの役割
+    # ラベルとともに「対面報告中 A（役割） → B（役割）」の形式で表示する。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-report-banner"', html)
+    self.assertIn("対面報告中の社員はまだいません（デモ）", html)
+    self.assertEqual(office_views.AI_OFFICE_REPORT_ROLE_LABELS["operations_lead"], "最終確認")
+    self.assertEqual(office_views.AI_OFFICE_REPORT_ROLE_LABELS["yu"], "進行管理")
+    self.assertIn("function updateReportBanner(route){", html)
+    self.assertIn(
+        'reportBannerEl.textContent="対面報告中　"+STAFF_NAMES[route.mover]+'
+        '"（"+REPORT_ROLES[route.mover]+"） → "+STAFF_NAMES[route.receiver]+'
+        '"（"+REPORT_ROLES[route.receiver]+"）";',
+        html,
+    )
+
+  def test_ai_office_short_name_used_for_president_in_mover_nameplate(self):
+    # 報告者の名前札は「柴犬社長へ報告中」ではなく「社長へ報告中」と、
+    # 短い呼び方を使う。
+    import office_views
+    self.assertEqual(office_views.AI_OFFICE_SHORT_NAMES, {"operations_lead": "社長"})
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}", html)
+
+  def test_ai_office_report_ring_and_connector_present(self):
+    # 報告者・受け手の足元に同じ色の発光リング、二人を結ぶ点線+矢印の
+    # コネクタが存在する。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    self.assertEqual(html.count('class="ai-office-report-ring"'), len(people_keys))
+    self.assertIn(
+        ".ai-office-floormap-token.is-report-mover .ai-office-report-ring,",
+        html,
+    )
+    self.assertIn('id="ai-office-report-connector"', html)
+    self.assertIn("function showReportConnector(fromPos,toPos){", html)
+    self.assertIn("function hideReportConnector(){", html)
+    self.assertIn(".ai-office-report-connector:after{content:\"\";", html)
+
+  def test_ai_office_report_step_chain_toggles_report_active_classes(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('moverToken.classList.add("is-report-mover");', html)
+    self.assertIn('receiverToken.classList.add("is-report-receiver");', html)
+    self.assertIn('overlayEl.classList.add("is-reporting");', html)
+    self.assertIn('moverToken.classList.remove("is-report-mover");', html)
+    self.assertIn('receiverToken.classList.remove("is-report-receiver");', html)
+    self.assertIn('overlayEl.classList.remove("is-reporting");', html)
+
+  def test_ai_office_other_staff_dimmed_while_reporting(self):
+    # 対面報告中は、報告者・受け手以外の常時アニメーションを維持したまま
+    # 少し控えめ(不透明度を下げる)にする。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-floormap-overlay.is-reporting .ai-office-floormap-token{opacity:.5;",
+        html,
+    )
+    self.assertIn(
+        ".ai-office-floormap-overlay.is-reporting "
+        ".ai-office-floormap-token.is-report-mover,",
+        html,
+    )
+
+  def test_ai_office_conversation_panel_shows_mover_and_receiver_lines(self):
+    # 「悠 → 柴犬社長「各部署の報告をまとめました」」の形式で、対面会話
+    # パネルに報告者→受け手のセリフを表示する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-report-panel"', html)
+    self.assertIn('id="ai-office-report-panel-mover"', html)
+    self.assertIn('id="ai-office-report-panel-receiver"', html)
+    self.assertIn("function setReportPanelLine(el,speakerKey,receiverKey,text){", html)
+    self.assertIn('b.textContent=STAFF_NAMES[speakerKey]+" → "+STAFF_NAMES[receiverKey];', html)
+    self.assertIn(
+        "setReportPanelLine(reportPanelMoverEl,route.mover,route.receiver,"
+        "route.mover_line);",
+        html,
+    )
+    self.assertIn(
+        "setReportPanelLine(reportPanelReceiverEl,route.receiver,route.mover,"
+        "route.receiver_line);",
+        html,
+    )
+
+  def test_ai_office_report_panel_and_banner_persist_after_report_ends(self):
+    # MISSION 077: 停止ボタンを押した場合も、最後の「誰が誰へ報告中か」の
+    # 表示が読み取れるよう、対面報告が終わってもバナー・会話パネルは
+    # クリアしない(次の対面報告が始まるまで内容を保持する)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    return_step = html.split("function reportStepReturn(routeIdx,onDone){")[1].split(
+        "function reportStepSettle"
+    )[0]
+    self.assertNotIn("reportBannerEl.textContent", return_step)
+    self.assertNotIn("reportPanelMoverEl.textContent", return_step)
+    self.assertNotIn("reportPanelReceiverEl.textContent", return_step)
+
+  def test_ai_office_activity_feed_names_mover_and_receiver(self):
+    # 活動フィードに「誰が誰へ何を報告したか」が分かる文言で記録する。
+    import office_views
+    routes = office_views.AI_OFFICE_REPORT_ROUTES
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for route in routes:
+      mover_name = office_views.AI_OFFICE_REPORT_ROUTES
+      self.assertIn(route["feed_text"], html)
+      self.assertIn("が", route["feed_text"])
+      self.assertIn("へ", route["feed_text"])
+
+  def test_ai_office_report_route_legend_present(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        '<p class="ai-office-report-legend">通常報告 → 悠・彩・伊織・蓮'
+        ' ／ 最終報告 → 柴犬社長</p>',
+        html,
+    )
+
+  def test_ai_office_mission077_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  def test_ai_office_mission077_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertEqual(html.count("<script"), 1)
+
+  # --- MISSION 078: キャラクター周辺のモヤ・ぼかしを完全に消す ------------
+
+  def test_ai_office_no_filter_glow_on_status_token_classes(self):
+    # 状態別(working/pending/waiting/demo_done)のfilter:drop-shadowに
+    # よるキャラクター全体の発光は、一切出力しない。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for status_key in office_views.AI_OFFICE_STATUS_LABELS:
+      self.assertNotIn(f".ai-office-floormap-token-{status_key}{{filter:", html)
+
+  def test_ai_office_work_pulse_keyframe_has_no_filter(self):
+    # MISSION 078: 稼働中の上下動(ai-office-work-pulse)から、発光
+    # (filter:drop-shadow)を取り除き、動きだけを残す。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    keyframe = html.split("@keyframes ai-office-work-pulse{")[1].split(
+        "@keyframes ai-office-walk-bob"
+    )[0]
+    self.assertNotIn("filter", keyframe)
+    self.assertIn("translateY", keyframe)
+
+  def test_ai_office_floormap_token_has_no_filter_property_anywhere(self):
+    # トークン本体(キャラクター全体)を対象にしたfilterプロパティは、
+    # どの状態・アニメーションにも一切残っていないことを確認する
+    # (念のための包括的な回帰テスト)。
+    import re
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    style_block = html.split("<style>")[1].split("</style>")[0]
+    for m in re.finditer(r'(\.ai-office-floormap-token[^{]*)\{([^}]*)\}', style_block):
+      selector, body = m.group(1), m.group(2)
+      if "report-ring" in selector or "footstep" in selector:
+        continue
+      self.assertNotIn(
+          "filter:", body, f"unexpected filter on selector: {selector}"
+      )
+    for m in re.finditer(r'@keyframes ([a-z-]+)\{(.*?)\}\s*(?=@keyframes|\Z)', style_block, re.S):
+      name, body = m.group(1), m.group(2)
+      if name in ("ai-office-work-pulse", "ai-office-walk-bob") or name.startswith("ai-office-idle-"):
+        self.assertNotIn("filter", body, f"unexpected filter in keyframes {name}")
+
+  def test_ai_office_sprite_uses_clip_path_not_mask_image(self):
+    # MISSION 078では楕円マスクのフェード範囲を狭めて対応したが、単純な
+    # 楕円である以上、体・持ち物の外側にスプライトの暗い背景が残っていた。
+    # MISSION 079で、mask-imageによる楕円切り抜きを完全に廃止し、
+    # 人物ごとの輪郭に沿ったclip-path(AI_OFFICE_SPRITE_CLIP_PATHS)へ
+    # 置き換えた。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    # ai-office-floormap-sprite自体にはmask-imageを使わない(ページ全体の
+    # 共有スタイルには、/office(ライブオフィス)ページ用の無関係な
+    # .figure{mask-image:...}が別途存在するため、そちらまでは対象外)。
+    sprite_rule = html.split(".ai-office-floormap-sprite{")[1].split("}")[0]
+    self.assertNotIn("mask-image", sprite_rule)
+    self.assertNotIn("radial-gradient", sprite_rule)
+    people_keys = (
+        [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
+        + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
+    )
+    self.assertEqual(len(office_views.AI_OFFICE_SPRITE_CLIP_PATHS), 12)
+    for key in people_keys:
+      self.assertIn(key, office_views.AI_OFFICE_SPRITE_CLIP_PATHS)
+      polygon = office_views.AI_OFFICE_SPRITE_CLIP_PATHS[key]
+      self.assertTrue(polygon.startswith("polygon("))
+      self.assertTrue(polygon.endswith(")"))
+      # 単純な四角形・円形ではなく、体の輪郭をたどった十分な数の頂点を
+      # 持つ多角形になっていることを確認する。
+      self.assertGreater(polygon.count("%,"), 20)
+      self.assertIn(f"clip-path:{polygon}", html)
+      self.assertIn(f"-webkit-clip-path:{polygon}", html)
+
+  def test_ai_office_status_shown_via_ring_color_not_character_blur(self):
+    # 「作業中」「確認待ち」「待機中」「デモ完了」は、キャラ全体を
+    # ぼかして発光させず、足元の細いリングの色だけで示す。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-floormap-token-working .ai-office-report-ring{"
+        "opacity:.8;border-color:var(--cyan);", html,
+    )
+    self.assertIn(
+        ".ai-office-floormap-token-pending .ai-office-report-ring{"
+        "opacity:.8;border-color:#fbbf24;", html,
+    )
+    self.assertIn(
+        ".ai-office-floormap-token-waiting .ai-office-report-ring{"
+        "opacity:.45;border-color:#3b5c86}", html,
+    )
+    self.assertIn(
+        ".ai-office-floormap-token-demo_done .ai-office-report-ring{"
+        "opacity:.8;border-color:#34d399;", html,
+    )
+
+  def test_ai_office_working_and_moving_pulse_the_ring_not_the_character(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-floormap-token.is-working .ai-office-report-ring,\n"
+        ".ai-office-floormap-token.is-moving .ai-office-report-ring{"
+        "animation:ai-office-report-ring-pulse",
+        html,
+    )
+
+  def test_ai_office_report_mover_receiver_ring_still_visible_after_haze_removal(self):
+    # 対面報告中の二人は、引き続き足元リング(紫)+会話パネルで分かる
+    # (モヤ除去の影響を受けていないことの回帰確認)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-floormap-token.is-report-mover .ai-office-report-ring,",
+        html,
+    )
+    self.assertIn("border-color:#a78bfa", html)
+    self.assertIn('id="ai-office-report-panel"', html)
+
+  def test_ai_office_desk_and_monitor_decorations_unaffected_by_haze_removal(self):
+    # 指令デスクの通知光・モニターの光・休憩スペースの湯気は維持する
+    # (キャラクター本体に付随するモヤではなく、固定位置の演出のため対象外)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-command-pulse"', html)
+    self.assertIn("ai-office-monitor-glow-ambient", html)
+    self.assertIn("ai-office-lounge-steam", html)
+
+  def test_ai_office_mission078_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  def test_ai_office_mission078_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertEqual(html.count("<script"), 1)
+
+  # --- MISSION 079: スプライト背景(四角・グラデーション)を完全に隠す ----
+
+  def test_ai_office_clip_path_polygons_are_unique_and_not_simple_shapes(self):
+    # 12人それぞれ異なる、単純な四角形・円形ではない(頂点数の多い)
+    # clip-path多角形を持つことを確認する。
+    import office_views
+    paths = office_views.AI_OFFICE_SPRITE_CLIP_PATHS
+    self.assertEqual(len(paths), 12)
+    self.assertEqual(len(set(paths.values())), 12)
+    for key, poly in paths.items():
+      self.assertGreater(
+          poly.count("%,"), 20, f"{key} clip-path looks too simple: {poly}"
+      )
+
+  def test_ai_office_facing_flip_still_uses_same_clip_path(self):
+    # scaleX(-1)による向き反転は、clip-pathを適用した後の座標系に対して
+    # 効くため、反転時も輪郭とスプライト画像がずれない(同じ要素の
+    # transformプロパティで反転するだけで、clip-path自体は変更しない)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(".ai-office-floormap-sprite.is-facing-left{transform:scaleX(-1)}", html)
+    sprite_rule = html.split(".ai-office-floormap-sprite{")[1].split("}")[0]
+    self.assertIn("background-image", sprite_rule)
+
+  def test_ai_office_sprite_element_has_no_opaque_background_color(self):
+    # ai-office-floormap-sprite自体に、不透明な黒・灰色・青系の背景色を
+    # 付けていないことを確認する(背景を薄く見せる透明度処理も含めて
+    # 使わない)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    sprite_rule = html.split(".ai-office-floormap-sprite{")[1].split("}")[0]
+    self.assertNotIn("background-color", sprite_rule)
+    self.assertNotIn("opacity", sprite_rule)
+    token_rule = html.split(".ai-office-floormap-token{")[1].split("}")[0]
+    self.assertNotIn("background", token_rule)
+
+  def test_ai_office_no_pseudo_element_background_wraps_character(self):
+    # キャラクター全体を包む疑似要素の背景(::before/::after)を、
+    # トークン・スプライト本体には付けていない。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn(".ai-office-floormap-token:after", html)
+    self.assertNotIn(".ai-office-floormap-token:before", html)
+    self.assertNotIn(".ai-office-floormap-sprite:after", html)
+    self.assertNotIn(".ai-office-floormap-sprite:before", html)
+
+  def test_ai_office_report_pair_still_shows_only_the_two_people(self):
+    # 対面報告中も、報告者・受け手の背後に四角い背景・カードを追加しない
+    # (mission077の対面会話パネル・進行バナーは、キャラクター本体とは
+    # 別の固定位置のUIであり、人物の背景にはならないことを回帰確認する)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-report-panel"', html)
+    self.assertIn('id="ai-office-report-banner"', html)
+    sprite_rule = html.split(".ai-office-floormap-sprite{")[1].split("}")[0]
+    self.assertNotIn("background-color", sprite_rule)
+
+  def test_ai_office_mission079_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  def test_ai_office_mission079_still_no_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn("https://", html)
+    self.assertNotIn("http://", html)
+    self.assertNotIn("localStorage", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("api_key", html)
+    self.assertNotIn("access_token", html)
+    self.assertEqual(html.count("<button"), 1)
+    self.assertEqual(html.count("<script"), 1)
 
 
 if __name__ == "__main__":

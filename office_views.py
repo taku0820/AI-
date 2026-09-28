@@ -324,7 +324,8 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office-desk-summary{font-size:11px;color:var(--sub);line-height:1.6;margin:0 0 8px}
 .ai-office-desk-scope{font-size:10px;color:var(--sub);line-height:1.6;margin:0 0 10px;padding-top:8px;border-top:1px dashed var(--edge)}
 .ai-office-status-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:999px}
-.ai-office-status-waiting{background:#142039;color:var(--sub)}
+.ai-office-status-working{background:#0b2733;color:var(--cyan)}
+.ai-office-status-waiting{background:#142039;color:#7ca0c9}
 .ai-office-status-pending{background:#3d3106;color:#fbbf24}
 .ai-office-status-demo_done{background:#0b3d2e;color:#34d399}
 .ai-office-task-list,.ai-office-work-list,.ai-office-deliverables-list,.ai-office-activity-feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
@@ -341,7 +342,102 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office-freshness-status{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:#142039;color:var(--sub)}
 .ai-office-freshness-note{font-size:11px;color:var(--sub);margin:10px 0 0;line-height:1.6}
 .ai-office-deliverables-list a{margin-left:6px;font-size:11px}
-@media(max-width:760px){.ai-office-floor-grid,.ai-office-freshness-grid{grid-template-columns:1fr}.ai-office-task-list li,.ai-office-work-list li{flex-direction:column;align-items:flex-start}}
+.ai-office-floormap{position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--edge);padding:20px 18px 22px;margin-bottom:26px;background:linear-gradient(165deg,#0c1424 0%,#080e1a 70%),repeating-linear-gradient(115deg,rgba(34,211,238,.05) 0 2px,transparent 2px 60px),repeating-linear-gradient(25deg,rgba(34,211,238,.035) 0 2px,transparent 2px 60px)}
+.ai-office-report-banner{position:relative;z-index:1;margin:0 0 14px;padding:10px 14px;border:1px solid #a78bfa;border-radius:12px;background:#1c1533e0;color:var(--ink);font-size:14px;font-weight:700;text-align:center;line-height:1.5;word-break:break-word}
+.ai-office-floormap-caption{position:relative;z-index:1;margin:0 0 14px;font-size:11px;color:var(--sub);line-height:1.6}
+.ai-office-floormap-caption b{color:var(--ink)}
+.ai-office-floormap-image-wrap{position:relative;z-index:1;text-align:center;margin-bottom:14px}
+.ai-office-floormap-stage{position:relative;display:inline-block;width:100%;max-width:860px;line-height:0}
+.ai-office-floormap-image{display:block;width:100%;height:auto;border-radius:16px;border:1px solid #1c3350;box-shadow:0 0 0 1px rgba(34,211,238,.15),0 18px 45px #0007}
+.ai-office-floormap-overlay{position:absolute;inset:0;pointer-events:none}
+.ai-office-floormap-token{position:absolute;width:112px;height:126px;transform:translate(-50%,-78%);transition:left 1.6s ease,top 1.6s ease;z-index:2;pointer-events:none}
+.ai-office-floormap-sprite{position:absolute;inset:0;background-image:url(/static/images/ai-office-team-3d.png);background-repeat:no-repeat;background-size:300% 400%;transition:transform .5s ease}
+.ai-office-floormap-sprite.is-facing-left{transform:scaleX(-1)}
+.ai-office-floormap-sprite.is-facing-right{transform:scaleX(1)}
+.ai-office-idle-typing{animation:ai-office-idle-typing 3.6s ease-in-out infinite}
+.ai-office-idle-reading{animation:ai-office-idle-reading 4.2s ease-in-out infinite}
+.ai-office-idle-analyzing{animation:ai-office-idle-analyzing 3.9s ease-in-out infinite}
+.ai-office-idle-waiting{animation:ai-office-idle-waiting 4.6s ease-in-out infinite}
+@keyframes ai-office-idle-typing{0%,100%{transform:translate(-50%,-78%) translateY(0) rotate(0deg)}50%{transform:translate(-50%,-78%) translateY(-2px) rotate(.6deg)}}
+@keyframes ai-office-idle-reading{0%,40%,100%{transform:translate(-50%,-78%) translateY(0)}20%{transform:translate(-50%,-78%) translateY(-1.5px)}}
+@keyframes ai-office-idle-analyzing{0%,100%{transform:translate(-50%,-78%) scale(1)}50%{transform:translate(-50%,-78%) scale(1.012)}}
+@keyframes ai-office-idle-waiting{0%,100%{transform:translate(-50%,-78%) scale(1)}50%{transform:translate(-50%,-78%) scale(1.02)}}
+.ai-office-floormap-token.is-working{animation:ai-office-work-pulse 1.4s ease-in-out infinite}
+.ai-office-floormap-token.is-moving{animation:ai-office-walk-bob .55s ease-in-out infinite}
+@keyframes ai-office-work-pulse{0%,100%{transform:translate(-50%,-78%) translateY(0)}50%{transform:translate(-50%,-78%) translateY(-3px)}}
+@keyframes ai-office-walk-bob{0%,100%{transform:translate(-50%,-78%) translateY(0)}50%{transform:translate(-50%,-78%) translateY(-6px)}}
+.ai-office-footstep{position:absolute;bottom:6%;left:50%;width:38%;height:10px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(34,211,238,.6),transparent 72%);opacity:0;transition:opacity .3s ease;pointer-events:none}
+.ai-office-floormap-token.is-moving .ai-office-footstep{opacity:1}
+.ai-office-nameplate{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;white-space:nowrap;font-size:10px;font-weight:700;color:var(--ink);background:#0b1120e8;border:1px solid var(--edge);border-radius:8px;padding:2px 7px 2px 5px;display:flex;align-items:center;gap:4px;pointer-events:none}
+.ai-office-nameplate-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--sub)}
+.ai-office-nameplate-dot-working{background:var(--cyan);box-shadow:0 0 5px 1px rgba(34,211,238,.85)}
+.ai-office-nameplate-dot-pending{background:#fbbf24;box-shadow:0 0 5px 1px rgba(251,191,36,.85)}
+.ai-office-nameplate-dot-waiting{background:#3b5c86}
+.ai-office-nameplate-dot-demo_done{background:#34d399;box-shadow:0 0 5px 1px rgba(52,211,153,.85)}
+.ai-office-nameplate-phase{color:var(--cyan);font-weight:700}
+.ai-office-nameplate-phase:empty{display:none}
+.ai-office-report-ring{position:absolute;left:50%;bottom:4%;width:44%;height:12px;transform:translateX(-50%);border-radius:50%;border:2px solid transparent;opacity:0;transition:opacity .3s ease,border-color .3s ease,box-shadow .3s ease;pointer-events:none}
+.ai-office-floormap-token-working .ai-office-report-ring{opacity:.8;border-color:var(--cyan);box-shadow:0 0 6px 1px rgba(34,211,238,.55)}
+.ai-office-floormap-token-pending .ai-office-report-ring{opacity:.8;border-color:#fbbf24;box-shadow:0 0 6px 1px rgba(251,191,36,.5)}
+.ai-office-floormap-token-waiting .ai-office-report-ring{opacity:.45;border-color:#3b5c86}
+.ai-office-floormap-token-demo_done .ai-office-report-ring{opacity:.8;border-color:#34d399;box-shadow:0 0 6px 1px rgba(52,211,153,.5)}
+.ai-office-floormap-token.is-working .ai-office-report-ring,
+.ai-office-floormap-token.is-moving .ai-office-report-ring{animation:ai-office-report-ring-pulse 1.2s ease-in-out infinite}
+.ai-office-floormap-token.is-report-mover .ai-office-report-ring,
+.ai-office-floormap-token.is-report-receiver .ai-office-report-ring{opacity:1;border-color:#a78bfa;box-shadow:0 0 10px 3px rgba(167,139,250,.75);animation:ai-office-report-ring-pulse 1.3s ease-in-out infinite}
+@keyframes ai-office-report-ring-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+.ai-office-report-connector{position:absolute;height:0;border-top:2px dashed #a78bfa;transform-origin:0 50%;opacity:0;transition:opacity .3s ease;z-index:1;pointer-events:none}
+.ai-office-report-connector.is-visible{opacity:.9}
+.ai-office-report-connector:after{content:"";position:absolute;right:-1px;top:-5px;border-width:5px 0 5px 9px;border-style:solid;border-color:transparent transparent transparent #a78bfa}
+.ai-office-floormap-overlay.is-reporting .ai-office-floormap-token{opacity:.5;transition:opacity .4s ease}
+.ai-office-floormap-overlay.is-reporting .ai-office-floormap-token.is-report-mover,
+.ai-office-floormap-overlay.is-reporting .ai-office-floormap-token.is-report-receiver{opacity:1}
+.ai-office-monitor-glow{position:absolute;width:9px;height:7px;border-radius:2px;background:var(--cyan);opacity:.18;filter:blur(.5px);transition:opacity .3s ease;transform:translate(calc(-50% + 62px),calc(-50% - 96px));pointer-events:none;z-index:1}
+.ai-office-monitor-glow-ambient{animation:ai-office-monitor-idle-flicker 3.4s ease-in-out infinite}
+.ai-office-monitor-glow.is-active{animation:ai-office-monitor-flicker 1.4s steps(2) infinite}
+@keyframes ai-office-monitor-flicker{0%,100%{opacity:.85}50%{opacity:.3}}
+@keyframes ai-office-monitor-idle-flicker{0%,100%{opacity:.14}50%{opacity:.32}}
+.ai-office-lounge-decor{position:absolute;width:1px;height:1px;pointer-events:none;z-index:1}
+.ai-office-lounge-cup{position:absolute;left:-8px;top:14px;width:16px;height:10px;border-radius:0 0 6px 6px;background:linear-gradient(180deg,#2a3a54,#1a2740);border:1px solid #3b5c86}
+.ai-office-lounge-steam{position:absolute;left:-3px;bottom:22px;width:5px;height:12px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(210,230,255,.5),transparent 75%);opacity:0;animation:ai-office-lounge-steam-rise 3.2s ease-in infinite}
+.ai-office-lounge-steam-2{left:1px;animation-delay:-1.6s}
+@keyframes ai-office-lounge-steam-rise{0%{opacity:0;transform:translateY(0) scale(.8)}30%{opacity:.55}80%{opacity:0}100%{opacity:0;transform:translateY(-20px) scale(1.2)}}
+.ai-office-command-pulse{position:absolute;left:0;top:0;width:26px;height:26px;transform:translate(-50%,-95%);border-radius:50%;pointer-events:none;z-index:1;opacity:0;box-shadow:0 0 0 0 rgba(34,211,238,.6)}
+.ai-office-command-pulse.is-active{animation:ai-office-command-pulse-ring 1.1s ease-out}
+@keyframes ai-office-command-pulse-ring{0%{opacity:.9;box-shadow:0 0 0 0 rgba(34,211,238,.7)}100%{opacity:0;box-shadow:0 0 0 26px rgba(34,211,238,0)}}
+.ai-office-progress-board{position:absolute;left:10px;top:10px;z-index:4;max-width:44%;background:#0b1c2cf0;border:1px solid var(--cyan);border-radius:10px;padding:6px 10px;font-size:10px;line-height:1.5;color:var(--ink);pointer-events:none}
+.ai-office-progress-board b{display:block;color:var(--cyan);font-size:10px;margin-bottom:2px}
+.ai-office-progress-board span{display:block;color:var(--sub)}
+.ai-office-floormap-overlay.is-paused,.ai-office-floormap-overlay.is-paused *{animation-play-state:paused!important}
+.ai-office-floormap-bubble{position:absolute;transform:translate(-50%,calc(-100% - 104px));width:max-content;max-width:150px;background:#0b1c2cf0;border:1px solid var(--cyan);border-radius:10px;padding:6px 9px;font-size:10px;line-height:1.4;color:var(--ink);opacity:0;transition:opacity .3s ease;z-index:3;text-align:left}
+.ai-office-floormap-bubble.is-visible{opacity:1}
+.ai-office-floormap-bubble:after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border-width:6px 6px 0;border-style:solid;border-color:var(--cyan) transparent transparent}
+.ai-office-floormap-bubble-receiver{border-color:#34d399}
+.ai-office-floormap-bubble-receiver:after{border-color:#34d399 transparent transparent}
+.ai-office-floormap-controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.ai-office-anim-toggle{background:#142039;color:var(--ink);border:1px solid var(--cyan);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.ai-office-anim-toggle:hover,.ai-office-anim-toggle:focus-visible{background:#1b2d4b}
+.ai-office-floormap-speech{max-width:860px;margin:10px auto 0;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:10px 14px;font-size:12px;color:var(--sub);line-height:1.6;min-height:1.6em;text-align:left}
+.ai-office-floormap-speech b{color:var(--cyan)}
+.ai-office-floormap-speech-note{max-width:860px;margin:6px auto 0;font-size:10px;color:var(--sub);line-height:1.5;text-align:center}
+.ai-office-floormap-hint{margin:10px auto 0;max-width:860px;font-size:11px;color:var(--sub);line-height:1.6}
+.ai-office-report-panel{position:relative;z-index:1;margin:10px auto 0;max-width:860px;background:#1c1533e0;border:1px solid #a78bfa;border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:4px}
+.ai-office-report-panel-line{margin:0;font-size:12px;line-height:1.6;color:var(--ink);word-break:break-word}
+.ai-office-report-panel-line:empty{display:none}
+.ai-office-report-legend{position:relative;z-index:1;margin:8px auto 0;max-width:860px;font-size:10px;color:var(--sub);text-align:center}
+.ai-office-floormap-status-strip{position:relative;z-index:1;list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.ai-office-strip-chip{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#101c33,#0a1424);border:1px solid var(--edge);border-radius:999px;padding:6px 14px 6px 6px;min-width:190px}
+.ai-office-char-avatar{width:30px;height:30px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,#1c3a52,#0b1a2b);border:2px solid var(--sub);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:var(--ink)}
+.ai-office-char-avatar-working{border-color:var(--cyan);box-shadow:0 0 12px 3px rgba(34,211,238,.55);animation:ai-office-pulse 1.8s ease-in-out infinite}
+.ai-office-char-avatar-pending{border-color:#fbbf24;box-shadow:0 0 10px 2px rgba(251,191,36,.45)}
+.ai-office-char-avatar-waiting{border-color:#3b5c86;box-shadow:0 0 6px 1px rgba(59,92,134,.35)}
+.ai-office-char-avatar-demo_done{border-color:#34d399;box-shadow:0 0 10px 2px rgba(52,211,153,.4)}
+@keyframes ai-office-pulse{0%,100%{box-shadow:0 0 12px 3px rgba(34,211,238,.55)}50%{box-shadow:0 0 20px 6px rgba(34,211,238,.85)}}
+.ai-office-sprite-avatar{background-image:url(/static/images/ai-office-team-3d.png);background-repeat:no-repeat;background-size:300% 400%;background-color:#0b1120;box-shadow:0 2px 6px #0008}
+.ai-office-strip-info{min-width:0;display:flex;flex-direction:column;gap:1px}
+.ai-office-strip-info b{font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:760px){.ai-office-floor-grid,.ai-office-freshness-grid{grid-template-columns:1fr}.ai-office-task-list li,.ai-office-work-list li{flex-direction:column;align-items:flex-start}.ai-office-floormap-status-strip{flex-direction:column;align-items:stretch}.ai-office-strip-chip{min-width:0}}
+@media(max-width:480px){.ai-office-floormap-token{width:72px;height:81px}.ai-office-floormap-bubble{max-width:104px;font-size:9px;padding:5px 7px;transform:translate(-50%,calc(-100% - 68px))}.ai-office-nameplate{font-size:8px;padding:1px 5px}.ai-office-monitor-glow{transform:translate(calc(-50% + 40px),calc(-50% - 62px))}.ai-office-progress-board{max-width:62%;font-size:9px;padding:5px 7px}.ai-office-progress-board b{font-size:9px}.ai-office-command-pulse{width:18px;height:18px}.ai-office-report-banner{font-size:11px;padding:8px 10px}.ai-office-report-panel-line{font-size:11px}.ai-office-report-legend{font-size:9px}}
 </style>
 """
 
@@ -5431,59 +5527,193 @@ def _render_command_center_scene():
 # 5部署の役割・「提案・下書き・記録まで。最終承認と外部公開は利用者本人」
 # という範囲は、company_knowledge/departments/*.mdの内容と矛盾しないように
 # 保つこと。
+#
+# MISSION 069: オフィスフロアマップを、CSSだけで描いたカード型から、
+# ピクセルアート調のイラスト画像(static/images/ai-office-floor-map.png)を
+# 中心にした表示へ差し替えた。画像は装飾ではなくAIオフィスの中心として
+# 扱い、画像の直下に5部署の状態(すべてデモ)を対応付けた一覧を表示する。
+# 画像に対するクリック操作・状態変更機能は今回実装しない(案内文のみ)。
+#
+# MISSION 072: 背景画像(ai-office-floor-map.png)にはロボットのイラストが
+# 描き込まれており、その上に社員スプライトを重ねると背景ロボットと重複
+# して見えてしまう不具合があった。ロボット・人物を取り除いた
+# ai-office-floor-map-empty.pngを新たに追加し、実際にフロアマップとして
+# 表示するのはこちらに差し替えた。ai-office-floor-map.png自体は削除・
+# 変更しない(過去のミッションで追加した画像を保持するため)。
 AI_OFFICE_SCOPE_STATEMENT = "提案・下書き・記録まで。最終承認と外部公開は利用者本人。"
+AI_OFFICE_FLOOR_MAP_IMAGE_RELATIVE_PATH = "images/ai-office-floor-map.png"
+AI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATH = "images/ai-office-floor-map-empty.png"
 
 # 各担当の状態(demo_status)は、後の段階で確認AI等の読み取り結果と連携できる
-# よう、"waiting"(待機中)/"pending"(確認待ち)/"demo_done"(デモ完了)という
-# 固定キーで表現する(表示文言はAI_OFFICE_STATUS_LABELSで一元管理)。
+# よう、"working"(稼働中)/"pending"(確認待ち)/"waiting"(待機中)/
+# "demo_done"(デモ完了)という固定キーで表現する(表示文言は
+# AI_OFFICE_STATUS_LABELSで一元管理)。MISSION 068でオフィスフロアマップに
+# AI社員キャラクターの状態表示を追加するため、"working"を追加した。
+# どの状態も実際の自動稼働を示すものではなく、常にデモ表示である。
 AI_OFFICE_STATUS_LABELS = {
-    "waiting": "待機中",
+    "working": "稼働中",
     "pending": "確認待ち",
+    "waiting": "待機中",
     "demo_done": "デモ完了",
 }
 
+# staff_nameはMISSION 068で追加した、各部署に1人ずつ配置するAI社員の
+# 名称(フィクションのキャラクターであり、実在の人物ではない)。MISSION 071で、
+# フロアマップ上に表示するスプライト画像(static/images/ai-office-team-
+# sprites.png、2列×4行)における各キャラクターの位置(sprite.row/col)を
+# 追加した。
 AI_OFFICE_DEPARTMENTS = [
     {
         "key": "operations_lead",
         "desk_label": "指令デスク",
         "role_label": "運用責任者",
         "symbol": "指令",
+        "staff_name": "柴犬社長",
+        "sprite": {"row": 0, "col": 0},
         "role_summary": "各担当の状況を横断的に確認し、今日・今週の優先順位を整理します。",
-        "demo_status": "waiting",
+        "demo_status": "working",
+        "idle_type": "typing",
     },
     {
         "key": "room",
         "desk_label": "ROOM運用席",
         "role_label": "ROOM担当",
         "symbol": "ROOM",
+        "staff_name": "里奈",
+        "sprite": {"row": 2, "col": 0},
         "role_summary": "商品数・♡・コメントを確認し、反応のあるジャンルを候補として提案します。",
         "demo_status": "pending",
+        "idle_type": "typing",
     },
     {
         "key": "note",
         "desk_label": "note編集席",
         "role_label": "note担当",
         "symbol": "note",
+        "staff_name": "海",
+        "sprite": {"row": 1, "col": 0},
         "role_summary": "記事候補やPV・スキを整理し、次のテーマ候補をまとめます。",
         "demo_status": "waiting",
+        "idle_type": "typing",
     },
     {
         "key": "pinterest",
         "desk_label": "Pinterest企画席",
         "role_label": "Pinterest担当",
         "symbol": "Pin",
-        "role_summary": "Pinの表示・保存・リンククリックを記録し、導線候補を提案します。",
+        "staff_name": "美咲",
+        "sprite": {"row": 0, "col": 2},
+        "role_summary": "画像テーマ・Pin候補を整理し、Pinの表示・保存・リンククリックを"
+                        "記録します。",
         "demo_status": "demo_done",
+        "idle_type": "reading",
     },
     {
         "key": "analytics",
         "desk_label": "分析ラボ",
         "role_label": "分析担当",
         "symbol": "分析",
+        "staff_name": "葵",
+        "sprite": {"row": 2, "col": 1},
         "role_summary": "媒体ごとの数字を比較し、確認済みの事実と推測を分けて判断案を作ります。",
         "demo_status": "waiting",
+        "idle_type": "analyzing",
     },
 ]
+
+# MISSION 071で追加、MISSION 073で7人(蒼・伊織・彩(役割更新)・凛・悠・
+# 結・蓮)へ拡張した、部署に紐づかない拡張担当。フロアマップ上に自席を
+# 持ち、控えめな頻度で他部署・休憩スペースへの交流・確認デモを行う。
+# 5部署カードとは別枠だが、MISSION 073で「社員名簿」セクションへ全員
+# 統合して一覧表示する(zone_labelがその表示グループ名)。
+AI_OFFICE_EXTENDED_STAFF = [
+    {
+        "key": "sou",
+        "name": "蒼",
+        "zone_label": "技術・品質スペース",
+        "role_label": "技術担当",
+        "role_summary": "AIオフィスの画面・動作確認を行います。",
+        "sprite": {"row": 0, "col": 1},
+        "pos": {"left": 68, "top": 22},
+        "idle_type": "typing",
+    },
+    {
+        "key": "iori",
+        "name": "伊織",
+        "zone_label": "技術・品質スペース",
+        "role_label": "品質確認",
+        "role_summary": "表示内容と注意書きの確認を行います。",
+        "sprite": {"row": 1, "col": 1},
+        "pos": {"left": 84, "top": 22},
+        "idle_type": "reading",
+    },
+    {
+        "key": "aya",
+        "name": "彩",
+        "zone_label": "Pinterest企画席",
+        "role_label": "連携担当（社内コーディネーター）",
+        "role_summary": "各部署の報告を指令デスクへつなぎ、確認待ちを整理します。"
+                        "休憩スペースや他部署への訪問で、相談・交流のきっかけを"
+                        "つくります。外部サービスへの投稿・送信・判断は行いません。",
+        "sprite": {"row": 1, "col": 2},
+        "pos": {"left": 52, "top": 76},
+        "idle_type": "waiting",
+    },
+    {
+        "key": "rin",
+        "name": "凛",
+        "zone_label": "note編集席",
+        "role_label": "資料室管理",
+        "role_summary": "資料室の内容を確認し、note編集席と行き来します。",
+        "sprite": {"row": 2, "col": 2},
+        "pos": {"left": 36, "top": 58},
+        "idle_type": "reading",
+    },
+    {
+        "key": "yu",
+        "name": "悠",
+        "zone_label": "指令デスク",
+        "role_label": "進行管理",
+        "role_summary": "指令デスクと各部署の間を回り、進行状況を確認します。",
+        "sprite": {"row": 3, "col": 0},
+        "pos": {"left": 36, "top": 22},
+        "idle_type": "reading",
+    },
+    {
+        "key": "yui",
+        "name": "結",
+        "zone_label": "分析ラボ",
+        "role_label": "情報源の鮮度確認",
+        "role_summary": "分析ラボと情報源モニターの間で、情報の鮮度を確認します。",
+        "sprite": {"row": 3, "col": 1},
+        "pos": {"left": 84, "top": 58},
+        "idle_type": "analyzing",
+    },
+    {
+        "key": "ren",
+        "name": "蓮",
+        "zone_label": "指令デスク",
+        "role_label": "安全・承認確認",
+        "role_summary": "報告のあとに、安全・承認確認の状態を表示します。",
+        "sprite": {"row": 3, "col": 2},
+        "pos": {"left": 20, "top": 58},
+        "idle_type": "waiting",
+    },
+]
+
+# MISSION 075: 全12人に常時の小さな「生きている」動きを付けるための、
+# idle_typeごとのCSSアニメーション名マッピング。全員が同じ周期にならない
+# よう、_floor_token側で人物ごとにanimation-delay/durationをずらす。
+AI_OFFICE_IDLE_ANIMATION_BY_TYPE = {
+    "typing": "ai-office-idle-typing",
+    "reading": "ai-office-idle-reading",
+    "analyzing": "ai-office-idle-analyzing",
+    "waiting": "ai-office-idle-waiting",
+}
+
+# フロアマップ画像の中央通路(光る地球儀のあたり)を、交流デモ用の
+# 「休憩スペース」として扱う。
+AI_OFFICE_LOUNGE_POSITION = {"left": 50, "top": 55}
 
 # パーツ1: 今日のタスク(デモ)。実在の投稿・売上・作業結果ではないことを
 # 画面上で常に明示する(_render_ai_office_scene内でデモタグを添える)。
@@ -5551,6 +5781,270 @@ AI_OFFICE_ACTIVITY_FEED = [
     "デモ：資料室のルールを確認しました",
     "デモ：今日のタスク候補を表示しました",
 ]
+AI_OFFICE_ACTIVITY_FEED_MAX_ITEMS = 5
+
+# MISSION 070: オフィスフロアマップ上でAI社員が1人ずつ「自席で作業→指令デスク
+# へ報告→自席へ戻る」を巡回するデモアニメーション用データ。すべてローカルの
+# CSSアニメーション+JavaScriptで完結し、外部通信・fetch・XMLHttpRequest・
+# WebSocket・localStorageへの保存は一切行わない(ページ再読み込みで初期状態に
+# 戻ってよい)。ここに書く会話文・活動フィード文言は、実行済みの投稿・送信・
+# 売上・反応数と誤認されない、明示的なデモ用の文言に限定する。
+#
+# 座標(left/top)は、フロアマップ画像(1254×1254、正方形)に対する百分率で、
+# 各部署の机にいるAI社員キャラクターのおおよその位置を示す。
+# MISSION 074: 全身の立体キャラクターを大きく表示するようになったため、
+# 12人が重ならないよう、各部屋の実際の家具配置に合わせて座標を再計算した
+# (指令デスク3人・技術品質2人・note2人・ROOM1人・Pinterest2人・分析2人)。
+# MISSION 075: 常時の巡回・交流デモが増え、他部署への「訪問」中も
+# 訪問先の在席者と重ならない必要が出てきたため、12人分の座席を
+# 4列(left=20/36/52/68/84)×3行(top=22/40/58/76、いずれも列・行の
+# 間隔がキャラクター1体分以上空くよう計算済み)の格子上に再配置し、
+# 各部署の「訪問者スロット」(AI_OFFICE_VISITOR_SLOTS)も同じ格子の
+# 空きマスに割り当てた。ズームやキャラクターサイズが変わった場合は、
+# この間隔(列は16%以上、行は18%以上)を目安に再計算すること。
+AI_OFFICE_FLOOR_POSITIONS = {
+    "operations_lead": {"left": 20, "top": 22},
+    "note": {"left": 20, "top": 40},
+    "pinterest": {"left": 20, "top": 76},
+    "room": {"left": 52, "top": 40},
+    "analytics": {"left": 68, "top": 58},
+}
+
+# MISSION 076: 対面報告の「訪問者スロット」(AI_OFFICE_VISITOR_SLOTS)は
+# 報告"先"(受け手)ごとに1つ定義する。報告する本人は必ずこのスロットへ
+# 歩いて行き、受け手本人の座席とは重ならない位置で向かい合う。
+# MISSION 070〜075の全社員報告(指令デスクへの直接報告)は廃止し、
+# 悠・彩・伊織・蓮・柴犬社長など、役割ごとの受け手へ個別に報告する形へ
+# 変更した(AI_OFFICE_REPORT_ROUTES)。noteは、悠・彩たちとは別に、
+# 凛が資料室確認で立ち寄る先(AI_OFFICE_INTERACTION_SCENES)としても
+# 引き続き使うため、訪問者スロットを維持する。
+# MISSION 077: 伊織→蓮の報告ルートを追加したため、蓮用の訪問者スロットを
+# 追加した(指令デスク3人・空きマスの1つを使用、12人・既存スロットいずれ
+# とも列16%以上または行18%以上離れている)。
+AI_OFFICE_VISITOR_SLOTS = {
+    "operations_lead": {"left": 36, "top": 40},
+    "analytics": {"left": 84, "top": 76},
+    "note": {"left": 36, "top": 76},
+    "yu": {"left": 52, "top": 22},
+    "aya": {"left": 68, "top": 76},
+    "iori": {"left": 84, "top": 40},
+    "ren": {"left": 52, "top": 58},
+}
+
+# MISSION 076: AIオフィスの報告演出を、「指令デスクへ移動するだけ」から、
+# 報告先の社員の前まで歩いて対面で会話する形に変更した。報告先は柴犬社長
+# だけに集中させず、役割に応じて悠(進行管理・一次報告)・彩(連携・部署間
+# 引き継ぎ)・伊織(品質確認)・蓮(安全・承認確認)へ分散し、柴犬社長は
+# 悠・蓮から上がる重要なまとめ報告だけを受ける。各ルートは
+# mover(報告する本人)→receiver(報告を受ける本人)の対面会話として
+# 表現し、mover_line(報告者のセリフ)→receiver_line(受け手の返答)の
+# 順に吹き出し・会話ログへ表示する。feed_textは活動フィード用の要約で、
+# 「誰が誰へ何を報告したか」が分かる文言に統一する。
+AI_OFFICE_REPORT_ROUTES = [
+    {
+        "key": "room_to_yu",
+        "mover": "room",
+        "receiver": "yu",
+        "mover_line": "ROOM候補を整理しました",
+        "receiver_line": "受け取りました。次の確認へ進めます",
+        "feed_text": "里奈が悠へROOM候補の報告をしました",
+    },
+    {
+        "key": "note_to_aya",
+        "mover": "note",
+        "receiver": "aya",
+        "mover_line": "見出し構成をまとめました",
+        "receiver_line": "美咲にも共有して方向性をそろえます",
+        "feed_text": "海が彩へ見出し構成の報告をしました",
+    },
+    {
+        "key": "pinterest_to_aya",
+        "mover": "pinterest",
+        "receiver": "aya",
+        "mover_line": "画像テーマ候補を用意しました",
+        "receiver_line": "noteの見出しと合わせて確認します",
+        "feed_text": "美咲が彩へ画像テーマ候補の報告をしました",
+    },
+    {
+        "key": "sou_to_iori",
+        "mover": "sou",
+        "receiver": "iori",
+        "mover_line": "画面表示を確認しました",
+        "receiver_line": "品質観点で確認します",
+        "feed_text": "蒼が伊織へ画面表示の報告をしました",
+    },
+    {
+        "key": "yui_to_analytics",
+        "mover": "yui",
+        "receiver": "analytics",
+        "mover_line": "情報源の鮮度を確認しました",
+        "receiver_line": "比較メモへ反映します",
+        "feed_text": "結が葵へ情報源の鮮度の報告をしました",
+    },
+    {
+        "key": "analytics_to_yu",
+        "mover": "analytics",
+        "receiver": "yu",
+        "mover_line": "確認済みの数字を比較しました",
+        "receiver_line": "判断メモとして整理します",
+        "feed_text": "葵が悠へ数字比較の報告をしました",
+    },
+    {
+        "key": "yu_to_president",
+        "mover": "yu",
+        "receiver": "operations_lead",
+        "mover_line": "各部署の報告をまとめました",
+        "receiver_line": "受け取りました。利用者の確認待ちにします",
+        "feed_text": "悠が柴犬社長へまとめ報告をしました",
+    },
+    {
+        "key": "ren_to_president",
+        "mover": "ren",
+        "receiver": "operations_lead",
+        "mover_line": "安全・承認確認を終えました",
+        "receiver_line": "確認しました。外部操作は利用者判断です",
+        "feed_text": "蓮が柴犬社長へ安全・承認確認の報告をしました",
+    },
+    # MISSION 077: 凛(資料室管理)→海・伊織(品質確認)→蓮・彩(連携担当)→悠の
+    # 3ルートを追加し、社長へ直接報告するのは悠・蓮の2人だけであることを
+    # さらに明確にした(残り9ルートはすべて悠・彩・伊織・蓮のいずれかへ
+    # 報告する)。
+    {
+        "key": "rin_to_note",
+        "mover": "rin",
+        "receiver": "note",
+        "mover_line": "資料室の内容を確認しました",
+        "receiver_line": "確認ありがとう。記事に反映します",
+        "feed_text": "凛が海へ資料室確認の報告をしました",
+    },
+    {
+        "key": "iori_to_ren",
+        "mover": "iori",
+        "receiver": "ren",
+        "mover_line": "表示内容の品質確認を終えました",
+        "receiver_line": "安全・承認の観点で確認します",
+        "feed_text": "伊織が蓮へ品質確認の報告をしました",
+    },
+    {
+        "key": "aya_to_yu",
+        "mover": "aya",
+        "receiver": "yu",
+        "mover_line": "部署間の連携状況を共有しました",
+        "receiver_line": "進行管理に反映します",
+        "feed_text": "彩が悠へ連携状況の報告をしました",
+    },
+]
+
+# MISSION 077: 進行バナー(「対面報告中 悠（進行管理） → 柴犬社長
+# （最終確認）」)に使う、報告の文脈での短い役割ラベル。desk_label・
+# role_labelとは別に、バナーの文字数を短く保つための専用ラベルを持つ
+# (柴犬社長は運用責任者ではなく「最終確認」という、報告を受け取る側の
+# 役割として表示する)。
+AI_OFFICE_REPORT_ROLE_LABELS = {
+    "operations_lead": "最終確認",
+    "room": "ROOM担当",
+    "note": "note担当",
+    "pinterest": "Pinterest担当",
+    "analytics": "分析担当",
+    "sou": "技術担当",
+    "iori": "品質確認",
+    "aya": "連携担当",
+    "rin": "資料室管理",
+    "yu": "進行管理",
+    "yui": "鮮度確認",
+    "ren": "安全・承認確認",
+}
+
+# MISSION 077: 名前札の「◯◯さんへ報告中」表記を短く保つための略称
+# (柴犬社長のみ「社長」と略す。他は元の名前で十分短いためそのまま使う)。
+AI_OFFICE_SHORT_NAMES = {
+    "operations_lead": "社長",
+}
+
+# MISSION 071: 社員本人が歩いて回るフロアマップ用のスプライト画像
+# (2列×4行、8人)。MISSION 073で、より立体的な3Dキャラクター調の
+# スプライト(static/images/ai-office-team-3d.png、3列×4行、12人)へ
+# 全面更新し、AIオフィス画面ではこちらだけを表示する。旧スプライト
+# ファイル自体は削除せず残すが、画面には使用しない
+# (AI_OFFICE_LEGACY_SPRITE_SHEET_RELATIVE_PATHとしてのみ参照を保持)。
+AI_OFFICE_LEGACY_SPRITE_SHEET_RELATIVE_PATH = "images/ai-office-team-sprites.png"
+AI_OFFICE_SPRITE_SHEET_RELATIVE_PATH = "images/ai-office-team-3d.png"
+AI_OFFICE_SPRITE_COLS = 3
+AI_OFFICE_SPRITE_ROWS = 4
+
+# MISSION 079: スプライトシートの各コマには、暗いビネット背景(グラ
+# デーション)が描き込まれており、MISSION 074〜078のradial-gradientマスク
+# (フェード)や状態別のfilter:drop-shadowでは、単純な楕円で切り取るだけ
+# だったため、体・持ち物からはみ出た背景がまだ見えていた。ここでは
+# 各コマの画像を解析し(背景の滑らかなグラデーションからの差分で人物領域を
+# 検出→最大の連結領域→行ごとの左右端をたどる)、12人それぞれの輪郭に沿った
+# clip-path用の多角形をあらかじめ計算して埋め込んでいる(生成手順は
+# コミットに含めていない一時スクリプトによるもので、この定数が最終結果)。
+# 単純な四角形・円形ではなく、頭・肩・腕・持ち物・足・足元の光るリング
+# (スプライト自体に描かれているもの)まで含めた輪郭になっている。
+AI_OFFICE_SPRITE_CLIP_PATHS = {
+    "operations_lead": "polygon(41.6% 3.9%,69.8% 6.2%,71.0% 8.9%,72.4% 11.7%,73.0% 14.3%,74.8% 17.2%,76.8% 19.8%,77.1% 22.7%,77.1% 25.3%,76.2% 28.1%,81.5% 30.7%,83.0% 33.6%,83.6% 36.2%,83.0% 39.1%,81.8% 41.7%,80.4% 44.5%,80.4% 47.1%,79.5% 50.0%,78.6% 52.9%,75.4% 55.5%,76.0% 58.3%,78.0% 60.9%,76.8% 63.8%,74.5% 66.4%,74.2% 69.3%,73.6% 71.9%,72.7% 74.7%,72.1% 77.3%,72.1% 80.2%,85.0% 82.8%,86.8% 85.7%,86.8% 88.3%,84.8% 91.1%,84.8% 93.8%,25.2% 91.1%,22.6% 88.3%,16.4% 85.7%,16.1% 82.8%,15.5% 80.2%,19.1% 77.3%,22.0% 74.7%,25.2% 71.9%,34.6% 69.3%,28.7% 66.4%,26.4% 63.8%,25.8% 60.9%,25.2% 58.3%,24.9% 55.5%,24.9% 52.9%,25.8% 50.0%,27.6% 47.1%,35.8% 44.5%,34.9% 41.7%,33.7% 39.1%,33.7% 36.2%,33.7% 33.6%,36.7% 30.7%,36.1% 28.1%,36.1% 25.3%,36.4% 22.7%,37.2% 19.8%,38.1% 17.2%,38.1% 14.3%,38.7% 11.7%,39.6% 8.9%,41.6% 6.2%)",
+    "room": "polygon(32.3% 0.0%,75.1% 1.3%,74.5% 4.4%,75.7% 7.6%,77.4% 10.7%,79.5% 13.8%,79.8% 16.9%,76.2% 20.1%,76.2% 23.2%,74.5% 26.3%,82.4% 29.4%,80.1% 32.6%,80.1% 35.7%,77.7% 38.8%,77.7% 41.9%,76.8% 45.1%,75.4% 48.2%,66.9% 51.3%,66.6% 54.4%,66.6% 57.6%,66.3% 60.7%,66.0% 63.8%,65.7% 66.9%,65.7% 70.1%,73.9% 73.2%,80.9% 76.3%,81.5% 79.4%,80.4% 82.6%,71.6% 85.7%,60.7% 88.8%,62.2% 91.9%,65.1% 95.1%,67.4% 98.2%,67.4% 99.7%,31.7% 98.2%,35.5% 95.1%,38.1% 91.9%,39.0% 88.8%,31.7% 85.7%,21.7% 82.6%,20.2% 79.4%,21.1% 76.3%,34.3% 73.2%,34.6% 70.1%,35.2% 66.9%,37.0% 63.8%,38.4% 60.7%,40.2% 57.6%,36.4% 54.4%,36.1% 51.3%,36.7% 48.2%,37.8% 45.1%,34.9% 41.9%,34.6% 38.8%,35.5% 35.7%,37.5% 32.6%,34.9% 29.4%,33.7% 26.3%,34.3% 23.2%,36.4% 20.1%,34.3% 16.9%,34.3% 13.8%,33.4% 10.7%,33.7% 7.6%,33.4% 4.4%,32.3% 1.3%)",
+    "note": "polygon(37.0% 0.0%,76.5% 1.3%,64.2% 4.2%,66.0% 7.0%,70.1% 9.9%,70.1% 12.8%,69.2% 15.6%,71.3% 18.5%,74.8% 21.4%,74.8% 24.2%,73.9% 27.1%,76.0% 29.9%,77.7% 32.8%,78.0% 35.7%,78.9% 38.5%,78.9% 41.4%,72.7% 44.3%,72.4% 47.1%,71.3% 50.0%,68.3% 52.9%,68.9% 55.7%,67.2% 58.6%,68.0% 61.5%,68.9% 64.3%,69.8% 67.2%,78.9% 70.1%,86.5% 72.9%,91.2% 75.8%,91.2% 78.6%,89.4% 81.5%,84.2% 84.4%,81.5% 87.2%,74.2% 90.4%,74.2% 93.0%,41.6% 90.4%,26.7% 87.2%,23.5% 84.4%,23.8% 81.5%,25.8% 78.6%,31.4% 75.8%,30.8% 72.9%,31.7% 70.1%,36.1% 67.2%,37.2% 64.3%,37.8% 61.5%,38.7% 58.6%,36.4% 55.7%,36.7% 52.9%,34.9% 50.0%,32.6% 47.1%,27.9% 44.3%,26.1% 41.4%,27.9% 38.5%,26.7% 35.7%,24.6% 32.8%,24.6% 29.9%,25.2% 27.1%,25.5% 24.2%,27.0% 21.4%,29.3% 18.5%,29.6% 15.6%,30.2% 12.8%,31.1% 9.9%,32.6% 7.0%,35.5% 4.2%,37.0% 1.3%)",
+    "pinterest": "polygon(0.0% 0.0%,9.7% 1.3%,38.1% 4.4%,50.4% 7.6%,59.8% 10.7%,62.2% 13.8%,63.9% 16.9%,66.6% 20.1%,66.9% 23.2%,66.6% 26.3%,66.0% 29.4%,69.8% 32.6%,72.4% 35.7%,74.2% 38.8%,75.4% 41.9%,71.6% 45.1%,72.4% 48.2%,73.0% 51.3%,73.0% 54.4%,65.7% 57.6%,63.0% 60.7%,63.9% 63.8%,63.9% 66.9%,61.6% 70.1%,73.6% 73.2%,78.3% 76.3%,78.6% 79.4%,81.8% 82.6%,81.8% 85.7%,79.2% 88.8%,77.4% 91.9%,76.2% 95.1%,72.7% 98.2%,72.7% 99.7%,15.0% 98.2%,13.2% 95.1%,6.7% 91.9%,11.7% 88.8%,8.2% 85.7%,7.3% 82.6%,10.0% 79.4%,12.6% 76.3%,15.0% 73.2%,22.0% 70.1%,26.7% 66.9%,26.7% 63.8%,23.2% 60.7%,25.5% 57.6%,22.6% 54.4%,17.3% 51.3%,13.8% 48.2%,9.7% 45.1%,6.7% 41.9%,0.0% 38.8%,0.0% 35.7%,0.0% 32.6%,0.0% 29.4%,0.0% 26.3%,0.0% 23.2%,0.0% 20.1%,0.0% 16.9%,0.0% 13.8%,0.0% 10.7%,0.0% 7.6%,0.0% 4.4%,0.0% 1.3%)",
+    "analytics": "polygon(7.0% 0.0%,82.1% 1.3%,79.5% 3.9%,78.0% 6.8%,77.4% 9.4%,75.1% 12.2%,78.9% 14.8%,79.2% 17.7%,81.2% 20.3%,82.7% 23.2%,83.3% 26.0%,81.5% 28.6%,82.1% 31.5%,82.1% 34.1%,83.9% 37.0%,83.9% 39.6%,80.9% 42.4%,79.2% 45.3%,68.6% 47.9%,60.1% 50.8%,59.2% 53.4%,58.9% 56.2%,59.5% 58.9%,60.4% 61.7%,61.3% 64.3%,75.1% 67.2%,76.8% 70.1%,76.8% 72.7%,76.5% 75.5%,78.3% 78.1%,78.3% 81.0%,82.7% 83.6%,79.8% 86.5%,79.8% 89.1%,31.1% 86.5%,20.5% 83.6%,18.2% 81.0%,18.2% 78.1%,19.9% 75.5%,25.8% 72.7%,21.7% 70.1%,22.9% 67.2%,26.7% 64.3%,28.7% 61.7%,33.1% 58.9%,33.4% 56.2%,33.1% 53.4%,29.9% 50.8%,29.9% 47.9%,29.9% 45.3%,23.5% 42.4%,19.4% 39.6%,12.9% 37.0%,12.9% 34.1%,12.9% 31.5%,10.6% 28.6%,9.4% 26.0%,17.6% 23.2%,18.2% 20.3%,21.7% 17.7%,21.7% 14.8%,20.5% 12.2%,17.6% 9.4%,17.6% 6.8%,8.8% 3.9%,7.0% 1.3%)",
+    "sou": "polygon(37.2% 3.9%,59.5% 6.2%,62.2% 9.1%,65.1% 12.2%,67.2% 15.1%,70.4% 18.0%,71.3% 21.1%,71.6% 24.0%,68.9% 27.1%,65.1% 29.9%,78.9% 32.8%,78.3% 35.9%,77.4% 38.8%,76.5% 41.7%,75.7% 44.8%,74.8% 47.7%,71.8% 50.8%,68.9% 53.6%,64.8% 56.5%,65.1% 59.6%,61.9% 62.5%,57.5% 65.4%,57.8% 68.5%,61.0% 71.4%,73.6% 74.5%,79.2% 77.3%,80.4% 80.2%,80.4% 83.3%,86.2% 86.2%,85.6% 89.1%,83.9% 92.2%,78.0% 95.1%,75.4% 98.2%,75.4% 99.7%,23.5% 98.2%,22.9% 95.1%,20.5% 92.2%,16.7% 89.1%,16.7% 86.2%,15.2% 83.3%,17.6% 80.2%,18.2% 77.3%,17.9% 74.5%,22.6% 71.4%,25.2% 68.5%,31.1% 65.4%,30.5% 62.5%,29.3% 59.6%,27.6% 56.5%,23.5% 53.6%,22.9% 50.8%,22.9% 47.7%,24.6% 44.8%,25.2% 41.7%,25.2% 38.8%,25.8% 35.9%,25.8% 32.8%,29.6% 29.9%,26.4% 27.1%,26.7% 24.0%,26.4% 21.1%,25.8% 18.0%,26.7% 15.1%,27.3% 12.2%,32.0% 9.1%,37.2% 6.2%)",
+    "iori": "polygon(32.0% 0.0%,58.4% 1.3%,55.4% 4.4%,58.9% 7.6%,59.2% 10.7%,58.7% 13.8%,61.3% 16.9%,63.3% 20.1%,63.6% 23.2%,69.2% 26.3%,76.2% 29.4%,77.1% 32.6%,77.1% 35.7%,76.2% 38.8%,75.4% 41.9%,73.3% 45.1%,73.0% 48.2%,70.4% 51.3%,66.9% 54.4%,66.6% 57.6%,66.3% 60.7%,65.7% 63.8%,65.1% 66.9%,65.4% 70.1%,78.6% 73.2%,81.8% 76.3%,83.9% 79.4%,86.8% 82.6%,88.0% 85.7%,85.6% 88.8%,82.1% 91.9%,78.0% 95.1%,67.4% 98.2%,67.4% 99.7%,22.9% 98.2%,22.3% 95.1%,18.2% 91.9%,17.0% 88.8%,16.4% 85.7%,16.1% 82.6%,18.2% 79.4%,20.2% 76.3%,27.9% 73.2%,29.9% 70.1%,35.8% 66.9%,37.8% 63.8%,38.7% 60.7%,35.2% 57.6%,27.0% 54.4%,24.6% 51.3%,24.6% 48.2%,24.6% 45.1%,22.6% 41.9%,21.1% 38.8%,20.8% 35.7%,17.6% 32.6%,15.8% 29.4%,15.2% 26.3%,15.8% 23.2%,18.2% 20.1%,19.1% 16.9%,22.0% 13.8%,23.5% 10.7%,25.5% 7.6%,27.6% 4.4%,32.0% 1.3%)",
+    "aya": "polygon(27.3% 0.0%,73.3% 1.3%,56.3% 4.4%,61.0% 7.6%,61.3% 10.7%,62.2% 13.8%,63.3% 16.9%,64.2% 20.1%,66.3% 23.2%,72.7% 26.3%,78.0% 29.4%,84.2% 32.6%,84.2% 35.7%,74.2% 38.8%,74.2% 41.9%,72.7% 45.1%,69.8% 48.2%,68.3% 51.3%,66.0% 54.4%,64.5% 57.6%,63.9% 60.7%,63.0% 63.8%,62.8% 66.9%,61.6% 70.1%,59.8% 73.2%,66.6% 76.3%,75.4% 79.4%,76.8% 82.6%,76.5% 85.7%,73.0% 88.8%,56.6% 91.9%,51.3% 95.1%,63.6% 98.2%,63.6% 99.7%,32.8% 98.2%,39.9% 95.1%,30.5% 91.9%,19.4% 88.8%,13.5% 85.7%,13.2% 82.6%,15.8% 79.4%,18.5% 76.3%,23.2% 73.2%,27.6% 70.1%,25.2% 66.9%,25.2% 63.8%,24.6% 60.7%,25.2% 57.6%,22.0% 54.4%,19.9% 51.3%,19.4% 48.2%,18.5% 45.1%,18.8% 41.9%,17.3% 38.8%,17.3% 35.7%,17.0% 32.6%,17.3% 29.4%,16.7% 26.3%,17.3% 23.2%,18.5% 20.1%,19.4% 16.9%,21.7% 13.8%,25.2% 10.7%,26.7% 7.6%,28.2% 4.4%,27.3% 1.3%)",
+    "rin": "polygon(26.4% 0.0%,63.9% 1.3%,62.8% 4.4%,63.0% 7.6%,66.6% 10.7%,66.9% 13.8%,67.7% 16.9%,67.7% 20.1%,66.3% 23.2%,68.6% 26.3%,69.2% 29.4%,69.2% 32.6%,69.2% 35.7%,73.9% 38.8%,74.2% 41.9%,72.7% 45.1%,63.0% 48.2%,61.0% 51.3%,61.0% 54.4%,59.8% 57.6%,60.4% 60.7%,61.0% 63.8%,61.9% 66.9%,62.2% 70.1%,69.2% 73.2%,76.5% 76.3%,77.1% 79.4%,76.8% 82.6%,71.8% 85.7%,49.9% 88.8%,57.2% 91.9%,60.1% 95.1%,62.8% 98.2%,62.8% 99.7%,28.4% 98.2%,30.2% 95.1%,34.3% 91.9%,43.7% 88.8%,22.9% 85.7%,15.2% 82.6%,13.8% 79.4%,15.2% 76.3%,24.0% 73.2%,19.6% 70.1%,21.7% 66.9%,24.3% 63.8%,24.3% 60.7%,24.9% 57.6%,27.6% 54.4%,27.0% 51.3%,28.2% 48.2%,28.4% 45.1%,26.1% 41.9%,25.5% 38.8%,24.6% 35.7%,24.3% 32.6%,24.3% 29.4%,19.1% 26.3%,17.0% 23.2%,17.3% 20.1%,19.4% 16.9%,20.8% 13.8%,23.2% 10.7%,25.8% 7.6%,27.3% 4.4%,26.4% 1.3%)",
+    "yu": "polygon(27.6% 0.0%,85.3% 1.3%,78.0% 3.9%,75.1% 6.5%,73.6% 9.1%,78.9% 11.7%,78.9% 14.6%,78.9% 17.2%,84.2% 19.8%,85.3% 22.4%,89.4% 25.0%,91.8% 27.9%,90.0% 30.5%,85.3% 33.1%,82.1% 35.7%,82.1% 38.5%,79.2% 41.1%,80.1% 43.8%,82.1% 46.4%,83.0% 49.0%,79.8% 51.8%,65.1% 54.4%,65.4% 57.0%,65.7% 59.6%,66.3% 62.5%,66.6% 65.1%,67.2% 67.7%,67.7% 70.3%,79.5% 72.9%,82.4% 75.8%,83.0% 78.4%,83.0% 81.0%,78.0% 83.6%,78.0% 86.2%,20.5% 83.6%,17.6% 81.0%,17.6% 78.4%,18.2% 75.8%,20.2% 72.9%,23.8% 70.3%,26.4% 67.7%,32.3% 65.1%,32.8% 62.5%,33.4% 59.6%,34.6% 57.0%,35.2% 54.4%,36.1% 51.8%,34.3% 49.0%,27.9% 46.4%,25.5% 43.8%,25.5% 41.1%,33.4% 38.5%,25.2% 35.7%,23.8% 33.1%,23.5% 30.5%,22.9% 27.9%,23.5% 25.0%,22.9% 22.4%,24.0% 19.8%,25.2% 17.2%,25.5% 14.6%,33.1% 11.7%,29.6% 9.1%,28.7% 6.5%,27.9% 3.9%,27.6% 1.3%)",
+    "yui": "polygon(26.7% 0.0%,87.4% 1.3%,87.1% 3.9%,85.6% 6.5%,85.6% 9.1%,85.0% 12.0%,82.7% 14.6%,80.4% 17.2%,77.4% 19.8%,74.2% 22.7%,75.7% 25.3%,75.4% 27.9%,74.5% 30.5%,72.1% 33.3%,71.6% 35.9%,67.7% 38.5%,66.0% 41.1%,66.3% 44.0%,66.9% 46.6%,66.6% 49.2%,63.9% 51.8%,63.9% 54.7%,63.0% 57.3%,62.8% 59.9%,62.8% 62.5%,62.8% 65.4%,62.8% 68.0%,62.2% 70.6%,75.7% 73.2%,79.2% 76.0%,79.5% 78.6%,78.9% 81.2%,73.6% 83.9%,73.6% 86.5%,21.7% 83.9%,17.3% 81.2%,16.7% 78.6%,17.3% 76.0%,20.5% 73.2%,23.5% 70.6%,29.0% 68.0%,30.5% 65.4%,33.1% 62.5%,35.5% 59.9%,37.0% 57.3%,27.6% 54.7%,26.1% 51.8%,24.9% 49.2%,25.2% 46.6%,25.5% 44.0%,27.3% 41.1%,28.7% 38.5%,28.4% 35.9%,27.0% 33.3%,27.0% 30.5%,29.0% 27.9%,27.0% 25.3%,27.3% 22.7%,25.8% 19.8%,26.1% 17.2%,25.5% 14.6%,25.8% 12.0%,26.4% 9.1%,28.2% 6.5%,28.2% 3.9%,26.7% 1.3%)",
+    "ren": "polygon(24.9% 0.0%,71.8% 1.3%,68.9% 3.9%,69.8% 6.5%,70.1% 9.1%,71.3% 11.7%,70.7% 14.6%,75.7% 17.2%,78.6% 19.8%,82.7% 22.4%,82.7% 25.0%,84.8% 27.9%,84.2% 30.5%,82.4% 33.1%,83.0% 35.7%,83.0% 38.5%,80.6% 41.1%,79.5% 43.8%,77.7% 46.4%,75.1% 49.0%,72.1% 51.8%,61.6% 54.4%,61.6% 57.0%,62.2% 59.6%,61.9% 62.5%,62.2% 65.1%,62.8% 67.7%,63.3% 70.3%,76.0% 72.9%,78.3% 75.8%,78.9% 78.4%,78.6% 81.0%,75.1% 83.6%,75.1% 86.2%,16.4% 83.6%,13.2% 81.0%,12.9% 78.4%,14.1% 75.8%,16.4% 72.9%,25.2% 70.3%,26.1% 67.7%,27.0% 65.1%,27.6% 62.5%,28.4% 59.6%,28.4% 57.0%,27.9% 54.4%,25.5% 51.8%,27.0% 49.0%,17.3% 46.4%,15.2% 43.8%,15.0% 41.1%,14.4% 38.5%,12.0% 35.7%,11.4% 33.1%,12.6% 30.5%,17.6% 27.9%,23.8% 25.0%,24.3% 22.4%,26.1% 19.8%,34.3% 17.2%,26.7% 14.6%,26.4% 11.7%,27.0% 9.1%,28.2% 6.5%,26.1% 3.9%,24.9% 1.3%)",
+}
+
+# 部署間・休憩スペースでの、控えめな頻度で挟まる交流デモ(対面報告では
+# ない、社内コミュニケーションのデモ表示)。"mover"が自席から"location"へ
+# 歩いて行き、"speaker"のセリフを表示してから自席へ戻る。locationは
+# 部署キー(AI_OFFICE_FLOOR_POSITIONS)・拡張担当キー
+# (AI_OFFICE_EXTENDED_STAFF)・"lounge"のいずれか。
+# MISSION 076: 美咲と海の交流(旧misaki_umi_pinterest)・伊織と蒼の交流
+# (旧iori_sou_desk)・悠の巡回(旧yu_progress_check)・結の情報源モニター
+# 確認(旧yui_monitor_check)は、対面報告ルート(AI_OFFICE_REPORT_ROUTES)
+# として役割ごとの受け手に報告する形へ統合したため、ここでは対面報告に
+# 該当しない彩(休憩スペース)・凛(資料室↔note)の2件のみを残す。
+AI_OFFICE_INTERACTION_SCENES = [
+    {
+        "key": "aya_lounge",
+        "mover": "aya",
+        "location": "lounge",
+        "speaker": "aya",
+        "line": "ひと息ついたら続けます",
+        "feed_text": "彩が休憩スペースで社員に声をかけました",
+    },
+    {
+        "key": "rin_note_visit",
+        "mover": "rin",
+        "location": "note",
+        "speaker": "rin",
+        "line": "資料を確認して戻ります",
+        "feed_text": "凛が資料室とnote編集席を行き来しました",
+    },
+]
+
+
+def _ai_office_all_positions():
+  """部署・拡張担当・休憩スペース等の座標を、1つの辞書にまとめて返す。
+
+  フロアマップ画像は正方形(1254×1254)なので、left/topの百分率は縦横で
+  同じ縮尺になる。
+  """
+  positions = dict(AI_OFFICE_FLOOR_POSITIONS)
+  for staff in AI_OFFICE_EXTENDED_STAFF:
+    positions[staff["key"]] = staff["pos"]
+  positions["lounge"] = AI_OFFICE_LOUNGE_POSITION
+  return positions
+
+
+def _ai_office_sprite_position(sprite):
+  """スプライトシート上の(row,col)から、background-positionの値を作る。"""
+  col_pct = (sprite["col"] / (AI_OFFICE_SPRITE_COLS - 1)) * 100
+  row_pct = (sprite["row"] / (AI_OFFICE_SPRITE_ROWS - 1)) * 100
+  return f'{col_pct:.2f}% {row_pct:.2f}%'
 
 
 def _render_ai_office_scene():
@@ -5562,23 +6056,218 @@ def _render_ai_office_scene():
   一切行わない。投稿・公開・送信・ログイン・削除を実行するボタンは置かない。
   """
   department_by_key = {d["key"]: d for d in AI_OFFICE_DEPARTMENTS}
+  all_positions = _ai_office_all_positions()
+
+  def _sprite_avatar_style_attr(person):
+    return f'background-position:{_ai_office_sprite_position(person["sprite"])}'
+
+  def _status_strip_chip(dept):
+    status_key = dept["demo_status"]
+    status_label = AI_OFFICE_STATUS_LABELS[status_key]
+    return (
+        f'<li class="ai-office-strip-chip" data-department="{dept["key"]}">'
+        '<span class="ai-office-char-avatar ai-office-sprite-avatar '
+        f'ai-office-char-avatar-{status_key}" role="img" '
+        f'aria-label="{dept["staff_name"]}" '
+        f'style="{_sprite_avatar_style_attr(dept)}"></span>'
+        '<span class="ai-office-strip-info">'
+        f'<b>{dept["desk_label"]}（{dept["staff_name"]}）</b>'
+        f'<span class="ai-office-status-badge ai-office-status-{status_key}" '
+        f'data-suffix="デモ">{status_label}（デモ）</span>'
+        '</span>'
+        '</li>'
+    )
+
+  status_strip = "".join(_status_strip_chip(d) for d in AI_OFFICE_DEPARTMENTS)
 
   def _desk_card(dept):
     status_key = dept["demo_status"]
     status_label = AI_OFFICE_STATUS_LABELS[status_key]
     return (
         f'<div class="ai-office-desk" data-department="{dept["key"]}">'
-        f'<div class="ai-office-desk-symbol">{dept["symbol"]}</div>'
+        '<div class="ai-office-desk-symbol ai-office-sprite-avatar" '
+        f'role="img" aria-label="{dept["staff_name"]}" '
+        f'style="{_sprite_avatar_style_attr(dept)}"></div>'
         f'<h3>{dept["desk_label"]}</h3>'
-        f'<p class="ai-office-desk-role">{dept["role_label"]}</p>'
+        f'<p class="ai-office-desk-role">{dept["role_label"]}（{dept["staff_name"]}）</p>'
         f'<p class="ai-office-desk-summary">{dept["role_summary"]}</p>'
         f'<p class="ai-office-desk-scope">{AI_OFFICE_SCOPE_STATEMENT}</p>'
-        f'<span class="ai-office-status-badge ai-office-status-{status_key}">'
-        f'{status_label}（デモ表示）</span>'
+        f'<span class="ai-office-status-badge ai-office-status-{status_key}" '
+        f'data-suffix="デモ表示">{status_label}（デモ表示）</span>'
         '</div>'
     )
 
-  desk_cards = "".join(_desk_card(d) for d in AI_OFFICE_DEPARTMENTS)
+  def _extended_desk_card(staff):
+    status_key = "waiting"
+    status_label = AI_OFFICE_STATUS_LABELS[status_key]
+    return (
+        f'<div class="ai-office-desk" data-department="{staff["key"]}">'
+        '<div class="ai-office-desk-symbol ai-office-sprite-avatar" '
+        f'role="img" aria-label="{staff["name"]}" '
+        f'style="{_sprite_avatar_style_attr(staff)}"></div>'
+        f'<h3>{staff["name"]}</h3>'
+        f'<p class="ai-office-desk-role">{staff["role_label"]}（{staff["zone_label"]}）</p>'
+        f'<p class="ai-office-desk-summary">{staff["role_summary"]}</p>'
+        f'<p class="ai-office-desk-scope">{AI_OFFICE_SCOPE_STATEMENT}</p>'
+        f'<span class="ai-office-status-badge ai-office-status-{status_key}" '
+        f'data-suffix="デモ表示">{status_label}（デモ表示）</span>'
+        '</div>'
+    )
+
+  desk_cards = "".join(_desk_card(d) for d in AI_OFFICE_DEPARTMENTS) + "".join(
+      _extended_desk_card(s) for s in AI_OFFICE_EXTENDED_STAFF
+  )
+
+  # MISSION 075: 全12人が常に少しずつ動いて見えるよう、idle_typeごとの
+  # アイドルアニメーションを付与する。全員が同じ周期で動くと不自然なので、
+  # 名簿内の通し番号(idle_index)からanimation-delay/durationを少しずつ
+  # ずらす(delayは負の値にして、初回表示時点からすでに周期の途中にいる
+  # ように見せる)。
+  idle_order = [d["key"] for d in AI_OFFICE_DEPARTMENTS] + [
+      s["key"] for s in AI_OFFICE_EXTENDED_STAFF
+  ]
+  idle_index_by_key = {key: i for i, key in enumerate(idle_order)}
+  idle_type_by_key = {d["key"]: d["idle_type"] for d in AI_OFFICE_DEPARTMENTS}
+  idle_type_by_key.update({s["key"]: s["idle_type"] for s in AI_OFFICE_EXTENDED_STAFF})
+
+  def _idle_style(key):
+    idx = idle_index_by_key[key]
+    delay = -(idx * 0.37 + 0.2)
+    duration = 3.4 + (idx % 5) * 0.3
+    return f'animation-delay:{delay:.2f}s;animation-duration:{duration:.2f}s'
+
+  def _floor_token(key, name, sprite, pos, status_key, department_key=None):
+    # MISSION 074: フロアマップ上の社員は、黒いアイコン枠(ai-office-char-
+    # avatarの円形カード)を使わず、専用のai-office-floormap-token(+状態別
+    # の発光をfilter:drop-shadowで表現するai-office-floormap-token-*)だけで
+    # 描画する。円形カード・状態バッジ調のスタイルは、下の「社員名簿」
+    # (ai-office-char-avatar)側にだけ残す。
+    # MISSION 075: さらにai-office-idle-{idle_type}を常時付与し、待機中でも
+    # 常に小さく動いているように見せる(is-working/is-moving付与時は、後の
+    # CSSソース順で上書きされるため、動作・移動時はそちらが優先される)。
+    # MISSION 076: 対面報告時に「向き」を変えられるよう、スプライト本体を
+    # 内側のai-office-floormap-sprite(向き反転はここだけに適用)へ分離した。
+    # 外側のai-office-floormap-token側は位置・常時アニメーションの担当を
+    # 維持し、向きの反転が既存のアイドル・稼働中アニメーションと競合しない
+    # ようにする。対面報告中・応答中・移動中・帰席中は、名前札内の
+    # ai-office-nameplate-phaseへ短いラベルを表示する(JS側で更新)。
+    # MISSION 079: スプライトのコマに描き込まれた暗いビネット背景を隠す
+    # ため、単純な楕円マスクではなく、人物(頭・肩・腕・持ち物・足元の光る
+    # リングまで)の輪郭に沿ったclip-path(AI_OFFICE_SPRITE_CLIP_PATHS、
+    # 人物ごとに個別)を使う。scaleX(-1)による向き反転はclip-path適用後の
+    # 座標系にもそのまま効くため、反転時も輪郭がずれない。
+    dept_attr = f' data-department="{department_key}"' if department_key else ""
+    status_label = AI_OFFICE_STATUS_LABELS[status_key]
+    idle_type = idle_type_by_key[key]
+    idle_class = AI_OFFICE_IDLE_ANIMATION_BY_TYPE[idle_type]
+    clip_path = AI_OFFICE_SPRITE_CLIP_PATHS[key]
+    return (
+        f'<span class="ai-office-floormap-token {idle_class} '
+        f'ai-office-floormap-token-{status_key}" '
+        f'id="ai-office-token-{key}" data-person="{key}" data-idle="{idle_type}"'
+        f'{dept_attr} '
+        f'role="img" aria-label="{name}" '
+        f'style="left:{pos["left"]}%;top:{pos["top"]}%;{_idle_style(key)}">'
+        f'<span class="ai-office-floormap-sprite" id="ai-office-sprite-{key}" '
+        f'style="background-position:{_ai_office_sprite_position(sprite)};'
+        f'clip-path:{clip_path};-webkit-clip-path:{clip_path}"></span>'
+        '<span class="ai-office-footstep"></span>'
+        # MISSION 077: 対面報告中、報告者・受け手の足元に同じ色の発光リングを
+        # 出す(is-report-mover/is-report-receiverはJS側で付与)。
+        '<span class="ai-office-report-ring" aria-hidden="true"></span>'
+        f'<span class="ai-office-nameplate" id="ai-office-nameplate-{key}">'
+        f'<i class="ai-office-nameplate-dot ai-office-nameplate-dot-{status_key}" '
+        f'id="ai-office-nameplate-dot-{key}"></i>{name}'
+        f'<span class="ai-office-nameplate-phase" '
+        f'id="ai-office-nameplate-phase-{key}"></span>'
+        f'<span class="sr-only" id="ai-office-nameplate-status-{key}"> '
+        f'{status_label}（デモ）</span>'
+        '</span>'
+        '</span>'
+    )
+
+  floor_tokens = "".join(
+      _floor_token(
+          d["key"], d["staff_name"], d["sprite"], all_positions[d["key"]],
+          d["demo_status"], department_key=d["key"],
+      )
+      for d in AI_OFFICE_DEPARTMENTS
+  ) + "".join(
+      _floor_token(s["key"], s["name"], s["sprite"], all_positions[s["key"]], "waiting")
+      for s in AI_OFFICE_EXTENDED_STAFF
+  )
+
+  # MISSION 075: モニターの控えめな明滅演出を、4部署に加えて技術席(蒼)・
+  # 分析ラボ担当(結)にも拡張する。
+  monitor_glow_keys = ["room", "note", "pinterest", "analytics", "sou", "yui"]
+  monitor_glows = "".join(
+      f'<span class="ai-office-monitor-glow ai-office-monitor-glow-ambient" '
+      f'id="ai-office-monitor-{key}" '
+      f'style="left:{all_positions[key]["left"]}%;'
+      f'top:{all_positions[key]["top"]}%;'
+      f'animation-delay:-{(i * 0.6):.2f}s"></span>'
+      for i, key in enumerate(monitor_glow_keys)
+  )
+
+  cmd_pos = all_positions["operations_lead"]
+  # MISSION 076: 報告者(mover)の吹き出しと、報告を受ける本人(receiver)の
+  # 返答の吹き出しを別要素にし、色・矢印を変えて対面会話を分かりやすくする
+  # (CSS側でai-office-floormap-bubble-receiverが配色を上書きする)。
+  # 部署巡回(旧Track A/報告ルート)と部署間交流(Track B)を同時並行で動かす
+  # ため、mover用の吹き出しも2つ用意し、互いの表示を上書きしないようにする。
+  floor_bubble = (
+      '<div class="ai-office-floormap-bubble" id="ai-office-floormap-bubble" '
+      f'style="left:{cmd_pos["left"]}%;top:{cmd_pos["top"]}%"></div>'
+  )
+  floor_bubble_receiver = (
+      '<div class="ai-office-floormap-bubble ai-office-floormap-bubble-receiver" '
+      f'id="ai-office-floormap-bubble-receiver" '
+      f'style="left:{cmd_pos["left"]}%;top:{cmd_pos["top"]}%"></div>'
+  )
+  floor_bubble_b = (
+      '<div class="ai-office-floormap-bubble" id="ai-office-floormap-bubble-b" '
+      f'style="left:{cmd_pos["left"]}%;top:{cmd_pos["top"]}%"></div>'
+  )
+
+  lounge_pos = AI_OFFICE_LOUNGE_POSITION
+  # MISSION 075: 休憩スペースに、常時ゆっくり立ち上るコーヒーの湯気(CSSのみ)
+  # を追加する。新規画像・ライブラリは使わない。
+  lounge_decor = (
+      '<span class="ai-office-lounge-decor" '
+      f'style="left:{lounge_pos["left"]}%;top:{lounge_pos["top"]}%" '
+      'aria-hidden="true">'
+      '<span class="ai-office-lounge-cup"></span>'
+      '<span class="ai-office-lounge-steam ai-office-lounge-steam-1"></span>'
+      '<span class="ai-office-lounge-steam ai-office-lounge-steam-2"></span>'
+      '</span>'
+  )
+
+  # MISSION 075: 指令デスク周辺の短い通知光(報告到着時に点灯)。
+  command_pulse = (
+      '<span class="ai-office-command-pulse" id="ai-office-command-pulse" '
+      f'style="left:{cmd_pos["left"]}%;top:{cmd_pos["top"]}%" '
+      'aria-hidden="true"></span>'
+  )
+
+  # MISSION 075: 指令デスクの「本日の進行状況」ミニボード。フロアマップ
+  # 左上に固定表示し、稼働中・移動中・相談中の人数をデモとして表示する
+  # (「今のオフィス」の短いステータス行を兼ねる)。座標依存ではないため、
+  # モバイルでもキャラクター・吹き出し・名前札と重ならない。
+  progress_board = (
+      '<div class="ai-office-progress-board" id="ai-office-progress-board" '
+      'aria-live="polite">'
+      '<b>本日の進行状況（指令デスク・デモ）</b>'
+      '<span id="ai-office-progress-board-line">現在：確認中です（デモ）</span>'
+      '</div>'
+  )
+
+  # MISSION 077: 対面報告中の2人を、細い点線+矢印で結ぶ(報告の方向が
+  # 分かるように、報告者→受け手の向きで矢印を出す)。JS側で
+  # 位置・長さ・角度を計算して表示する(初期状態は非表示)。
+  report_connector = (
+      '<span class="ai-office-report-connector" id="ai-office-report-connector" '
+      'aria-hidden="true"></span>'
+  )
 
   task_items = "".join(
       '<li>'
@@ -5621,6 +6310,24 @@ def _render_ai_office_scene():
 
   activity_items = "".join(f"<li>{a}</li>" for a in AI_OFFICE_ACTIVITY_FEED)
 
+  staff_names = {d["key"]: d["staff_name"] for d in AI_OFFICE_DEPARTMENTS}
+  staff_names.update({s["key"]: s["name"] for s in AI_OFFICE_EXTENDED_STAFF})
+
+  js_data = json.dumps(
+      {
+          "positions": all_positions,
+          "reportRoutes": AI_OFFICE_REPORT_ROUTES,
+          "reportRoleLabels": AI_OFFICE_REPORT_ROLE_LABELS,
+          "shortNames": AI_OFFICE_SHORT_NAMES,
+          "statusLabels": AI_OFFICE_STATUS_LABELS,
+          "staffNames": staff_names,
+          "interactions": AI_OFFICE_INTERACTION_SCENES,
+          "visitorSlots": AI_OFFICE_VISITOR_SLOTS,
+          "maxFeedItems": AI_OFFICE_ACTIVITY_FEED_MAX_ITEMS,
+      },
+      ensure_ascii=False,
+  )
+
   return (
       '<section class="ai-office" aria-label="AIオフィス">'
       '<div class="ai-office-demo-banner">デモ表示・実データ未接続'
@@ -5635,8 +6342,70 @@ def _render_ai_office_scene():
       '一切ありません。すべての実行判断は利用者本人が行います。</p>'
       '</div>'
 
+      '<div class="ai-office-floormap" aria-label="オフィスフロアマップ（デモ表示）">'
+      # MISSION 077: フロアマップ最上部に、対面報告中の報告者・受け手・
+      # 役割が一目で分かる大きな進行バナーを表示する。対面報告が始まる
+      # 前や、停止後も直前の内容がそのまま読み取れるよう、JS側では
+      # 「消す」のではなく次の対面報告が始まるまで内容を保持する。
+      '<div class="ai-office-report-banner" id="ai-office-report-banner" '
+      'aria-live="polite">対面報告中の社員はまだいません（デモ）</div>'
+      '<p class="ai-office-floormap-caption"><b>オフィスフロアマップ（デモ表示）</b><br>'
+      'AIオフィスの全体像を1枚のイラストで表したデモ画像の上に、立体的な'
+      'ゲームキャラクター風の社員12人本人を表示し、作業・移動・報告・交流の'
+      '様子をデモアニメーションで示しています。稼働中・移動中はシアン、'
+      '確認待ちは黄色、待機中は控えめな青、デモ完了は緑で状態を示しますが、'
+      'いずれも実際にAIが動作しているものではなく、すべてデモの表示です。</p>'
+      '<div class="ai-office-floormap-image-wrap">'
+      '<div class="ai-office-floormap-stage">'
+      f'<img class="ai-office-floormap-image" '
+      f'src="/static/{AI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATH}" '
+      'width="1254" height="1254" loading="lazy" '
+      'alt="AIオフィスの間取りを表すピクセルアート風のイラスト（デモ表示）。'
+      '指令デスク・ROOM運用席・note編集席・Pinterest企画席・分析ラボなどの'
+      '区画のみが描かれた空のオフィスで、ロボットや人物は描かれていません。'
+      '社員キャラクターは、この画像の上に別途重ねて表示しています。実際の'
+      'オフィスの写真や、AIが実際に稼働している様子を撮影したものでは'
+      'ありません。">'
+      f'<div class="ai-office-floormap-overlay" id="ai-office-floormap-overlay">'
+      f'{progress_board}{monitor_glows}{lounge_decor}{command_pulse}'
+      f'{report_connector}'
+      f'{floor_tokens}{floor_bubble}{floor_bubble_receiver}{floor_bubble_b}</div>'
+      '</div>'
+      '<p class="ai-office-floormap-hint">各部屋を選択すると下の詳細を確認'
+      'できます。（今回はクリック操作・状態変更は実装しておらず、詳細は'
+      'この下の「社員の稼働状況」でご確認いただけます。）</p>'
+      # MISSION 077: 対面報告中の2人の会話を「報告者 → 受け手「セリフ」」の
+      # 形式で並べる会話パネル。フロアマップの真下(固定位置)に置くことで、
+      # モバイルでもキャラクターの座標に関係なく画面内に収まる。
+      '<div class="ai-office-report-panel" id="ai-office-report-panel" '
+      'aria-live="polite">'
+      '<p class="ai-office-report-panel-line" '
+      'id="ai-office-report-panel-mover">対面報告が始まると、ここに会話が'
+      '表示されます（デモ）</p>'
+      '<p class="ai-office-report-panel-line" '
+      'id="ai-office-report-panel-receiver"></p>'
+      '</div>'
+      # MISSION 077: 全員が社長へ直接行くわけではないことを示す、短い
+      # 案内文。
+      '<p class="ai-office-report-legend">通常報告 → 悠・彩・伊織・蓮'
+      ' ／ 最終報告 → 柴犬社長</p>'
+      '</div>'
+      '<div class="ai-office-floormap-controls">'
+      '<button type="button" class="ai-office-anim-toggle" '
+      'id="ai-office-anim-toggle">アニメーションを停止</button>'
+      '</div>'
+      '<div class="ai-office-floormap-speech" id="ai-office-floormap-speech" '
+      'aria-live="polite"><b>柴犬社長</b>「オフィスの様子を確認しています」'
+      '（デモ会話）</div>'
+      '<p class="ai-office-floormap-speech-note">会話はすべてデモ用のデータ'
+      'であり、実際のAI稼働ログではありません。</p>'
+      f'<ul class="ai-office-floormap-status-strip">{status_strip}</ul>'
+      '</div>'
+
       '<div class="ai-office-section">'
-      '<h2>フロアマップ（5部署）</h2>'
+      '<h2>社員名簿（12人・状態一覧）</h2>'
+      '<p class="ai-office-floormap-hint">柴犬社長を含む12人の役割・配置・'
+      '状態をまとめた一覧です（すべてデモ表示）。</p>'
       f'<div class="ai-office-floor"><div class="ai-office-floor-grid">{desk_cards}</div></div>'
       '</div>'
 
@@ -5672,7 +6441,8 @@ def _render_ai_office_scene():
 
       '<div class="ai-office-section">'
       '<h2>活動フィード（デモ）</h2>'
-      f'<ul class="ai-office-activity-feed">{activity_items}</ul>'
+      f'<ul class="ai-office-activity-feed" id="ai-office-activity-feed-list">'
+      f'{activity_items}</ul>'
       '<p class="ai-office-chat-note">これはデモの表示であり、実際のAI'
       '作業ログではありません。</p>'
       '</div>'
@@ -5680,6 +6450,434 @@ def _render_ai_office_scene():
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の'
       'デモ画面です。楽天ROOM・楽天アフィリエイト・note・Pinterest・Threads'
       'への投稿・送信・ログイン・削除は行われません。</p>'
+      '<script>'
+      '(function(){'
+      f'var DATA={js_data};'
+      'var POSITIONS=DATA.positions,REPORT_ROUTES=DATA.reportRoutes,'
+      'REPORT_ROLES=DATA.reportRoleLabels,SHORT_NAMES=DATA.shortNames,'
+      'STATUS_LABELS=DATA.statusLabels,'
+      'STAFF_NAMES=DATA.staffNames,'
+      'INTERACTIONS=DATA.interactions,MAX_FEED=DATA.maxFeedItems,'
+      'VISITOR_SLOTS=DATA.visitorSlots;'
+      'function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}'
+      'var bubbleEl=document.querySelector("#ai-office-floormap-bubble");'
+      # MISSION 076: 対面報告の「報告者の吹き出し」と「受け手の返答の
+      # 吹き出し」を別要素にする(bubbleElReceiver、CSSで配色を変える)。
+      # 部署間交流(Track B)は引き続き、もう1つの吹き出し(bubbleElB)を
+      # 同時並行で使う。
+      'var bubbleElReceiver=document.querySelector("#ai-office-floormap-bubble-receiver");'
+      'var bubbleElB=document.querySelector("#ai-office-floormap-bubble-b");'
+      'var speechEl=document.querySelector("#ai-office-floormap-speech");'
+      'var feedListEl=document.querySelector("#ai-office-activity-feed-list");'
+      'var toggleBtn=document.querySelector("#ai-office-anim-toggle");'
+      'var overlayEl=document.querySelector("#ai-office-floormap-overlay");'
+      'var commandPulseEl=document.querySelector("#ai-office-command-pulse");'
+      'var progressLineEl=document.querySelector("#ai-office-progress-board-line");'
+      # MISSION 077: 「誰が誰へ報告しているか」を一目で分かるようにする、
+      # 進行バナー・対面会話パネル・報告方向の点線コネクタ用の要素。
+      'var reportBannerEl=document.querySelector("#ai-office-report-banner");'
+      'var reportPanelMoverEl=document.querySelector("#ai-office-report-panel-mover");'
+      'var reportPanelReceiverEl=document.querySelector("#ai-office-report-panel-receiver");'
+      'var reportConnectorEl=document.querySelector("#ai-office-report-connector");'
+      'var STATUS_KEYS=Object.keys(STATUS_LABELS);'
+      # MISSION 076: いま誰かとの対面報告・交流に参加している人物のキーを
+      # 記録する(報告者・受け手の双方)。同じ人物を、報告ルート(Track A)と
+      # 部署間交流(Track B)で二重に動かさないための共有フラグ集合。
+      'var busy={};'
+      'function markBusy(key,val){if(val){busy[key]=true;}else{delete busy[key];}}'
+      'function isBusy(key){return !!busy[key];}'
+      # MISSION 076: 対面報告中、報告者・受け手がお互いのほうへ「向き」を
+      # 変える(スプライトをscaleX反転)。位置・常時アニメーションを担う
+      # 外側のai-office-floormap-tokenには触れず、内側のスプライトだけを
+      # 反転させることで、既存のアイドル・稼働中・移動中アニメーションと
+      # 競合しない。
+      'function faceTowards(personKey,refLeft){'
+      'var sprite=document.querySelector("#ai-office-sprite-"+personKey);'
+      'var tokenEl=document.querySelector("#ai-office-token-"+personKey);'
+      'if(!sprite||!tokenEl)return;'
+      'var myLeft=parseFloat(tokenEl.style.left);'
+      'sprite.classList.remove("is-facing-left","is-facing-right");'
+      'sprite.classList.add(refLeft<myLeft?"is-facing-left":"is-facing-right");'
+      '}'
+      'function resetFacing(personKey){'
+      'var sprite=document.querySelector("#ai-office-sprite-"+personKey);'
+      'if(sprite)sprite.classList.remove("is-facing-left","is-facing-right");'
+      '}'
+      # MISSION 076: 名前札に「移動中」「対面報告中」「応答中」「帰席中」を
+      # 短く表示する。
+      'function setPhase(personKey,text){'
+      'var el=document.querySelector("#ai-office-nameplate-phase-"+personKey);'
+      'if(el)el.textContent=text?("・"+text):"";'
+      '}'
+      # MISSION 077: フロアマップ最上部の進行バナーを更新する。対面報告が
+      # 終わっても次の対面報告が始まるまで内容を保持する(停止時にも
+      # 「誰が誰へ報告中だったか」が読み取れるようにするため、明示的な
+      # クリア処理は行わない)。
+      'function updateReportBanner(route){'
+      'reportBannerEl.textContent="対面報告中　"+STAFF_NAMES[route.mover]+'
+      '"（"+REPORT_ROLES[route.mover]+"） → "+STAFF_NAMES[route.receiver]+'
+      '"（"+REPORT_ROLES[route.receiver]+"）";'
+      '}'
+      # MISSION 077: 対面会話パネル(左に報告者、右に受け手)。バナーと同様、
+      # 次の対面報告が始まるまで内容を保持する。
+      'function setReportPanelLine(el,speakerKey,receiverKey,text){'
+      'el.textContent="";'
+      'var b=document.createElement("b");'
+      'b.textContent=STAFF_NAMES[speakerKey]+" → "+STAFF_NAMES[receiverKey];'
+      'el.appendChild(b);'
+      'el.appendChild(document.createTextNode("「"+text+"」"));'
+      '}'
+      # MISSION 077: 報告者→受け手を、細い点線+矢印で結ぶ(報告の方向が
+      # 分かるように、矢印は受け手側を指す)。
+      'function showReportConnector(fromPos,toPos){'
+      'var dx=toPos.left-fromPos.left,dy=toPos.top-fromPos.top;'
+      'var length=Math.sqrt(dx*dx+dy*dy);'
+      'var angle=Math.atan2(dy,dx)*180/Math.PI;'
+      'reportConnectorEl.style.left=fromPos.left+"%";'
+      'reportConnectorEl.style.top=fromPos.top+"%";'
+      'reportConnectorEl.style.width=length+"%";'
+      'reportConnectorEl.style.transform="rotate("+angle+"deg)";'
+      'reportConnectorEl.classList.add("is-visible");'
+      '}'
+      'function hideReportConnector(){reportConnectorEl.classList.remove("is-visible");}'
+      # MISSION 075: 「今のオフィス」の短いステータス行(稼働中・移動中・
+      # 相談中の人数)を、状態が変わるたびに更新する。
+      'function refreshOfficeStatusLine(){'
+      'var w=document.querySelectorAll(".ai-office-floormap-token.is-working").length;'
+      'var mv=document.querySelectorAll(".ai-office-floormap-token.is-moving").length;'
+      'var c=trackBTalking?1:0;'
+      'progressLineEl.textContent="現在：稼働中"+w+"人・移動中"+mv+"人・相談中"+c+"人（デモ）";'
+      '}'
+      'function setStatus(personKey,statusKey){'
+      'var label=STATUS_LABELS[statusKey];'
+      'document.querySelectorAll(\'[data-department="\'+personKey+\'"]\').forEach(function(el){'
+      'var avatar=el.classList.contains("ai-office-char-avatar")?el:'
+      'el.querySelector(".ai-office-char-avatar");'
+      'if(avatar){'
+      'STATUS_KEYS.forEach(function(s){avatar.classList.remove("ai-office-char-avatar-"+s);});'
+      'avatar.classList.add("ai-office-char-avatar-"+statusKey);'
+      '}'
+      'var badge=el.querySelector(".ai-office-status-badge");'
+      'if(badge){'
+      'STATUS_KEYS.forEach(function(s){badge.classList.remove("ai-office-status-"+s);});'
+      'badge.classList.add("ai-office-status-"+statusKey);'
+      'badge.textContent=label+"（"+badge.dataset.suffix+"）";'
+      '}'
+      '});'
+      # MISSION 074: フロアマップ上の社員本人は、黒いアイコン枠(ai-office-
+      # char-avatar)ではなく、専用のai-office-floormap-token-*で発光させる。
+      'var token=document.querySelector("#ai-office-token-"+personKey);'
+      'if(token){'
+      'STATUS_KEYS.forEach(function(s){token.classList.remove("ai-office-floormap-token-"+s);});'
+      'token.classList.add("ai-office-floormap-token-"+statusKey);'
+      '}'
+      'var dot=document.querySelector("#ai-office-nameplate-dot-"+personKey);'
+      'if(dot){'
+      'STATUS_KEYS.forEach(function(s){dot.classList.remove("ai-office-nameplate-dot-"+s);});'
+      'dot.classList.add("ai-office-nameplate-dot-"+statusKey);'
+      '}'
+      'var statusText=document.querySelector("#ai-office-nameplate-status-"+personKey);'
+      'if(statusText)statusText.textContent=" "+label+"（デモ）";'
+      '}'
+      'function setWorking(personKey,working){'
+      'var token=document.querySelector("#ai-office-token-"+personKey);'
+      'if(token)token.classList.toggle("is-working",working);'
+      'refreshOfficeStatusLine();'
+      '}'
+      'function setMoving(personKey,moving){'
+      'var token=document.querySelector("#ai-office-token-"+personKey);'
+      'if(token)token.classList.toggle("is-moving",moving);'
+      'refreshOfficeStatusLine();'
+      '}'
+      'function setMonitorActive(personKey,active){'
+      'var glow=document.querySelector("#ai-office-monitor-"+personKey);'
+      'if(glow)glow.classList.toggle("is-active",active);'
+      '}'
+      # MISSION 076: 報告者(mover)は、訪問先(atKey)にVISITOR_SLOTSが
+      # 定義されていればその位置(=本人が実際に立っている場所)に、
+      # なければatKey本人の座席に吹き出しを出す。
+      'function showBubble(text,atKey){'
+      'var pos=VISITOR_SLOTS[atKey]||POSITIONS[atKey];'
+      'bubbleEl.style.left=pos.left+"%";'
+      'bubbleEl.style.top=pos.top+"%";'
+      'bubbleEl.textContent=text;'
+      'bubbleEl.classList.add("is-visible");'
+      '}'
+      'function hideBubble(){bubbleEl.classList.remove("is-visible");}'
+      # MISSION 076: 受け手(receiver)は自席から動かないため、常に本人の
+      # 座席そのものへ吹き出しを出す。
+      'function showBubbleReceiver(text,atKey){'
+      'var pos=POSITIONS[atKey];'
+      'bubbleElReceiver.style.left=pos.left+"%";'
+      'bubbleElReceiver.style.top=pos.top+"%";'
+      'bubbleElReceiver.textContent=text;'
+      'bubbleElReceiver.classList.add("is-visible");'
+      '}'
+      'function hideBubbleReceiver(){bubbleElReceiver.classList.remove("is-visible");}'
+      'function showBubbleB(text,atKey){'
+      'var pos=VISITOR_SLOTS[atKey]||POSITIONS[atKey];'
+      'bubbleElB.style.left=pos.left+"%";'
+      'bubbleElB.style.top=pos.top+"%";'
+      'bubbleElB.textContent=text;'
+      'bubbleElB.classList.add("is-visible");'
+      '}'
+      'function hideBubbleB(){bubbleElB.classList.remove("is-visible");}'
+      'function showSpeech(personKey,text){'
+      'speechEl.textContent="";'
+      'var b=document.createElement("b");'
+      'b.textContent=STAFF_NAMES[personKey];'
+      'speechEl.appendChild(b);'
+      'speechEl.appendChild(document.createTextNode("「"+text+"」（デモ会話）"));'
+      '}'
+      'function pushFeed(text){'
+      'var li=document.createElement("li");'
+      'li.textContent=text;'
+      'feedListEl.insertBefore(li,feedListEl.firstChild);'
+      'while(feedListEl.children.length>MAX_FEED){'
+      'feedListEl.removeChild(feedListEl.lastChild);'
+      '}'
+      '}'
+      # MISSION 075: 他の人の自席を訪ねる際、相手の座標にぴったり重なって
+      # 表示されてしまうと、常時の移動デモが増えたことでキャラクター同士の
+      # 重なりが目立ちやすくなる。訪問先にVISITOR_SLOTS(部屋の中で他の
+      # 在席者と重ならない位置)が定義されている場合はそちらへ立ち、
+      # 休憩スペースなど専用の待ち合わせ地点や、自席への帰宅時はそのままの
+      # 座標を使う。
+      'function moveToken(personKey,atKey){'
+      'var tokenEl=document.querySelector("#ai-office-token-"+personKey);'
+      'var pos=POSITIONS[atKey];'
+      'if(atKey!==personKey&&VISITOR_SLOTS[atKey]){'
+      'pos=VISITOR_SLOTS[atKey];'
+      '}'
+      'tokenEl.style.left=pos.left+"%";'
+      'tokenEl.style.top=pos.top+"%";'
+      '}'
+      # MISSION 075: 報告到着時に指令デスク周辺で短く点灯する通知光。
+      'function pulseCommandDesk(){'
+      'commandPulseEl.classList.remove("is-active");'
+      'void commandPulseEl.offsetWidth;'
+      'commandPulseEl.classList.add("is-active");'
+      '}'
+      'var paused=false,pendingFn=null,pendingTimer=null;'
+      'function scheduleNext(fn,delay){'
+      'pendingFn=fn;'
+      'if(paused)return;'
+      'pendingTimer=setTimeout(function(){'
+      'pendingTimer=null;'
+      'var f=pendingFn;'
+      'pendingFn=null;'
+      'if(f)f();'
+      '},delay);'
+      '}'
+      # MISSION 075: Track B(部署間交流)専用の、もう1本の予約タイマー。
+      # pausedフラグはTrack Aと共有し、停止ボタン1つで両方止める。
+      'var pendingFnB=null,pendingTimerB=null;'
+      'function scheduleNextB(fn,delay){'
+      'pendingFnB=fn;'
+      'if(paused)return;'
+      'pendingTimerB=setTimeout(function(){'
+      'pendingTimerB=null;'
+      'var f=pendingFnB;'
+      'pendingFnB=null;'
+      'if(f)f();'
+      '},delay);'
+      '}'
+      'toggleBtn.addEventListener("click",function(){'
+      'paused=!paused;'
+      # MISSION 075: 停止時はフロアマップ全体のCSSアニメーション
+      # (常時のアイドルモーション・モニター明滅・湯気・通知光を含む)も
+      # 一括で停止する。
+      'overlayEl.classList.toggle("is-paused",paused);'
+      'if(paused){'
+      'if(pendingTimer){clearTimeout(pendingTimer);pendingTimer=null;}'
+      'if(pendingTimerB){clearTimeout(pendingTimerB);pendingTimerB=null;}'
+      'toggleBtn.textContent="アニメーションを再生";'
+      '}else{'
+      'toggleBtn.textContent="アニメーションを停止";'
+      'if(pendingFn){'
+      'var f=pendingFn;'
+      'pendingFn=null;'
+      'pendingTimer=setTimeout(function(){pendingTimer=null;f();},400);'
+      '}'
+      'if(pendingFnB){'
+      'var fb=pendingFnB;'
+      'pendingFnB=null;'
+      'pendingTimerB=setTimeout(function(){pendingTimerB=null;fb();},700);'
+      '}'
+      '}'
+      '});'
+      # --- Track A: 対面報告ルート(役割ごとの受け手へ報告に行く) ---
+      # MISSION 076: 「中央(指令デスク)へ移動するだけ」の演出をやめ、
+      # 報告する本人が受け手の前まで歩き、向かい合って会話してから自席へ
+      # 戻る流れに変更した。busy{}で報告者・受け手の両方を予約し、
+      # Track B(交流デモ)が同じ人物を同時に動かさないようにする。
+      'var reportRouteIdx=0;'
+      'function pickNextReportRoute(){'
+      'for(var n=0;n<REPORT_ROUTES.length;n++){'
+      'var idx=(reportRouteIdx+n)%REPORT_ROUTES.length;'
+      'var r=REPORT_ROUTES[idx];'
+      'if(!isBusy(r.mover)&&!isBusy(r.receiver))return idx;'
+      '}'
+      'return reportRouteIdx;'
+      '}'
+      'function reportStepTravel(routeIdx,onDone){'
+      'var route=REPORT_ROUTES[routeIdx];'
+      'setStatus(route.mover,"working");'
+      'setWorking(route.mover,true);'
+      'setMoving(route.mover,true);'
+      'setPhase(route.mover,"移動中");'
+      'moveToken(route.mover,route.receiver);'
+      'scheduleNext(function(){reportStepArrive(routeIdx,onDone);},1800);'
+      '}'
+      # MISSION 076: 到着したら、報告者・受け手の双方が向かい合う(向きを
+      # 反転)。報告者の吹き出しで一次のセリフを表示し、指令デスクへの
+      # 報告(柴犬社長が受け手)の場合だけ通知光を点灯する。
+      # MISSION 077: 「誰が誰へ報告しているか」を一目で分かるようにする、
+      # 進行バナー・対面会話パネル(1行目)・発光リング・点線コネクタ・
+      # 詳しい名前札を、この時点でまとめて表示する。他の社員を少し
+      # 控えめにするため、overlayに is-reporting を付与する。
+      'function reportStepArrive(routeIdx,onDone){'
+      'var route=REPORT_ROUTES[routeIdx];'
+      'setMoving(route.mover,false);'
+      'setWorking(route.mover,true);'
+      'setStatus(route.mover,"pending");'
+      'setPhase(route.mover,shortName(route.receiver)+"へ報告中");'
+      'setPhase(route.receiver,STAFF_NAMES[route.mover]+"の報告を確認中");'
+      'var moverToken=document.querySelector("#ai-office-token-"+route.mover);'
+      'var receiverToken=document.querySelector("#ai-office-token-"+route.receiver);'
+      'if(moverToken)moverToken.classList.add("is-report-mover");'
+      'if(receiverToken)receiverToken.classList.add("is-report-receiver");'
+      'overlayEl.classList.add("is-reporting");'
+      'var meetPos=VISITOR_SLOTS[route.receiver]||POSITIONS[route.receiver];'
+      'faceTowards(route.mover,POSITIONS[route.receiver].left);'
+      'faceTowards(route.receiver,meetPos.left);'
+      'showReportConnector(meetPos,POSITIONS[route.receiver]);'
+      'updateReportBanner(route);'
+      'setReportPanelLine(reportPanelMoverEl,route.mover,route.receiver,route.mover_line);'
+      'reportPanelReceiverEl.textContent="";'
+      'showBubble(route.mover_line,route.receiver);'
+      'showSpeech(route.mover,route.mover_line);'
+      'if(route.receiver==="operations_lead")pulseCommandDesk();'
+      'scheduleNext(function(){reportStepReply(routeIdx,onDone);},2200);'
+      '}'
+      # MISSION 076: 受け手が応答する。報告者の吹き出しは消し、受け手専用の
+      # 吹き出し(配色違い)で返答を表示してから、活動フィードへ記録する。
+      # MISSION 077: 対面会話パネルの2行目(受け手の返答)もここで表示する。
+      'function reportStepReply(routeIdx,onDone){'
+      'var route=REPORT_ROUTES[routeIdx];'
+      'hideBubble();'
+      'setWorking(route.receiver,true);'
+      'setReportPanelLine(reportPanelReceiverEl,route.receiver,route.mover,route.receiver_line);'
+      'showBubbleReceiver(route.receiver_line,route.receiver);'
+      'showSpeech(route.receiver,route.receiver_line);'
+      'pushFeed("デモ："+route.feed_text);'
+      'refreshOfficeStatusLine();'
+      'scheduleNext(function(){reportStepReturn(routeIdx,onDone);},2200);'
+      '}'
+      # MISSION 077: 対面報告が終わったら、発光リング・点線コネクタ・
+      # 他の社員を控えめにする表示(is-reporting)は解除する(進行バナー・
+      # 会話パネル・名前札の「誰が誰へ報告したか」は、次の対面報告が
+      # 始まるまでそのまま残す)。
+      'function reportStepReturn(routeIdx,onDone){'
+      'var route=REPORT_ROUTES[routeIdx];'
+      'hideBubbleReceiver();'
+      'hideReportConnector();'
+      'overlayEl.classList.remove("is-reporting");'
+      'var moverToken=document.querySelector("#ai-office-token-"+route.mover);'
+      'var receiverToken=document.querySelector("#ai-office-token-"+route.receiver);'
+      'if(moverToken)moverToken.classList.remove("is-report-mover");'
+      'if(receiverToken)receiverToken.classList.remove("is-report-receiver");'
+      'setWorking(route.receiver,false);'
+      'setPhase(route.receiver,"");'
+      'resetFacing(route.receiver);'
+      'setPhase(route.mover,"帰席中");'
+      'setWorking(route.mover,false);'
+      'setMoving(route.mover,true);'
+      'moveToken(route.mover,route.mover);'
+      'resetFacing(route.mover);'
+      'scheduleNext(function(){reportStepSettle(routeIdx,onDone);},1800);'
+      '}'
+      'function reportStepSettle(routeIdx,onDone){'
+      'var route=REPORT_ROUTES[routeIdx];'
+      'setMoving(route.mover,false);'
+      'setPhase(route.mover,"");'
+      'setStatus(route.mover,"waiting");'
+      # MISSION 076: 柴犬社長は常に「稼働中」(全体を見ている状態)へ戻す。
+      # それ以外の受け手は「待機中」へ戻す。
+      'setStatus(route.receiver,route.receiver==="operations_lead"?"working":"waiting");'
+      'onDone();'
+      '}'
+      'function runReportRoute(){'
+      'var idx=pickNextReportRoute();'
+      'reportRouteIdx=(idx+1)%REPORT_ROUTES.length;'
+      'var route=REPORT_ROUTES[idx];'
+      'markBusy(route.mover,true);'
+      'markBusy(route.receiver,true);'
+      'reportStepTravel(idx,function(){'
+      'markBusy(route.mover,false);'
+      'markBusy(route.receiver,false);'
+      'scheduleNext(runReportRoute,500);'
+      '});'
+      '}'
+      # --- Track B: 部署間・休憩スペースでの交流デモ(継続ループ) ---
+      # MISSION 076: 対面報告に統合されなかった、彩の休憩スペース・凛の
+      # 資料室確認の2件だけが残る。busy{}を使い、Track A(対面報告)と
+      # 同じ人物を二重に動かさないようにする。
+      'var trackBTalking=false,trackBIdx=0;'
+      'function pickNextSceneIdx(){'
+      'for(var n=0;n<INTERACTIONS.length;n++){'
+      'var idx=(trackBIdx+n)%INTERACTIONS.length;'
+      'if(!isBusy(INTERACTIONS[idx].mover))return idx;'
+      '}'
+      'return trackBIdx;'
+      '}'
+      'function stepInteractionStart(sceneIdx,onDone){'
+      'var scene=INTERACTIONS[sceneIdx];'
+      'markBusy(scene.mover,true);'
+      'setStatus(scene.mover,"working");'
+      'setWorking(scene.mover,true);'
+      'setMoving(scene.mover,true);'
+      'moveToken(scene.mover,scene.location);'
+      'scheduleNextB(function(){stepInteractionTalk(sceneIdx,onDone);},1700);'
+      '}'
+      'function stepInteractionTalk(sceneIdx,onDone){'
+      'var scene=INTERACTIONS[sceneIdx];'
+      'setWorking(scene.mover,false);'
+      'setMoving(scene.mover,false);'
+      'trackBTalking=true;'
+      'showBubbleB(scene.line,scene.location);'
+      'showSpeech(scene.speaker,scene.line);'
+      'pushFeed("デモ："+scene.feed_text);'
+      'refreshOfficeStatusLine();'
+      'scheduleNextB(function(){stepInteractionReturn(sceneIdx,onDone);},2400);'
+      '}'
+      'function stepInteractionReturn(sceneIdx,onDone){'
+      'var scene=INTERACTIONS[sceneIdx];'
+      'hideBubbleB();'
+      'trackBTalking=false;'
+      'setMoving(scene.mover,true);'
+      'moveToken(scene.mover,scene.mover);'
+      'scheduleNextB(function(){stepInteractionSettle(sceneIdx,onDone);},1700);'
+      '}'
+      'function stepInteractionSettle(sceneIdx,onDone){'
+      'var scene=INTERACTIONS[sceneIdx];'
+      'setMoving(scene.mover,false);'
+      'setStatus(scene.mover,"waiting");'
+      'markBusy(scene.mover,false);'
+      'scheduleNextB(function(){onDone();},1200);'
+      '}'
+      'function runTrackB(){'
+      'var sceneIdx=pickNextSceneIdx();'
+      'trackBIdx=(sceneIdx+1)%INTERACTIONS.length;'
+      'stepInteractionStart(sceneIdx,function(){'
+      'scheduleNextB(runTrackB,1400);'
+      '});'
+      '}'
+      'refreshOfficeStatusLine();'
+      'scheduleNext(runReportRoute,900);'
+      'scheduleNextB(runTrackB,3500);'
+      '})();'
+      '</script>'
       '</section>'
   )
 
