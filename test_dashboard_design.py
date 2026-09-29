@@ -7587,6 +7587,157 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("5件公開済み", root_html)
     self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
 
+  # --- MISSION 082: 本格運用向けのナビゲーション整理 -----------------------
+
+  def test_nav_main_menu_has_exactly_the_four_required_pages_in_order(self):
+    import office_views
+    self.assertEqual(
+        [(key, href, name) for key, href, name in office_views.NAV_MAIN_TABS],
+        [
+            ("aioffice", "/ai-office", "AIオフィス"),
+            ("command", "/command-center", "運用司令室"),
+            ("content", "/content-studio", "投稿企画工場"),
+            ("revenue", "/revenue", "収益化ボード"),
+        ],
+    )
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    main_nav = html.split('<nav class="tabs"')[1].split("<details")[0]
+    self.assertIn('href="/ai-office"', main_nav)
+    self.assertIn('href="/command-center"', main_nav)
+    self.assertIn('href="/content-studio"', main_nav)
+    self.assertIn('href="/revenue"', main_nav)
+    # スペース内の3画面は、主メニューの並びには含まれない。
+    self.assertNotIn('href="/office"', main_nav)
+    self.assertNotIn('href="/office/ceo-office"', main_nav)
+    self.assertNotIn('href="/office/break-room"', main_nav)
+
+  def test_nav_space_menu_groups_the_three_auxiliary_pages(self):
+    import office_views
+    self.assertEqual(
+        [(key, href, name) for key, href, name in office_views.NAV_SPACE_TABS],
+        [
+            ("office", "/office", "オフィス"),
+            ("ceo", "/office/ceo-office", "社長室"),
+            ("break", "/office/break-room", "休憩室"),
+        ],
+    )
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('<details class="tabs-space">', html)
+    self.assertIn("<summary>スペース</summary>", html)
+    space_menu = html.split('<div class="tabs-space-menu">')[1].split("</div>")[0]
+    self.assertIn('href="/office"', space_menu)
+    self.assertIn(">オフィス<", space_menu)
+    self.assertIn('href="/office/ceo-office"', space_menu)
+    self.assertIn(">社長室<", space_menu)
+    self.assertIn('href="/office/break-room"', space_menu)
+    self.assertIn(">休憩室<", space_menu)
+
+  def test_nav_space_details_is_keyboard_and_screen_reader_accessible(self):
+    # <details>/<summary>はネイティブの開閉部品であり、追加のJSなしで
+    # Enter/Spaceキー操作・スクリーンリーダーの両方に開閉状態が伝わる。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("<details class=", html)
+    self.assertIn("<summary>", html)
+    self.assertNotIn("onclick=", html)
+
+  def test_nav_space_details_opens_automatically_on_space_pages(self):
+    for path in ("/office", "/office/ceo-office", "/office/break-room"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('<details class="tabs-space" open>', html)
+    for path in ("/ai-office", "/command-center", "/content-studio", "/revenue"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn('<details class="tabs-space">', html)
+        self.assertNotIn('<details class="tabs-space" open>', html)
+
+  def test_nav_active_state_marks_current_page_in_main_or_space_menu(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn(
+        '<a class="active" href="/command-center" aria-current="page">運用司令室</a>',
+        html,
+    )
+    office_html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn(
+        '<a class="active" href="/office" aria-current="page">オフィス</a>',
+        office_html,
+    )
+
+  def test_nav_all_existing_urls_still_load_directly(self):
+    # 既存URLはすべて維持され、直接開いても表示できる。
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+        ("/ai-office", "AIオフィス"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
+  def test_nav_role_hints_present_on_the_four_main_pages(self):
+    expected = {
+        "/ai-office": "今日の実績・社員の報告を見る",
+        "/command-center": "確認・判断・運用記録を残す",
+        "/content-studio": "下書きを作り、手動投稿後の完了を記録する",
+        "/revenue": "週次でクリック・売上・成果報酬を確認する",
+    }
+    for path, hint in expected.items():
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn(f'<p class="role-hint">{hint}</p>', html)
+    # スペース配下の3画面には、この短い案内は必須ではない(既存のlead文の
+    # ままでよい)。
+    for path in ("/office", "/office/ceo-office", "/office/break-room"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertNotIn('<p class="role-hint">', html)
+
+  def test_nav_no_horizontal_scroll_desktop_and_mobile_css_present(self):
+    # レイアウトはflex-wrapで折り返す設計になっており、固定幅で画面外へ
+    # はみ出す要素を追加していないことを確認する(CSSレベルの回帰確認。
+    # 実際の折り返し表示はPlaywrightで別途確認する)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px;"
+        "margin-bottom:15px}",
+        html,
+    )
+    self.assertIn(
+        '.tabs-space-menu{display:flex;gap:8px;flex-wrap:wrap;', html
+    )
+
+  def test_nav_reorg_does_not_add_external_calls_or_scripts(self):
+    # ナビ整理そのものはHTML/CSSのみの変更であり、新規のfetch/onclickを
+    # 追加していない(command-center・ai-officeはMISSION 080/081由来の
+    # 既存localStorage連携のみを持つため、この2画面はここでは対象外)。
+    for path in ("/office", "/revenue", "/content-studio"):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertNotIn("onclick=", html)
+        self.assertNotIn("fetch(", html)
+        self.assertNotIn("XMLHttpRequest", html)
+        self.assertNotIn("<form", html)
+
+  def test_nav_reorg_preserves_ai_office_real_record_and_demo_fallback(self):
+    # MISSION 080・081の実績表示・デモフォールバックの仕組みが、ナビ整理
+    # によって壊れていないことを確認する回帰テスト。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-record-mode-badge"', html)
+    self.assertIn("function buildRealRecordQueue(){", html)
+    self.assertIn("var DEMO_MODE_ACTIVE=REAL_RECORD_QUEUE.length===0;", html)
+    self.assertEqual(
+        office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY,
+        "ai-hive-command-center:daily-record-log",
+    )
+    room_html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("manual-post-complete-btn", room_html)
+
 
 if __name__ == "__main__":
   unittest.main()
