@@ -4438,12 +4438,19 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_room_daily_candidates_post_in_room_is_a_checkbox_not_a_button(self):
     # 「ROOMで投稿する」は外部投稿を実行するボタンではなく、確認用の
     # チェック欄であることを確認する。
+    # MISSION 081: 近くに「手動投稿を完了した」ボタン(外部投稿は行わず、
+    # ローカルの運用記録へ保存するだけの安全なボタン)を追加したため、
+    # 「ボタンが一切ないこと」ではなく「manual-post-complete-btn以外の
+    # ボタンがないこと」を確認する形に更新した。
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
     self.assertIn('class="rc-post-in-room"', html)
     self.assertNotIn('<button', html.split('rc-post-in-room', 1)[0][-200:])
     for slot_html in html.split('class="rc-post-in-room"')[1:]:
       snippet = slot_html[:400]
-      self.assertNotIn("<button", snippet)
+      self.assertEqual(
+          snippet.count("<button"),
+          snippet.count('<button type="button" class="manual-post-complete-btn"'),
+      )
     self.assertIn(
         "このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は"
         "行われません。実際の投稿は利用者がROOM上で手動で行ってください。",
@@ -4688,8 +4695,14 @@ class DashboardDesignTestCase(unittest.TestCase):
         "行われません。実際の投稿は利用者がROOM上で手動で行ってください。",
         html,
     )
+    # MISSION 081: 「手動投稿を完了した」ボタン(manual-post-complete-btn)
+    # 以外のボタンが近くに追加されていないことを確認する。
     for slot_html in html.split('class="rc-post-in-room"')[1:]:
-      self.assertNotIn("<button", slot_html[:400])
+      snippet = slot_html[:400]
+      self.assertEqual(
+          snippet.count("<button"),
+          snippet.count('<button type="button" class="manual-post-complete-btn"'),
+      )
 
   # --- MISSION 062: note「毎日2本の記事候補・下書き」機能 --------------------
 
@@ -4760,10 +4773,18 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn('value="free" selected', html)
 
   def test_note_daily_candidates_post_in_note_is_a_checkbox_not_a_button(self):
+    # MISSION 081: 近くに「手動投稿を完了した」ボタン(外部投稿は行わず、
+    # ローカルの運用記録へ保存するだけの安全なボタン)を追加したため、
+    # 「ボタンが一切ないこと」ではなく「manual-post-complete-btn以外の
+    # ボタンがないこと」を確認する形に更新した。
     html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
     self.assertIn('class="nc-post-in-note"', html)
     for slot_html in html.split('class="nc-post-in-note"')[1:]:
-      self.assertNotIn("<button", slot_html[:400])
+      snippet = slot_html[:400]
+      self.assertEqual(
+          snippet.count("<button"),
+          snippet.count('<button type="button" class="manual-post-complete-btn"'),
+      )
     self.assertIn(
         "このチェックは手動公開の確認記録であり、ここからnoteへの投稿・送信は"
         "行われません。実際の公開は利用者がnote上で手動で行ってください。",
@@ -5100,6 +5121,66 @@ class DashboardDesignTestCase(unittest.TestCase):
         html,
     )
 
+  # --- MISSION 080: 本日の運用記録(AIオフィスの実績表示と連携) ------------
+
+  def test_command_center_daily_record_form_has_required_fields_and_options(self):
+    import office_views
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('id="cc-record-date"', html)
+    self.assertIn('id="cc-record-media"', html)
+    self.assertIn('id="cc-record-type"', html)
+    self.assertIn('id="cc-record-content"', html)
+    self.assertIn('id="cc-record-metric"', html)
+    self.assertIn('id="cc-record-reference"', html)
+    self.assertIn('id="cc-record-add"', html)
+    self.assertEqual(
+        office_views.COMMAND_CENTER_DAILY_RECORD_MEDIA_OPTIONS,
+        ["楽天ROOM", "楽天アフィリエイト", "note", "Pinterest", "Threads", "共通"],
+    )
+    self.assertEqual(
+        office_views.COMMAND_CENTER_DAILY_RECORD_TYPES,
+        ["確認", "下書き", "投稿済み", "数字記録", "承認待ち"],
+    )
+    for media in office_views.COMMAND_CENTER_DAILY_RECORD_MEDIA_OPTIONS:
+      self.assertIn(f'<option value="{media}">{media}</option>', html)
+    for record_type in office_views.COMMAND_CENTER_DAILY_RECORD_TYPES:
+      self.assertIn(f'<option value="{record_type}">{record_type}</option>', html)
+    self.assertIn(
+        '<p class="cc-decision-log-empty" id="cc-record-log-empty">まだ本日の'
+        "運用記録はありません。</p>",
+        html,
+    )
+    self.assertIn("本日の運用記録", html)
+
+  def test_command_center_daily_record_js_saves_to_shared_storage_key(self):
+    # MISSION 080: AIオフィス側と同じlocalStorageキー(daily-record-log)へ
+    # 保存する。外部通信・DB書き込みは行わない。
+    import office_views
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('const recordLogKey=STORAGE_PREFIX+"daily-record-log";', html)
+    self.assertEqual(
+        "ai-hive-command-center:" + "daily-record-log",
+        office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY,
+    )
+    for fn in (
+        "function loadRecordLog(",
+        "function renderRecordLog(",
+    ):
+      self.assertIn(fn, html)
+    self.assertIn('document.querySelector("#cc-record-add").addEventListener("click"', html)
+    # 自動で実績を作らない: 日付・媒体・種別・内容のいずれかが空なら保存
+    # しない。
+    self.assertIn(
+        "if(!entry.date||!entry.media||!entry.type||!entry.content.trim()){",
+        html,
+    )
+
+  def test_command_center_daily_record_does_not_prefill_pinterest_entry(self):
+    # MISSION 080 要件4: 実装後、利用者が実際に入力するまでPinterestの
+    # 実績を勝手に登録しない。
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertNotIn("AIでメール作成の時間を短くするための考え方", html)
+
   def test_command_center_decision_log_js_defines_core_functions(self):
     html = self.client.get("/command-center").get_data(as_text=True)
     for fn in (
@@ -5339,11 +5420,17 @@ class DashboardDesignTestCase(unittest.TestCase):
         "これはデモの表示であり、実際のAI作業ログではありません。", html
     )
 
-  def test_ai_office_uses_no_local_storage(self):
-    # MISSION 070: フロアマップのデモアニメーションはローカルJSで動くが、
-    # localStorageへの保存は行わず、再読み込みで初期状態に戻る。
+  def test_ai_office_reads_but_never_writes_local_storage(self):
+    # MISSION 070: フロアマップのデモアニメーション自体の状態(誰が今動いて
+    # いるか等)はlocalStorageへ保存せず、再読み込みで初期状態に戻る。
+    # MISSION 080: 運用司令室の「本日の運用記録」を反映するため、
+    # localStorage.getItem(読み取り)だけは行うようになった。setItem・
+    # removeItem・clear(書き込み)は一切行わないことを確認する。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("localStorage", html)
+    self.assertIn("localStorage.getItem(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
 
   def test_ai_office_no_external_calls_or_credentials(self):
     import re
@@ -5596,14 +5683,16 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_floormap_no_dangerous_actions_forms_or_external_calls(self):
     # MISSION 070: フロアマップのデモアニメーション用に、ローカルの
     # <script>と「アニメーションを停止」ボタン1個だけを許可する。
-    # フォーム・外部通信・localStorageは引き続き一切禁止のままであることを
-    # 確認する。
+    # フォーム・外部通信は引き続き一切禁止のままであることを確認する。
+    # MISSION 080: 運用司令室の運用記録を読むためlocalStorage.getItem(の
+    # みは許可されるが、setItem・removeItemによる書き込みは禁止のまま。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertEqual(html.count("<button"), 1)
     self.assertNotIn("<form", html)
     self.assertNotIn("<input", html)
     self.assertEqual(html.count("<script"), 1)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("fetch(", html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
@@ -5772,7 +5861,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
@@ -6013,7 +6103,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
@@ -6637,7 +6728,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
@@ -6755,7 +6847,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("markBusy(route.receiver,true);", html)
     self.assertIn("markBusy(route.mover,false);", html)
     self.assertIn("markBusy(route.receiver,false);", html)
-    self.assertIn("if(!isBusy(r.mover)&&!isBusy(r.receiver))return idx;", html)
+    # MISSION 080: pickNextReportRouteは、デモ(REPORT_ROUTES)と実績
+    # (REAL_RECORD_QUEUE)のどちらを巡回する場合も、busy{}でスキップする
+    # 判定を共通のロジックで行う。
+    self.assertIn(
+        "if(!isBusy(r.mover)&&!isBusy(r.receiver)){", html
+    )
+    self.assertIn("var pool=DEMO_MODE_ACTIVE?REPORT_ROUTES:REAL_RECORD_QUEUE;", html)
 
   def test_ai_office_command_pulse_only_for_president_routes(self):
     # 指令デスク(柴犬社長)への報告(悠・蓮からのまとめ報告)のときだけ
@@ -6806,7 +6904,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
@@ -6854,10 +6953,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(office_views.AI_OFFICE_REPORT_ROLE_LABELS["operations_lead"], "最終確認")
     self.assertEqual(office_views.AI_OFFICE_REPORT_ROLE_LABELS["yu"], "進行管理")
     self.assertIn("function updateReportBanner(route){", html)
+    # MISSION 080: 実績(localStorageの運用記録)による対面報告は「実績報告
+    # 中」、デモは「対面報告中」と表示し分ける。
+    self.assertIn('var verb=route.isReal?"実績報告中":"対面報告中";', html)
     self.assertIn(
-        'reportBannerEl.textContent="対面報告中　"+STAFF_NAMES[route.mover]+'
+        'reportBannerEl.textContent=verb+"　"+STAFF_NAMES[route.mover]+'
         '"（"+REPORT_ROLES[route.mover]+"） → "+STAFF_NAMES[route.receiver]+'
-        '"（"+REPORT_ROLES[route.receiver]+"）";',
+        '"（"+REPORT_ROLES[route.receiver]+"）"+(route.isReal?"（実績）":"");',
         html,
     )
 
@@ -6936,7 +7038,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 表示が読み取れるよう、対面報告が終わってもバナー・会話パネルは
     # クリアしない(次の対面報告が始まるまで内容を保持する)。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    return_step = html.split("function reportStepReturn(routeIdx,onDone){")[1].split(
+    return_step = html.split("function reportStepReturn(route,onDone){")[1].split(
         "function reportStepSettle"
     )[0]
     self.assertNotIn("reportBannerEl.textContent", return_step)
@@ -6987,7 +7089,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
@@ -7137,7 +7240,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
@@ -7222,12 +7326,266 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("/api/", html)
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
-    self.assertNotIn("localStorage", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("api_key", html)
     self.assertNotIn("access_token", html)
     self.assertEqual(html.count("<button"), 1)
     self.assertEqual(html.count("<script"), 1)
+
+  # --- MISSION 080: デモ専用表示からローカル運用記録の可視化へ -----------
+
+  def test_ai_office_daily_record_storage_key_matches_command_center(self):
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY,
+        "ai-hive-command-center:daily-record-log",
+    )
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('"dailyRecordStorageKey": "ai-hive-command-center:daily-record-log"', html)
+    self.assertIn("RECORD_KEY=DATA.dailyRecordStorageKey", html)
+    self.assertIn(
+        'raw=window.localStorage.getItem(RECORD_KEY);', html
+    )
+
+  def test_ai_office_daily_record_owner_mapping_matches_mission_rules(self):
+    # Pinterest→美咲、note→海、楽天ROOM→里奈、数字記録→葵、承認待ち→蓮、
+    # 共通→彩、それ以外→悠(必要時のみ柴犬社長)。
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS,
+        {"Pinterest": "pinterest", "note": "note", "楽天ROOM": "room", "共通": "aya"},
+    )
+    self.assertEqual(
+        office_views.AI_OFFICE_DAILY_RECORD_TYPE_OWNERS,
+        {"承認待ち": "ren", "数字記録": "analytics"},
+    )
+    self.assertEqual(office_views.AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER, "yu")
+    # 各ownerは、既存の対面報告ルートで必ずmoverになれること(実績表示が
+    # 既存の訪問者スロット・向き・リング・コネクタの仕組みをそのまま使う
+    # ための前提)。
+    movers = {r["mover"] for r in office_views.AI_OFFICE_REPORT_ROUTES}
+    owners = (
+        set(office_views.AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS.values())
+        | set(office_views.AI_OFFICE_DAILY_RECORD_TYPE_OWNERS.values())
+        | {office_views.AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER}
+    )
+    self.assertTrue(owners.issubset(movers))
+
+  def test_ai_office_daily_record_type_ack_lines_cover_all_types(self):
+    import office_views
+    self.assertEqual(
+        set(office_views.AI_OFFICE_DAILY_RECORD_TYPE_ACK.keys()),
+        set(office_views.COMMAND_CENTER_DAILY_RECORD_TYPES),
+    )
+    for label, ack in office_views.AI_OFFICE_DAILY_RECORD_TYPE_ACK.items():
+      self.assertTrue(ack)
+      for forbidden in ("売上", "円", "件成約", "公開しました", "送信しました"):
+        self.assertNotIn(forbidden, ack)
+
+  def test_ai_office_builds_real_record_queue_from_todays_records_only(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function todayDateStr(){", html)
+    self.assertIn("function loadTodayRecords(){", html)
+    self.assertIn('r&&r.date===today&&r.content&&', html)
+    self.assertIn("function ownerForRecord(rec){", html)
+    self.assertIn(
+        "return RECORD_TYPE_OWNERS[rec.type]||RECORD_MEDIA_OWNERS[rec.media]||"
+        "RECORD_FALLBACK_OWNER;",
+        html,
+    )
+    self.assertIn("function buildRealRecordQueue(){", html)
+    self.assertIn("var REAL_RECORD_QUEUE=buildRealRecordQueue();", html)
+    self.assertIn("var DEMO_MODE_ACTIVE=REAL_RECORD_QUEUE.length===0;", html)
+
+  def test_ai_office_record_mode_badge_present_and_distinguishes_demo_vs_real(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-record-mode-badge"', html)
+    self.assertIn("読み込み中…（デモ表示）", html)
+    self.assertIn(
+        '本日：運用記録の入力はまだありません', html
+    )
+    self.assertIn("実績表示・", html)
+    self.assertIn('recordModeBadgeEl.classList.add("is-real")', html)
+    self.assertIn('recordModeBadgeEl.classList.remove("is-real")', html)
+    self.assertIn(".ai-office-record-mode-badge.is-real{", html)
+
+  def test_ai_office_real_record_queue_reuses_existing_report_routes(self):
+    # 実績は、対応する既存の対面報告ルート(mover=owner)を再利用し、
+    # 内容だけを実際の記録に差し替える。専任担当のいない実績はスキップする
+    # (対応ルートがない場合、queueに追加しない)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("if(REPORT_ROUTES[i].mover===owner){baseRoute=REPORT_ROUTES[i];break;}", html)
+    self.assertIn("if(!baseRoute)return;", html)
+    self.assertIn('mover_line:typeLabel+"："+contentText,', html)
+    self.assertIn("isReal:true", html)
+
+  def test_ai_office_demo_mode_falls_back_when_no_todays_records(self):
+    # 実際の記録がない日は、既存のデモ表示(全11ルート+部署間交流)へ
+    # 自動で切り替わる。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("var pool=DEMO_MODE_ACTIVE?REPORT_ROUTES:REAL_RECORD_QUEUE;", html)
+    self.assertIn("if(DEMO_MODE_ACTIVE)scheduleNextB(runTrackB,3500);", html)
+
+  def test_ai_office_activity_feed_uses_real_prefix_for_real_records(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        'pushFeed((route.isReal?"実績：":"デモ：")+route.feed_text);', html
+    )
+
+  def test_ai_office_daily_record_read_only_no_write_to_storage(self):
+    # AIオフィスはlocalStorageを読み取るだけで、書き込み(setItem等)は
+    # 一切行わない(運用司令室だけが保存を行う)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+
+  def test_ai_office_mission080_does_not_change_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
+
+  # --- MISSION 081: 「手動投稿を完了した」ボタンで運用記録を自動入力 ------
+
+  def test_room_daily_candidates_has_manual_post_complete_button(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for slot in range(5):
+      self.assertIn(
+          f'<button type="button" class="manual-post-complete-btn" '
+          f'data-slot="{slot}">手動投稿を完了した</button>',
+          html,
+      )
+      self.assertIn(f'id="manual-post-status-{slot}"', html)
+    self.assertIn(office_views.AI_OFFICE_MANUAL_POST_COMPLETE_NOTE, html)
+    self.assertIn(
+        "このボタンは外部へ投稿しません。実際の投稿を確認した後、社内の運用"
+        "記録へ保存します。",
+        html,
+    )
+
+  def test_note_daily_candidates_has_manual_post_complete_button(self):
+    import office_views
+    html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    for slot in range(2):
+      self.assertIn(
+          f'<button type="button" class="manual-post-complete-btn" '
+          f'data-slot="{slot}">手動投稿を完了した</button>',
+          html,
+      )
+      self.assertIn(f'id="manual-post-status-{slot}"', html)
+    self.assertIn(office_views.AI_OFFICE_MANUAL_POST_COMPLETE_NOTE, html)
+
+  def test_manual_post_complete_script_is_shared_and_reusable(self):
+    # ROOM・noteの両ページが、同じ共通スクリプト生成関数(_manual_post_
+    # complete_script)由来のロジックを使っていることを確認する(将来の
+    # Pinterest候補にもそのまま再利用できる設計であることの回帰確認)。
+    import office_views
+    room_html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    note_html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    shared_snippets = (
+        "function todayStr(){",
+        "function loadRecordEntries(){",
+        'document.querySelectorAll(".manual-post-complete-btn").forEach(function(btn){',
+        'var card=btn.parentElement?btn.parentElement.closest("[data-slot]"):null;',
+        "本日すでに記録済みです。",
+        'entries.push({',
+        'date:today,media:MEDIA_LABEL,type:"投稿済み",content:content,',
+    )
+    for snippet in shared_snippets:
+      self.assertIn(snippet, room_html)
+      self.assertIn(snippet, note_html)
+    self.assertIn(
+        f'var RECORD_KEY={office_views.json.dumps(office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY)};',
+        room_html,
+    )
+    self.assertIn(
+        f'var RECORD_KEY={office_views.json.dumps(office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY)};',
+        note_html,
+    )
+    # ROOMは商品URLを持つが、noteの記事候補にはURL欄がないため、
+    # URL_SELECTORがnullになる(候補にURLがない場合の仕様どおり)。
+    self.assertIn('var MEDIA_LABEL="楽天ROOM";', room_html)
+    self.assertIn('var URL_SELECTOR=".rc-product-url";', room_html)
+    self.assertIn('var MEDIA_LABEL="note";', note_html)
+    self.assertIn('var URL_SELECTOR=null;', note_html)
+
+  def test_manual_post_complete_dedupes_by_date_media_and_content(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn(
+        'return e&&e.date===today&&e.media===MEDIA_LABEL&&e.content===content;',
+        html,
+    )
+    self.assertIn("if(isDuplicate){", html)
+
+  def test_manual_post_complete_does_not_save_without_content(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn(
+        '"商品名・タイトルを入力してから押してください。"', html
+    )
+
+  def test_manual_post_complete_media_labels_match_ai_office_owner_mapping(self):
+    # ROOM/noteのmedia_labelが、AIオフィスの担当マッピングのキーと一致して
+    # いることを確認する(ズレると実績が誰にも反映されなくなるため)。
+    import office_views
+    self.assertIn("楽天ROOM", office_views.AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS)
+    self.assertEqual(office_views.AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS["楽天ROOM"], "room")
+    self.assertIn("note", office_views.AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS)
+    self.assertEqual(office_views.AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS["note"], "note")
+
+  def test_manual_post_complete_no_external_calls_added(self):
+    # ROOM候補ページの商品URL欄のプレースホルダ(https://item.rakuten...)
+    # は既存の仕様(件数がROOM_CANDIDATE_MAX_PER_DAYと一致することは、
+    # test_room_daily_candidates_uses_local_storage_only_no_external_calls
+    # 側で確認済み)であり、それ以外に新たな外部通信・投稿・送信・ログイン
+    # に関わる文字列が増えていないことを確認する。
+    for path in (
+        "/content-studio/room-daily-candidates",
+        "/content-studio/note-daily-candidates",
+    ):
+      html = self.client.get(path).get_data(as_text=True)
+      self.assertNotIn("fetch(", html)
+      self.assertNotIn("XMLHttpRequest", html)
+      self.assertNotIn("WebSocket", html)
+      self.assertNotIn("/api/", html)
+      self.assertNotIn('method="POST"', html)
+      self.assertNotIn("<form", html)
+      self.assertNotIn("Authorization", html)
+      self.assertNotIn("api_key", html)
+      self.assertNotIn("access_token", html)
+    note_html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
+    self.assertNotIn("https://", note_html)
+
+  def test_manual_post_complete_button_does_not_change_existing_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+        ("/ai-office", "AIオフィス"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+    root_html = self.html
+    self.assertIn("5件公開済み", root_html)
+    self.assertIn("AI Hiveで追加した商品投稿が17件公開済み", root_html)
 
 
 if __name__ == "__main__":

@@ -310,6 +310,8 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office{max-width:1160px;margin:0 auto;--cyan:#22d3ee}
 .ai-office-demo-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#3d3106;border:1px solid #7a5c0a;color:#fbbf24;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12px;font-weight:700}
 .ai-office-demo-banner span{font-weight:400;color:#f4d98b}
+.ai-office-record-mode-badge{background:#142039;border:1px solid var(--edge);color:var(--sub);border-radius:10px;padding:8px 14px;margin-bottom:18px;font-size:12px;text-align:center}
+.ai-office-record-mode-badge.is-real{border-color:#34d399;color:var(--ink);background:#0b3d2e}
 .ai-office-role-diff{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--sub);line-height:1.7}
 .ai-office-role-diff b{color:var(--ink)}
 .ai-office-section{margin:24px 0}
@@ -1781,6 +1783,7 @@ def _render_room_daily_candidates_scene():
         '（このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は'
         '行われません。実際の投稿は利用者がROOM上で手動で行ってください。）</label>'
         '</div>'
+        f'{_manual_post_complete_box_html(slot)}'
         '</div>'
     )
 
@@ -2060,6 +2063,7 @@ def _render_room_daily_candidates_scene():
       '.addEventListener("click",generateForAllFilled);'
       '})();'
       '</script>'
+      f'<script>{_manual_post_complete_script("楽天ROOM", ".rc-product-name", ".rc-product-url")}</script>'
       '</section>'
   )
 
@@ -2272,6 +2276,7 @@ def _render_note_daily_candidates_scene():
         '（このチェックは手動公開の確認記録であり、ここからnoteへの投稿・送信は'
         '行われません。実際の公開は利用者がnote上で手動で行ってください。）</label>'
         '</div>'
+        f'{_manual_post_complete_box_html(slot)}'
         '</div>'
     )
 
@@ -2598,6 +2603,7 @@ def _render_note_daily_candidates_scene():
       'document.querySelector("#nc-generate-today").addEventListener("click",generateToday);'
       '})();'
       '</script>'
+      f'<script>{_manual_post_complete_script("note", ".nc-title")}</script>'
       '</section>'
   )
 
@@ -5263,6 +5269,26 @@ COMMAND_CENTER_DECISION_MEDIA_OPTIONS = [
     "楽天ROOM", "楽天アフィリエイト", "note", "Pinterest", "Threads",
 ]
 
+# MISSION 080: 「本日の運用記録」用の媒体選択肢。判断メモ(上記)とは別に、
+# 部署をまたぐ引き継ぎ(彩の担当)を記録できるよう「共通」を追加する。
+COMMAND_CENTER_DAILY_RECORD_MEDIA_OPTIONS = COMMAND_CENTER_DECISION_MEDIA_OPTIONS + ["共通"]
+
+# MISSION 080: 「本日の運用記録」の種別。company_knowledge/00_company_rules.md
+# の「提案・下書き・記録まで。最終承認と外部公開は利用者本人」という範囲に
+# 沿い、実行・公開そのものを表す種別は置かない(「投稿済み」は、利用者が
+# 実際に投稿した"事実"を記録するだけで、この画面から投稿を行うものでは
+# ない)。
+COMMAND_CENTER_DAILY_RECORD_TYPES = ["確認", "下書き", "投稿済み", "数字記録", "承認待ち"]
+
+# MISSION 080: 運用司令室の「本日の運用記録」とAIオフィスの実績反映は、
+# 同じlocalStorageキーを読み書きする(ブラウザのlocalStorageのみで完結し、
+# 外部通信・DB書き込みは行わない)。キー文字列がずれると連携できなくなる
+# ため、Python側の定数を両画面のJSへ埋め込んで一致させる。
+AI_OFFICE_COMMAND_CENTER_STORAGE_PREFIX = "ai-hive-command-center:"
+AI_OFFICE_DAILY_RECORD_STORAGE_KEY = (
+    AI_OFFICE_COMMAND_CENTER_STORAGE_PREFIX + "daily-record-log"
+)
+
 
 def _render_command_center_scene():
   """運用司令室(/command-center)画面のHTMLを組み立てる。
@@ -5302,6 +5328,15 @@ def _render_command_center_scene():
 
   media_options = "".join(
       f'<option value="{m}">{m}</option>' for m in COMMAND_CENTER_DECISION_MEDIA_OPTIONS
+  )
+
+  # MISSION 080: 「本日の運用記録」の媒体・種別の選択肢。
+  record_media_options = "".join(
+      f'<option value="{m}">{m}</option>'
+      for m in COMMAND_CENTER_DAILY_RECORD_MEDIA_OPTIONS
+  )
+  record_type_options = "".join(
+      f'<option value="{t}">{t}</option>' for t in COMMAND_CENTER_DAILY_RECORD_TYPES
   )
 
   return (
@@ -5374,6 +5409,51 @@ def _render_command_center_scene():
       '<div class="cc-decision-log-list" id="cc-decision-log-list">'
       '<p class="cc-decision-log-empty" id="cc-decision-log-empty">まだ記録は'
       'ありません。</p>'
+      '</div>'
+      '</div>'
+
+      # MISSION 080: 「本日の運用記録」。利用者がローカルで確認・下書き・
+      # 投稿・記録・承認待ちにした実績を入力すると、AIオフィス
+      # (/ai-office)側で該当する担当社員の対面報告として反映される
+      # (詳しい対応はAI_OFFICE_DAILY_RECORD_*定数を参照)。ここでの保存も
+      # localStorageのみで、投稿・送信・ログイン・削除は行わない。
+      '<h2 class="cc-section-title">本日の運用記録</h2>'
+      '<div class="cc-decision-box">'
+      '<p class="cc-decision-note">ここに入力した内容は、AIオフィス'
+      '（/ai-office）にも、該当する担当の対面報告として反映されます'
+      '（同じブラウザのlocalStorage内でのみ連携し、外部への送信は'
+      '行いません）。今日の日付で記録がない場合、AIオフィスは引き続き'
+      'デモ表示のままです。</p>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-record-date">日付</label>'
+      '<input type="date" id="cc-record-date"></div>'
+      '<div><label for="cc-record-media">媒体</label>'
+      f'<select id="cc-record-media"><option value="">選択してください</option>{record_media_options}</select></div>'
+      '</div>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-record-type">種別</label>'
+      f'<select id="cc-record-type"><option value="">選択してください</option>{record_type_options}</select></div>'
+      '<div><label for="cc-record-metric">数字メモ（任意）</label>'
+      '<input type="text" id="cc-record-metric" maxlength="200" '
+      'placeholder="実際に確認できた数字だけを書いてください"></div>'
+      '</div>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-record-content">内容</label>'
+      '<textarea id="cc-record-content" rows="2" maxlength="600" '
+      'placeholder="確認・下書き・記録した内容を短く書いてください">'
+      '</textarea></div>'
+      '<div><label for="cc-record-reference">URLまたは参照先（任意）</label>'
+      '<input type="text" id="cc-record-reference" maxlength="300" '
+      'placeholder="参照した画面名やURLなど（このアプリからは開きません）">'
+      '</div>'
+      '</div>'
+      '<button type="button" class="cc-decision-add-btn" id="cc-record-add">'
+      '本日の運用記録を保存する</button>'
+      '<p class="cc-decision-note">実際に確認・作業した内容だけを記録して'
+      'ください。このアプリが自動で実績を作成することはありません。</p>'
+      '<div class="cc-decision-log-list" id="cc-record-log-list">'
+      '<p class="cc-decision-log-empty" id="cc-record-log-empty">まだ本日の'
+      '運用記録はありません。</p>'
       '</div>'
       '</div>'
 
@@ -5501,6 +5581,67 @@ def _render_command_center_scene():
       'decisionHold.value="";'
       '});'
       'renderDecisionLog();'
+      # --- MISSION 080: 本日の運用記録(AIオフィスの実績表示と連携) ---
+      'const recordLogKey=STORAGE_PREFIX+"daily-record-log";'
+      'const recordDate=document.querySelector("#cc-record-date");'
+      'const recordMedia=document.querySelector("#cc-record-media");'
+      'const recordType=document.querySelector("#cc-record-type");'
+      'const recordMetric=document.querySelector("#cc-record-metric");'
+      'const recordContent=document.querySelector("#cc-record-content");'
+      'const recordReference=document.querySelector("#cc-record-reference");'
+      'const recordLogList=document.querySelector("#cc-record-log-list");'
+      'const recordLogEmpty=document.querySelector("#cc-record-log-empty");'
+      'function loadRecordLog(){'
+      'try{'
+      'const raw=safeGet(recordLogKey);'
+      'const list=raw?JSON.parse(raw):[];'
+      'return Array.isArray(list)?list:[];'
+      '}catch(e){return [];}'
+      '}'
+      'function renderRecordLog(){'
+      'const entries=loadRecordLog();'
+      'recordLogList.querySelectorAll(".cc-decision-log-entry").forEach(function(el){el.remove();});'
+      'if(entries.length===0){'
+      'recordLogEmpty.hidden=false;'
+      'return;'
+      '}'
+      'recordLogEmpty.hidden=true;'
+      'entries.slice().reverse().forEach(function(entry){'
+      'const div=document.createElement("div");'
+      'div.className="cc-decision-log-entry";'
+      'div.innerHTML='
+      '"<div><b>日付：</b>"+escapeHtml(entry.date||"未入力")+"</div>"+'
+      '"<div><b>媒体：</b>"+escapeHtml(entry.media||"未選択")+"</div>"+'
+      '"<div><b>種別：</b>"+escapeHtml(entry.type||"未選択")+"</div>"+'
+      '"<div><b>内容：</b>"+escapeHtml(entry.content||"")+"</div>"+'
+      '"<div><b>数字メモ：</b>"+escapeHtml(entry.metric||"")+"</div>"+'
+      '"<div><b>参照先：</b>"+escapeHtml(entry.reference||"")+"</div>";'
+      'recordLogList.appendChild(div);'
+      '});'
+      '}'
+      'document.querySelector("#cc-record-add").addEventListener("click",function(){'
+      'const entry={'
+      'date:recordDate.value,'
+      'media:recordMedia.value,'
+      'type:recordType.value,'
+      'content:recordContent.value,'
+      'metric:recordMetric.value,'
+      'reference:recordReference.value,'
+      '};'
+      'if(!entry.date||!entry.media||!entry.type||!entry.content.trim()){'
+      'window.alert("日付・媒体・種別・内容は、本日の運用記録として保存する'
+      'ために入力してください。");'
+      'return;'
+      '}'
+      'const entries=loadRecordLog();'
+      'entries.push(entry);'
+      'safeSet(recordLogKey,JSON.stringify(entries));'
+      'renderRecordLog();'
+      'recordContent.value="";'
+      'recordMetric.value="";'
+      'recordReference.value="";'
+      '});'
+      'renderRecordLog();'
       '})();'
       '</script>'
       '</section>'
@@ -5935,6 +6076,144 @@ AI_OFFICE_REPORT_ROUTES = [
     },
 ]
 
+# MISSION 080: 運用司令室の「本日の運用記録」に入力された実績を、AIオフィス
+# 上でどの社員の対面報告として表示するかのマッピング。種別による判定
+# (数字記録→葵の数字確認・比較、承認待ち→蓮の安全・承認確認)を、媒体による
+# 判定(Pinterest→美咲、note→海、楽天ROOM→里奈、共通→彩の部署間引き継ぎ)
+# より先に見る。いずれにも当てはまらない場合(楽天アフィリエイト・
+# Threadsで、確認/下書き/投稿済みの記録など、専任担当がいない媒体)は、
+# 進行管理の悠がまとめて受け持つ(「全体進行・最終報告 → 悠、必要時のみ
+# 柴犬社長」)。悠・蓮はそれぞれ既存の対面報告ルート(yu_to_president・
+# ren_to_president)で柴犬社長へ報告するため、柴犬社長への表示は「必要時
+# (悠・蓮が実績を持つとき)のみ」に自然となる。
+AI_OFFICE_DAILY_RECORD_TYPE_OWNERS = {
+    "承認待ち": "ren",
+    "数字記録": "analytics",
+}
+AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS = {
+    "Pinterest": "pinterest",
+    "note": "note",
+    "楽天ROOM": "room",
+    "共通": "aya",
+}
+AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER = "yu"
+
+# MISSION 080: 実績の種別ごとに、受け手が返す短い確認の相づち。利用者が
+# 入力した内容そのものに対する返答は用意できないため、種別に対する定型の
+# 確認応答とする(断定・評価はしない)。
+AI_OFFICE_DAILY_RECORD_TYPE_ACK = {
+    "確認": "確認ありがとうございます。記録しました",
+    "下書き": "下書きを確認しました",
+    "投稿済み": "投稿済みとして記録しました",
+    "数字記録": "数字を記録として確認しました",
+    "承認待ち": "承認待ちとして記録しました",
+}
+
+# MISSION 081: 「手動投稿を完了した」ボタン(楽天ROOM候補・note記事候補、
+# 将来のPinterest候補にも再利用する共通部品)。押すと、運用司令室の
+# 「本日の運用記録」と同じlocalStorageキー(AI_OFFICE_DAILY_RECORD_
+# STORAGE_KEY)へ、種別「投稿済み」の記録を1件追記する。外部投稿・送信・
+# ログイン・API通信は一切行わず、投稿の成否も検知しない。実際に外部画面で
+# 投稿を確認した利用者本人が押すことを前提にした、ローカル記録専用の
+# ボタンである。
+AI_OFFICE_MANUAL_POST_COMPLETE_NOTE = (
+    "このボタンは外部へ投稿しません。実際の投稿を確認した後、社内の運用"
+    "記録へ保存します。"
+)
+
+
+def _manual_post_complete_box_html(slot):
+  """候補カード内に置く「手動投稿を完了した」ボタン一式のHTMLを返す。
+
+  content_selector/url_selectorは、_manual_post_complete_script側で
+  ボタンの祖先カード([data-slot]を持つ要素)内から値を読み取るために使う
+  CSSセレクタ文字列で、呼び出し側(ROOM・note・将来のPinterest)ごとに
+  異なる入力欄クラスを渡せるようにする。
+  """
+  return (
+      '<div class="manual-post-complete-box">'
+      f'<button type="button" class="manual-post-complete-btn" '
+      f'data-slot="{slot}">手動投稿を完了した</button>'
+      f'<p class="manual-post-complete-note">{AI_OFFICE_MANUAL_POST_COMPLETE_NOTE}</p>'
+      f'<p class="manual-post-complete-status" id="manual-post-status-{slot}" '
+      'aria-live="polite"></p>'
+      '</div>'
+  )
+
+
+def _manual_post_complete_script(media_label, content_selector, url_selector=None):
+  """「手動投稿を完了した」ボタンのクリック処理(JS)を返す。
+
+  media_label: 保存するentry.mediaの値(例:"楽天ROOM"、"note")。
+  content_selector: ボタンの祖先カード内で、内容(商品名・タイトル)を
+    読み取る入力欄のCSSセレクタ(例:".rc-product-name")。
+  url_selector: 同様にURLを読み取るCSSセレクタ。候補にURL欄がない場合は
+    Noneを渡す(noteの記事候補など)。
+  """
+  url_selector_js = (
+      json.dumps(url_selector, ensure_ascii=False) if url_selector else "null"
+  )
+  return (
+      '(function(){'
+      f'var RECORD_KEY={json.dumps(AI_OFFICE_DAILY_RECORD_STORAGE_KEY, ensure_ascii=False)};'
+      f'var MEDIA_LABEL={json.dumps(media_label, ensure_ascii=False)};'
+      f'var CONTENT_SELECTOR={json.dumps(content_selector, ensure_ascii=False)};'
+      f'var URL_SELECTOR={url_selector_js};'
+      'function safeGetRecord(){'
+      'try{return window.localStorage.getItem(RECORD_KEY);}catch(e){return null;}'
+      '}'
+      'function safeSetRecord(v){'
+      'try{window.localStorage.setItem(RECORD_KEY,v);}catch(e){'
+      '/* localStorageが使えない環境でも画面は壊さない */'
+      '}'
+      '}'
+      'function todayStr(){'
+      'var d=new Date();'
+      'function pad(n){return n<10?"0"+n:""+n;}'
+      'return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());'
+      '}'
+      'function loadRecordEntries(){'
+      'try{'
+      'var raw=safeGetRecord();'
+      'var list=raw?JSON.parse(raw):[];'
+      'return Array.isArray(list)?list:[];'
+      '}catch(e){return [];}'
+      '}'
+      'document.querySelectorAll(".manual-post-complete-btn").forEach(function(btn){'
+      'btn.addEventListener("click",function(){'
+      'var card=btn.parentElement?btn.parentElement.closest("[data-slot]"):null;'
+      'var slot=btn.dataset.slot;'
+      'var statusEl=document.querySelector("#manual-post-status-"+slot);'
+      'var contentEl=card?card.querySelector(CONTENT_SELECTOR):null;'
+      'var content=contentEl?contentEl.value.trim():"";'
+      'if(!content){'
+      'if(statusEl)statusEl.textContent='
+      '"商品名・タイトルを入力してから押してください。";'
+      'return;'
+      '}'
+      'var urlEl=(URL_SELECTOR&&card)?card.querySelector(URL_SELECTOR):null;'
+      'var url=urlEl?urlEl.value.trim():"";'
+      'var today=todayStr();'
+      'var entries=loadRecordEntries();'
+      'var isDuplicate=entries.some(function(e){'
+      'return e&&e.date===today&&e.media===MEDIA_LABEL&&e.content===content;'
+      '});'
+      'if(isDuplicate){'
+      'if(statusEl)statusEl.textContent="本日すでに記録済みです。";'
+      'return;'
+      '}'
+      'entries.push({'
+      'date:today,media:MEDIA_LABEL,type:"投稿済み",content:content,'
+      'metric:"",reference:url'
+      '});'
+      'safeSetRecord(JSON.stringify(entries));'
+      'if(statusEl)statusEl.textContent='
+      '"運用記録に保存しました（AIオフィスにも反映されます）。";'
+      '});'
+      '});'
+      '})();'
+  )
+
 # MISSION 077: 進行バナー(「対面報告中 悠（進行管理） → 柴犬社長
 # （最終確認）」)に使う、報告の文脈での短い役割ラベル。desk_label・
 # role_labelとは別に、バナーの文字数を短く保つための専用ラベルを持つ
@@ -6324,6 +6603,13 @@ def _render_ai_office_scene():
           "interactions": AI_OFFICE_INTERACTION_SCENES,
           "visitorSlots": AI_OFFICE_VISITOR_SLOTS,
           "maxFeedItems": AI_OFFICE_ACTIVITY_FEED_MAX_ITEMS,
+          # MISSION 080: 運用司令室の「本日の運用記録」(localStorage)を
+          # 読み取り、実績があれば対応する社員の対面報告として表示する。
+          "dailyRecordStorageKey": AI_OFFICE_DAILY_RECORD_STORAGE_KEY,
+          "dailyRecordTypeOwners": AI_OFFICE_DAILY_RECORD_TYPE_OWNERS,
+          "dailyRecordMediaOwners": AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS,
+          "dailyRecordFallbackOwner": AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER,
+          "dailyRecordTypeAck": AI_OFFICE_DAILY_RECORD_TYPE_ACK,
       },
       ensure_ascii=False,
   )
@@ -6334,6 +6620,12 @@ def _render_ai_office_scene():
       '<span>この画面の数値・状態・チャット・活動フィードはすべて、あらかじめ'
       '用意したデモデータです。AI社員が実際に自動稼働しているわけではあり'
       'ません。</span></div>'
+      # MISSION 080: 「デモ表示」か「実績表示」かを画面上で明確に判別できる
+      # ようにするバッジ。実際の値はJS側で、運用司令室のlocalStorageに本日
+      # 付の運用記録があるかどうかを見て書き換える(サーバー側はlocalStorage
+      # の中身を知り得ないため、初期表示は読み込み中の文言にしておく)。
+      '<div class="ai-office-record-mode-badge" id="ai-office-record-mode-badge">'
+      '読み込み中…（デモ表示）</div>'
       '<div class="ai-office-role-diff">'
       '<p><b>運用司令室</b>（/command-center）は、数字の確認・判断・記録を'
       '行う画面です。<b>AIオフィス</b>（このページ）は、役割・進行状況・'
@@ -6458,8 +6750,78 @@ def _render_ai_office_scene():
       'STATUS_LABELS=DATA.statusLabels,'
       'STAFF_NAMES=DATA.staffNames,'
       'INTERACTIONS=DATA.interactions,MAX_FEED=DATA.maxFeedItems,'
-      'VISITOR_SLOTS=DATA.visitorSlots;'
+      'VISITOR_SLOTS=DATA.visitorSlots,'
+      'RECORD_KEY=DATA.dailyRecordStorageKey,'
+      'RECORD_TYPE_OWNERS=DATA.dailyRecordTypeOwners,'
+      'RECORD_MEDIA_OWNERS=DATA.dailyRecordMediaOwners,'
+      'RECORD_FALLBACK_OWNER=DATA.dailyRecordFallbackOwner,'
+      'RECORD_TYPE_ACK=DATA.dailyRecordTypeAck;'
       'function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}'
+      # MISSION 080: 運用司令室の「本日の運用記録」(localStorage)を読み、
+      # 今日の日付の記録だけを、対応する社員の対面報告に変換する。
+      # AIオフィス自体はこのキーへ書き込まない(読み取り専用)。
+      'var recordModeBadgeEl=document.querySelector("#ai-office-record-mode-badge");'
+      'function todayDateStr(){'
+      'var d=new Date();'
+      'function pad(n){return n<10?"0"+n:""+n;}'
+      'return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());'
+      '}'
+      'function loadTodayRecords(){'
+      'var raw=null;'
+      'try{raw=window.localStorage.getItem(RECORD_KEY);}catch(e){raw=null;}'
+      'var list=[];'
+      'try{list=raw?JSON.parse(raw):[];}catch(e){list=[];}'
+      'if(!Array.isArray(list))list=[];'
+      'var today=todayDateStr();'
+      'return list.filter(function(r){return r&&r.date===today&&r.content&&'
+      'String(r.content).trim();});'
+      '}'
+      'function ownerForRecord(rec){'
+      'return RECORD_TYPE_OWNERS[rec.type]||RECORD_MEDIA_OWNERS[rec.media]||'
+      'RECORD_FALLBACK_OWNER;'
+      '}'
+      # MISSION 080: 実績のある記録だけを、既存の対面報告ルート
+      # (mover=ownerのもの)へ差し替えて再利用する(訪問者スロット・向き・
+      # リング・コネクタなどの仕組みはそのまま使う)。対応するルートが
+      # ない担当(専任担当のいない実績)は、安全のためスキップする。
+      'function buildRealRecordQueue(){'
+      'var records=loadTodayRecords();'
+      'var queue=[];'
+      'records.forEach(function(rec){'
+      'var owner=ownerForRecord(rec);'
+      'var baseRoute=null;'
+      'for(var i=0;i<REPORT_ROUTES.length;i++){'
+      'if(REPORT_ROUTES[i].mover===owner){baseRoute=REPORT_ROUTES[i];break;}'
+      '}'
+      'if(!baseRoute)return;'
+      'var typeLabel=rec.type||"記録";'
+      'var contentText=(rec.content||rec.metric||"").toString();'
+      'queue.push({'
+      'key:baseRoute.key+"__real"+queue.length,'
+      'mover:baseRoute.mover,'
+      'receiver:baseRoute.receiver,'
+      'mover_line:typeLabel+"："+contentText,'
+      'receiver_line:RECORD_TYPE_ACK[rec.type]||"記録として確認しました",'
+      'feed_text:STAFF_NAMES[owner]+"が「"+contentText+"」を記録しました",'
+      'isReal:true'
+      '});'
+      '});'
+      'return queue;'
+      '}'
+      'var REAL_RECORD_QUEUE=buildRealRecordQueue();'
+      'var DEMO_MODE_ACTIVE=REAL_RECORD_QUEUE.length===0;'
+      'if(recordModeBadgeEl){'
+      'if(DEMO_MODE_ACTIVE){'
+      'recordModeBadgeEl.textContent="本日：運用記録の入力はまだありません'
+      '（デモ表示）";'
+      'recordModeBadgeEl.classList.remove("is-real");'
+      '}else{'
+      'recordModeBadgeEl.textContent="本日：あなたが記録した運用実績を表示'
+      '中（実績表示・"+REAL_RECORD_QUEUE.length+"件、他の社員は通常の'
+      '待機表示です）";'
+      'recordModeBadgeEl.classList.add("is-real");'
+      '}'
+      '}'
       'var bubbleEl=document.querySelector("#ai-office-floormap-bubble");'
       # MISSION 076: 対面報告の「報告者の吹き出し」と「受け手の返答の
       # 吹き出し」を別要素にする(bubbleElReceiver、CSSで配色を変える)。
@@ -6513,10 +6875,13 @@ def _render_ai_office_scene():
       # 終わっても次の対面報告が始まるまで内容を保持する(停止時にも
       # 「誰が誰へ報告中だったか」が読み取れるようにするため、明示的な
       # クリア処理は行わない)。
+      # MISSION 080: 実績(localStorageの運用記録)による対面報告は、デモの
+      # 対面報告と画面上で明確に区別できるよう「実績報告中」と表示する。
       'function updateReportBanner(route){'
-      'reportBannerEl.textContent="対面報告中　"+STAFF_NAMES[route.mover]+'
+      'var verb=route.isReal?"実績報告中":"対面報告中";'
+      'reportBannerEl.textContent=verb+"　"+STAFF_NAMES[route.mover]+'
       '"（"+REPORT_ROLES[route.mover]+"） → "+STAFF_NAMES[route.receiver]+'
-      '"（"+REPORT_ROLES[route.receiver]+"）";'
+      '"（"+REPORT_ROLES[route.receiver]+"）"+(route.isReal?"（実績）":"");'
       '}'
       # MISSION 077: 対面会話パネル(左に報告者、右に受け手)。バナーと同様、
       # 次の対面報告が始まるまで内容を保持する。
@@ -6711,23 +7076,32 @@ def _render_ai_office_scene():
       # 報告する本人が受け手の前まで歩き、向かい合って会話してから自席へ
       # 戻る流れに変更した。busy{}で報告者・受け手の両方を予約し、
       # Track B(交流デモ)が同じ人物を同時に動かさないようにする。
-      'var reportRouteIdx=0;'
+      # MISSION 080: 報告ルートを配列インデックスではなく、ルート
+      # オブジェクトそのもので受け渡すようにした(デモのREPORT_ROUTESと、
+      # 本日の運用記録から組み立てたREAL_RECORD_QUEUEの両方を、同じ
+      # ステップ関数群で扱えるようにするため)。
+      'var reportRouteIdx=0,realRecordIdx=0;'
       'function pickNextReportRoute(){'
-      'for(var n=0;n<REPORT_ROUTES.length;n++){'
-      'var idx=(reportRouteIdx+n)%REPORT_ROUTES.length;'
-      'var r=REPORT_ROUTES[idx];'
-      'if(!isBusy(r.mover)&&!isBusy(r.receiver))return idx;'
+      'var pool=DEMO_MODE_ACTIVE?REPORT_ROUTES:REAL_RECORD_QUEUE;'
+      'var cursor=DEMO_MODE_ACTIVE?reportRouteIdx:realRecordIdx;'
+      'for(var n=0;n<pool.length;n++){'
+      'var idx=(cursor+n)%pool.length;'
+      'var r=pool[idx];'
+      'if(!isBusy(r.mover)&&!isBusy(r.receiver)){'
+      'if(DEMO_MODE_ACTIVE)reportRouteIdx=(idx+1)%pool.length;'
+      'else realRecordIdx=(idx+1)%pool.length;'
+      'return r;'
       '}'
-      'return reportRouteIdx;'
       '}'
-      'function reportStepTravel(routeIdx,onDone){'
-      'var route=REPORT_ROUTES[routeIdx];'
+      'return pool[cursor];'
+      '}'
+      'function reportStepTravel(route,onDone){'
       'setStatus(route.mover,"working");'
       'setWorking(route.mover,true);'
       'setMoving(route.mover,true);'
       'setPhase(route.mover,"移動中");'
       'moveToken(route.mover,route.receiver);'
-      'scheduleNext(function(){reportStepArrive(routeIdx,onDone);},1800);'
+      'scheduleNext(function(){reportStepArrive(route,onDone);},1800);'
       '}'
       # MISSION 076: 到着したら、報告者・受け手の双方が向かい合う(向きを
       # 反転)。報告者の吹き出しで一次のセリフを表示し、指令デスクへの
@@ -6736,8 +7110,7 @@ def _render_ai_office_scene():
       # 進行バナー・対面会話パネル(1行目)・発光リング・点線コネクタ・
       # 詳しい名前札を、この時点でまとめて表示する。他の社員を少し
       # 控えめにするため、overlayに is-reporting を付与する。
-      'function reportStepArrive(routeIdx,onDone){'
-      'var route=REPORT_ROUTES[routeIdx];'
+      'function reportStepArrive(route,onDone){'
       'setMoving(route.mover,false);'
       'setWorking(route.mover,true);'
       'setStatus(route.mover,"pending");'
@@ -6758,28 +7131,28 @@ def _render_ai_office_scene():
       'showBubble(route.mover_line,route.receiver);'
       'showSpeech(route.mover,route.mover_line);'
       'if(route.receiver==="operations_lead")pulseCommandDesk();'
-      'scheduleNext(function(){reportStepReply(routeIdx,onDone);},2200);'
+      'scheduleNext(function(){reportStepReply(route,onDone);},2200);'
       '}'
       # MISSION 076: 受け手が応答する。報告者の吹き出しは消し、受け手専用の
       # 吹き出し(配色違い)で返答を表示してから、活動フィードへ記録する。
       # MISSION 077: 対面会話パネルの2行目(受け手の返答)もここで表示する。
-      'function reportStepReply(routeIdx,onDone){'
-      'var route=REPORT_ROUTES[routeIdx];'
+      # MISSION 080: 実績による報告は「デモ：」ではなく「実績：」として
+      # 活動フィードへ記録し、デモと明確に区別できるようにする。
+      'function reportStepReply(route,onDone){'
       'hideBubble();'
       'setWorking(route.receiver,true);'
       'setReportPanelLine(reportPanelReceiverEl,route.receiver,route.mover,route.receiver_line);'
       'showBubbleReceiver(route.receiver_line,route.receiver);'
       'showSpeech(route.receiver,route.receiver_line);'
-      'pushFeed("デモ："+route.feed_text);'
+      'pushFeed((route.isReal?"実績：":"デモ：")+route.feed_text);'
       'refreshOfficeStatusLine();'
-      'scheduleNext(function(){reportStepReturn(routeIdx,onDone);},2200);'
+      'scheduleNext(function(){reportStepReturn(route,onDone);},2200);'
       '}'
       # MISSION 077: 対面報告が終わったら、発光リング・点線コネクタ・
       # 他の社員を控えめにする表示(is-reporting)は解除する(進行バナー・
       # 会話パネル・名前札の「誰が誰へ報告したか」は、次の対面報告が
       # 始まるまでそのまま残す)。
-      'function reportStepReturn(routeIdx,onDone){'
-      'var route=REPORT_ROUTES[routeIdx];'
+      'function reportStepReturn(route,onDone){'
       'hideBubbleReceiver();'
       'hideReportConnector();'
       'overlayEl.classList.remove("is-reporting");'
@@ -6795,10 +7168,9 @@ def _render_ai_office_scene():
       'setMoving(route.mover,true);'
       'moveToken(route.mover,route.mover);'
       'resetFacing(route.mover);'
-      'scheduleNext(function(){reportStepSettle(routeIdx,onDone);},1800);'
+      'scheduleNext(function(){reportStepSettle(route,onDone);},1800);'
       '}'
-      'function reportStepSettle(routeIdx,onDone){'
-      'var route=REPORT_ROUTES[routeIdx];'
+      'function reportStepSettle(route,onDone){'
       'setMoving(route.mover,false);'
       'setPhase(route.mover,"");'
       'setStatus(route.mover,"waiting");'
@@ -6807,16 +7179,18 @@ def _render_ai_office_scene():
       'setStatus(route.receiver,route.receiver==="operations_lead"?"working":"waiting");'
       'onDone();'
       '}'
+      # MISSION 080: デモ表示中(DEMO_MODE_ACTIVE)は既存どおりREPORT_ROUTES
+      # を巡回し、本日の運用記録がある場合(実績表示)はREAL_RECORD_QUEUEだけ
+      # を巡回する。実績のある社員だけが動き、実績のない社員は通常の待機
+      # 表示のままになる。
       'function runReportRoute(){'
-      'var idx=pickNextReportRoute();'
-      'reportRouteIdx=(idx+1)%REPORT_ROUTES.length;'
-      'var route=REPORT_ROUTES[idx];'
+      'var route=pickNextReportRoute();'
       'markBusy(route.mover,true);'
       'markBusy(route.receiver,true);'
-      'reportStepTravel(idx,function(){'
+      'reportStepTravel(route,function(){'
       'markBusy(route.mover,false);'
       'markBusy(route.receiver,false);'
-      'scheduleNext(runReportRoute,500);'
+      'scheduleNext(runReportRoute,DEMO_MODE_ACTIVE?500:1500);'
       '});'
       '}'
       # --- Track B: 部署間・休憩スペースでの交流デモ(継続ループ) ---
@@ -6875,7 +7249,10 @@ def _render_ai_office_scene():
       '}'
       'refreshOfficeStatusLine();'
       'scheduleNext(runReportRoute,900);'
-      'scheduleNextB(runTrackB,3500);'
+      # MISSION 080: 実績表示中(本日の運用記録がある場合)は、デモ専用の
+      # 部署間交流(Track B: 彩の休憩・凛の資料室確認)を動かさない
+      # (実績のない社員は通常の待機表示のままにするため)。
+      'if(DEMO_MODE_ACTIVE)scheduleNextB(runTrackB,3500);'
       '})();'
       '</script>'
       '</section>'
