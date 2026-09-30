@@ -226,11 +226,12 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_root_dashboard_office_page_still_has_its_own_fictional_desk_characters(self):
     # /officeの「ライブオフィス」表示は、このミッションの対象外であり、
-    # 既存の演出用デスクキャラクター(琴衣・蒼・美咲・海・湊・伊藤)は
-    # そのまま残っていることを確認する(トップページからの削除が、他画面を
-    # 壊していないことの回帰確認)。
+    # デスクキャラクター表示自体はそのまま残っていることを確認する
+    # (トップページからの削除が、他画面を壊していないことの回帰確認)。
+    # MISSION 083: 実在の12人と無関係だった旧キャスト(琴衣・美咲・海・湊・
+    # 伊藤)は、AIオフィスと同じ実在4人(里奈・凛・葵・蒼)へ置き換えた。
     office_html = self.client.get("/office").get_data(as_text=True)
-    for name in ("琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
+    for name in ("里奈", "凛", "葵", "蒼"):
       self.assertIn(name, office_html)
 
   # --- MISSION 038.1: 4カードの現状表示を実際の運用状況へ合わせる更新 -----------
@@ -364,10 +365,10 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 025: 役割別ライブオフィス連携(実データ表示) --------------------
 
   def test_fixed_desk_avatars_have_status_elements_for_real_data(self):
-    # 固定アバター(琴衣・蒼・美咲・海・湊・伊藤)それぞれのデスクに、
-    # 実データで更新される担当状況テキストと状態チップが用意されている。
+    # 固定デスク(MISSION 083: 里奈・凛・葵・蒼)それぞれに、実データで
+    # 更新される担当状況テキストと状態チップが用意されている。
     html = self.client.get("/office").get_data(as_text=True)
-    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+    for key in ("room", "rin", "analytics", "sou"):
       self.assertIn(f'id="desk-task-{key}"', html)
       self.assertIn(f'id="desk-status-{key}"', html)
     self.assertIn("status-chip", html)
@@ -529,11 +530,13 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_desks_are_keyboard_and_click_operable_buttons(self):
     # <button>はEnter/Space/クリックのいずれでも標準で活性化するため、
     # 各デスクを<button>にしていることでキーボード操作対応も満たす。
+    # MISSION 083: デスクを6席から、AIオフィスの実在4人(里奈・凛・葵・蒼)
+    # の4席へ変更した。
     html = self.client.get("/office").get_data(as_text=True)
-    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+    for key in ("room", "rin", "analytics", "sou"):
       self.assertIn(f'id="desk-{key}"', html)
       self.assertIn(f'data-key="{key}"', html)
-    self.assertEqual(html.count('<button type="button" class="desk d'), 6)
+    self.assertEqual(html.count('<button type="button" class="desk d'), 4)
     self.assertIn('aria-haspopup="true"', html)
     self.assertIn('aria-expanded="false"', html)
     self.assertIn('aria-controls="desk-detail-panel"', html)
@@ -607,10 +610,11 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_desk_keys_are_unchanged_and_consistent_on_office_page(self):
     # MISSION 051で社長室側のdeskKeys(ログのローテーション割り当て用)は
-    # 不要になったため削除したが、オフィス側の6デスクの構成・並び順自体は
-    # 変更していないことを確認する。
+    # 不要になったため削除した。社長室側にデスクキー一覧の定数がないことは
+    # 引き続き確認する。MISSION 083でオフィス側のデスク構成は6席(架空の
+    # 旧キャスト)から4席(AIオフィスの実在4人)へ変更した。
     office_html = self.client.get("/office").get_data(as_text=True)
-    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
+    for key in ("room", "rin", "analytics", "sou"):
       self.assertIn(f'id="desk-{key}"', office_html)
     ceo_html = self.client.get("/office/ceo-office").get_data(as_text=True)
     self.assertNotIn(
@@ -631,26 +635,28 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('reduceMotion?"auto":"smooth"', html)
 
   def test_desk_role_labels_are_present(self):
+    # MISSION 083: デスクの役割ラベルを、AIオフィスの実在4人の実際の役割
+    # (ROOM担当・資料室管理・分析担当・技術担当)へ更新した。
     html = self.client.get("/office").get_data(as_text=True)
-    for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO", "運用チーム"):
+    for role in ("ROOM担当", "資料室管理", "分析担当", "技術担当"):
       self.assertIn(role, html)
 
   def test_break_room_reflects_actual_posting_wait_and_review_state(self):
-    # MISSION 051: 架空スタッフの氏名・休憩理由・移動予定を一旦削除し、
-    # 「投稿の反応を待ち、次の作業を整理する時間」という実際の待機・
-    # 振り返りの状態を表示するように更新した。
-    # MISSION 053: 「気軽に相談している空気感」を出すため、琴衣・蒼・彩の
-    # 3人をソファ・休憩室に再登場させたが、話している内容はPinterest反応
-    # 待ち・note次の記事準備済みという実際の状態のみであり、休憩理由・
-    # 移動予定などの新しい実データは増やしていない。
+    # MISSION 083: 休憩室のキャストを、AIオフィスに実在しない架空キャラ
+    # クター(琴衣等)から、彩(連携担当)を中心に、Pinterest・note・楽天
+    # ROOM・分析の担当(美咲・海・里奈・葵)のうち実績のある担当を優先して
+    # 1〜2人だけ短時間訪れる形へ変更した。休憩理由・勤怠・移動予定などの
+    # 新しい実データは増やしていない(表示専用・localStorage読み取り専用)。
     html = self.client.get("/office/break-room").get_data(as_text=True)
-    self.assertIn("Pinterest投稿の反応を待つ時間", html)
-    self.assertIn("次の投稿・記事の準備状況を整理中", html)
-    self.assertIn("48時間ほど反応を見ている段階です", html)
-    self.assertIn("勤怠・休憩予定・作業ログの実データは表示・記録していません", html)
-    for name in ("琴衣", "蒼", "彩"):
+    self.assertIn("ひと息ついたら、また確認へ戻ります", html)
+    self.assertIn("彩：部署間の連携状況を、ひと息ついて整理中", html)
+    self.assertIn(
+        "彩を中心に、Pinterest・note・楽天ROOM・分析の担当のうち", html
+    )
+    self.assertIn("外部への投稿・送信・ログインは行いません", html)
+    for name in ("彩", "美咲", "海"):
       self.assertIn(name, html)
-    for name in ("海", "伊藤"):
+    for name in ("琴衣", "伊藤", "湊"):
       self.assertNotIn(name, html)
 
   # --- MISSION 029: ローカル収益化ボード ---------------------------------------
@@ -3726,10 +3732,11 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_office_avatars_and_room_pages_unaffected_by_dashboard_realignment(self):
     # MISSION 050はダッシュボードの説明文を実態に合わせて更新するミッション
-    # であり、人物アバターや各部屋の画像・キャラクターは変更しないことを
-    # 確認する(既存の演出用デスクキャラクターがそのまま残っていること)。
+    # であり、人物・各部屋のキャラクター表示自体は変更しないことを確認する
+    # (デスクキャラクターがそのまま残っていること)。
+    # MISSION 083: キャストは実在4人(里奈・凛・葵・蒼)へ置き換えた。
     office_html = self.client.get("/office").get_data(as_text=True)
-    for name in ("琴衣", "蒼", "美咲", "海", "湊", "伊藤"):
+    for name in ("里奈", "凛", "葵", "蒼"):
       self.assertIn(name, office_html)
 
   def test_weekly_plan_published_days_have_no_fabricated_reaction_numbers(self):
@@ -3775,13 +3782,18 @@ class DashboardDesignTestCase(unittest.TestCase):
           self.assertNotIn(forbidden, html)
 
   def test_office_avatars_and_room_backgrounds_are_unchanged(self):
-    # MISSION 051は表示テキストの更新のみで、人物アバター・部屋の背景画像・
-    # 画像ファイルは変更しないことを確認する。
+    # MISSION 051は表示テキストの更新のみで、部屋の背景画像・画像ファイル
+    # 自体は変更しないことを確認する。
+    # MISSION 083: デスクの人物表示は、旧avatar-<key>方式(office-avatars-
+    # v1.png)から、AIオフィスと同じ立体スプライト(ai-office-team-3d.png、
+    # 既存の画像ファイルをそのまま使用)へ置き換えた。背景画像ファイル自体は
+    # 引き続き変更していない(office-avatars-v1.pngの定義もCSS内に残る)。
     html = self.client.get("/office").get_data(as_text=True)
     self.assertIn("/static/images/office-avatars-v1.png", html)
-    for key in ("misaki", "umi", "minato", "ito", "kotoe", "aoi"):
-      self.assertIn(f'avatar-{key}', html)
-    for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO", "運用チーム"):
+    self.assertIn("/static/images/ai-office-team-3d.png", html)
+    for key in ("room", "rin", "analytics", "sou"):
+      self.assertIn(f'data-person="{key}"', html)
+    for role in ("ROOM担当", "資料室管理", "分析担当", "技術担当"):
       self.assertIn(role, html)
 
   def test_office_and_ceo_office_have_no_credentials_or_external_calls(self):
@@ -3843,12 +3855,18 @@ class DashboardDesignTestCase(unittest.TestCase):
         ".reading span{font-size:10px;background-color:#fff0c9", html
     )
 
-  def test_office_walker_figure_is_visible_with_correct_avatar(self):
-    # 上記回帰の直接確認: 「彩・休憩へ」の人物アバターが実際に描画される
-    # (avatar-ayakaのクラスが立っている)ことを確認する。
+  def test_office_floor_tokens_use_ai_office_sprite_system(self):
+    # MISSION 083: オフィスの「彩・休憩へ」という他ページとの重複表示は
+    # 廃止し(各ページはその場所にいる社員だけを表示する)、里奈・凛・葵・
+    # 蒼の4人が、AIオフィスと同じ立体スプライトトークンとして描画される
+    # ことを確認する。
     html = self.client.get("/office").get_data(as_text=True)
-    walker_section = html.split('<div class="walker">', 1)[1].split("</div>", 1)[0]
-    self.assertIn("avatar-ayaka", walker_section)
+    self.assertNotIn('<div class="walker">', html)
+    for key in ("room", "rin", "analytics", "sou"):
+      self.assertIn(f'id="space-token-office-{key}"', html)
+      self.assertIn(f'id="space-sprite-office-{key}"', html)
+    self.assertIn("ai-office-floormap-sprite", html)
+    self.assertIn("ai-office-report-ring", html)
 
   def test_mobile_layout_keeps_walking_figures_clear_of_desks_and_furniture(self):
     # 画面確認中に発見した表示崩れの回帰テスト: モバイル幅では、移動中の
@@ -3876,29 +3894,27 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_office_desks_are_split_into_front_and_back_rows_for_depth(self):
     # MISSION 053: 平面的なカード並びを避けるため、奥の列(desk-back)と
-    # 手前の列(desk-front)に分ける。手前列はCSS変数--sで人物をやや
-    # 拡大し、奥列は明度・彩度を落とす(filter)ことで奥行きを表現する
-    # (人物を縮小すると、モニター表示の裏に顔が隠れてしまうため、奥列の
-    # 拡大縮小は行わない)。デスクの実データ(役割・作業内容)は変更しない。
+    # 手前の列(desk-front)に分ける仕組みを導入した。
+    # MISSION 083: デスクをAIオフィスの実在4人(里奈・凛・葵・蒼)の4席に
+    # 絞ったため、手前・奥の2層構成は使わず、4席とも同じdesk-back列に
+    # 並べる(人物本体は上のフロアトークンとして別に表示するため、奥行きは
+    # そちら側の演出に委ねる)。desk-front/desk-backのCSS定義自体は既存の
+    # まま残す(将来の再利用に備え、削除しない)。
     html = self.client.get("/office").get_data(as_text=True)
-    for key in ("misaki", "umi", "minato", "ito"):
-      self.assertIn(f'id="desk-{key}" data-key="{key}"', html)
-    for key in ("kotoe", "aoi"):
-      self.assertIn(f'id="desk-{key}" data-key="{key}"', html)
-    for i, key in enumerate(("misaki", "umi", "minato", "ito"), start=1):
+    for i, key in enumerate(("room", "rin", "analytics", "sou"), start=1):
       self.assertIn(f'class="desk d{i} desk-back" id="desk-{key}"', html)
-    for i, key in enumerate(("kotoe", "aoi"), start=5):
-      self.assertIn(f'class="desk d{i} desk-front" id="desk-{key}"', html)
+    self.assertNotIn('class="desk d5', html)
+    self.assertNotIn('class="desk d6', html)
     self.assertIn(".desk.desk-back{filter:", html)
     self.assertIn(".desk.desk-front{--s:", html)
 
   def test_office_desks_show_visible_role_labels_without_a_click(self):
     # MISSION 053: 役割(顔・表情・役割が分かる)を、デスク詳細を開かなくても
     # その場で見えるようにする。
+    # MISSION 083: 役割ラベルを、AIオフィスの実在4人の実際の役割へ更新した。
     html = self.client.get("/office").get_data(as_text=True)
-    for role in ("WEBディレクター", "UIデザイナー", "フロントエンド", "QA・SEO"):
+    for role in ("ROOM担当", "資料室管理", "分析担当", "技術担当"):
       self.assertIn(f'<i class="desk-role">{role}</i>', html)
-    self.assertEqual(html.count('<i class="desk-role">運用チーム</i>'), 2)
 
   def test_office_has_lighting_and_meeting_space_props_for_depth(self):
     # MISSION 053: 「デスク、モニター、窓、照明、観葉植物、会議スペース」の
@@ -3927,28 +3943,33 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_break_room_shows_two_characters_chatting_about_real_status_only(self):
     # MISSION 053: 「投稿後の反応確認や次の企画を気軽に相談している
-    # 空気感」を出すため、琴衣・蒼をソファに座らせる。会話の内容は
-    # Pinterest反応待ち・note次の記事準備済みという既存の事実のみで
-    # あり、新しい休憩理由・移動予定・個人の勤務実績は追加しない。
+    # 空気感」を出すため、ソファに2人を座らせる仕組みを導入した。
+    # MISSION 083: ソファの2枠は、実績のある担当を優先しつつ美咲・海・
+    # 里奈・葵の間で時間差に入れ替わる(初期表示はPinterest・note担当の
+    # 美咲・海)。会話の内容は、本日の運用記録(実績)またはあらかじめ
+    # 用意した既知の状態(デモ)のみであり、新しい休憩理由・移動予定・
+    # 個人の勤務実績は追加しない。
     html = self.client.get("/office/break-room").get_data(as_text=True)
-    self.assertIn('class="sofa-guest sofa-guest-1"', html)
-    self.assertIn('class="sofa-guest sofa-guest-2"', html)
-    self.assertIn("avatar-kotoe", html)
-    self.assertIn("avatar-aoi", html)
-    self.assertIn('<span class="sofa-chat"><b>琴衣</b>', html)
-    self.assertIn('<span class="sofa-chat"><b>蒼</b>', html)
+    self.assertIn('class="sofa-guest sofa-guest-1" data-slot="1"', html)
+    self.assertIn('class="sofa-guest sofa-guest-2" data-slot="2"', html)
+    self.assertIn('id="space-token-break-pinterest"', html)
+    self.assertIn('id="space-token-break-note"', html)
+    self.assertIn('<b id="break-slot-name-1">美咲</b>', html)
+    self.assertIn('<b id="break-slot-name-2">海</b>', html)
     self.assertNotIn("休憩理由", html)
     self.assertNotIn("円", html)
     self.assertNotIn("¥", html)
 
-  def test_break_room_walker_is_a_character_figure_not_a_bare_emoji(self):
-    # MISSION 053: 「📝」の絵文字だけだった移動中の人物を、既存のアバター
-    # 仕組み(彩)を使ったキャラクター表示に差し替える。読みやすさの回帰
-    # 修正(.break-walker smallの明るい文字色)は維持する。
+  def test_break_room_aya_is_a_sprite_character_not_a_bare_emoji(self):
+    # MISSION 053: 「📝」の絵文字だけだった移動中の人物を、キャラクター
+    # 表示に差し替えた。
+    # MISSION 083: 休憩室を彩(連携担当)中心のスペースへ変更し、彩も他の
+    # スペースと同じAIオフィスの立体スプライトトークンで描画されることを
+    # 確認する(旧.break-walker+avatar-ayakaの仕組みは廃止した)。
     html = self.client.get("/office/break-room").get_data(as_text=True)
-    self.assertIn("avatar-ayaka", html)
-    walker_section = html.split('class="break-walker"', 1)[1].split("</div>", 1)[0]
-    self.assertNotIn("📝", walker_section)
+    self.assertIn('id="space-token-break-aya"', html)
+    self.assertIn('id="space-sprite-break-aya"', html)
+    self.assertNotIn("📝", html)
     self.assertIn(
         ".break-walker small{display:block;text-align:center;color:#fff8e9", html
     )
@@ -7737,6 +7758,130 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
     room_html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
     self.assertIn("manual-post-complete-btn", room_html)
+
+  # --- MISSION 083: オフィス・社長室・休憩室を「生きたスペース」にする -----
+
+  def test_office_shows_only_its_assigned_four_staff(self):
+    # 里奈(ROOM運用)・凛(資料室管理)・葵(分析ラボ)・蒼(技術担当)だけを
+    # オフィスに表示し、他画面の担当(悠・蓮・伊織・彩・美咲・海・柴犬社長)
+    # はこのページには登場しない(各ページはその場所にいる社員だけを
+    # 表示する)。
+    html = self.client.get("/office").get_data(as_text=True)
+    for key in ("room", "rin", "analytics", "sou"):
+      self.assertIn(f'data-person="{key}"', html)
+    for key in ("yu", "ren", "iori", "aya", "pinterest", "note", "operations_lead"):
+      self.assertNotIn(f'data-person="{key}"', html)
+
+  def test_office_real_record_watch_covers_room_and_analytics_only(self):
+    # 里奈(楽天ROOM)・葵(数字記録)は本日の運用記録に該当があれば実績表示
+    # へ切り替わるが、凛・蒼はどの記録種別・媒体にも直接対応しないため、
+    # 常に通常の待機・確認の小さな動きのままになる(仕様どおり)。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn('"room":{name:"里奈",demoText:', html)
+    self.assertIn('"analytics":{name:"葵",demoText:', html)
+    self.assertNotIn('"rin":{name:"凛",demoText:', html)
+    self.assertNotIn('"sou":{name:"蒼",demoText:', html)
+    self.assertIn('id="office-record-mode-badge"', html)
+
+  def test_office_person_tokens_and_record_script_are_read_only(self):
+    # MISSION 083で追加した社員トークン・運用記録の読み取りスクリプトは、
+    # localStorageへの書き込み(setItem/removeItem/clear)を一切行わない。
+    html = self.client.get("/office").get_data(as_text=True)
+    self.assertIn("localStorage.getItem(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+      self.assertNotIn(forbidden, html)
+
+  def test_ceo_office_shows_president_yu_ren_and_iori(self):
+    # 柴犬社長を常駐させ、悠・蓮を基本配置、伊織はデモの来訪として表示する。
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    for key in ("operations_lead", "yu", "ren", "iori"):
+      self.assertIn(f'data-person="{key}"', html)
+    for key in ("room", "note", "pinterest", "analytics", "rin", "aya"):
+      self.assertNotIn(f'data-person="{key}"', html)
+
+  def test_ceo_office_report_panel_reuses_existing_report_routes(self):
+    # 実績がある日は、既存の対面報告ルール(AI_OFFICE_REPORT_ROUTES)と同じ
+    # mover→receiverの組み合わせを使って、柴犬社長・悠・蓮への報告を
+    # 「誰が誰へ何を報告しているか」が分かる形で表示する。
+    import office_views
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn('id="ceo-report-banner"', html)
+    self.assertIn('id="ceo-report-panel-mover"', html)
+    self.assertIn('id="ceo-report-panel-receiver"', html)
+    self.assertIn('id="ceo-record-mode-badge"', html)
+    route_receiver_by_mover = {
+        r["mover"]: r["receiver"] for r in office_views.AI_OFFICE_REPORT_ROUTES
+    }
+    self.assertEqual(route_receiver_by_mover["room"], "yu")
+    self.assertEqual(route_receiver_by_mover["ren"], "operations_lead")
+    self.assertEqual(route_receiver_by_mover["yu"], "operations_lead")
+    self.assertIn('"room": "yu"', html)
+    self.assertIn('"ren": "operations_lead"', html)
+
+  def test_ceo_office_scripts_are_read_only_and_make_no_external_calls(self):
+    html = self.client.get("/office/ceo-office").get_data(as_text=True)
+    self.assertIn("localStorage.getItem(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+    for forbidden in ("fetch(", "XMLHttpRequest", "Authorization", "api_key"):
+      self.assertNotIn(forbidden, html)
+
+  def test_break_room_shows_aya_and_at_most_two_visiting_slots(self):
+    # 彩を中心に、常時「彩+最大2人」だけを表示する(4候補全員を同時に
+    # 置かない)。
+    html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn('data-person="aya"', html)
+    self.assertEqual(html.count('class="sofa-guest'), 2)
+    self.assertEqual(html.count('data-slot="1"'), 1)
+    self.assertEqual(html.count('data-slot="2"'), 1)
+
+  def test_break_room_rotation_prioritizes_real_records_and_is_read_only(self):
+    html = self.client.get("/office/break-room").get_data(as_text=True)
+    self.assertIn("function renderSlot(slotNum,key){", html)
+    self.assertIn("setInterval(rotate,9000)", html)
+    self.assertIn("prefers-reduced-motion", html)
+    self.assertIn("localStorage.getItem(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+      self.assertNotIn(forbidden, html)
+
+  def test_mission_083_preserves_existing_urls_nav_and_ai_office_link(self):
+    # 既存の7URLはすべて維持し、主メニュー・スペースメニューも壊さない
+    # (MISSION 082のナビ整理を引き続き維持する)。
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+        ("/ai-office", "AIオフィス"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn(title, html)
+        self.assertIn('<details class="tabs-space"', html)
+        self.assertIn('href="/ai-office"', html)
+
+  def test_mission_083_does_not_touch_ai_office_or_command_center_logic(self):
+    # AIオフィス自体の実績表示・デモフォールバック・運用司令室の記録
+    # フォームは、このミッションの対象外であり、そのまま動作し続ける。
+    import office_views
+    ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function buildRealRecordQueue(){", ai_office_html)
+    command_html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn("daily-record-log", command_html)
+    self.assertTrue(
+        office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY.endswith("daily-record-log")
+    )
 
 
 if __name__ == "__main__":

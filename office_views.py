@@ -440,6 +440,28 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office-strip-info b{font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:760px){.ai-office-floor-grid,.ai-office-freshness-grid{grid-template-columns:1fr}.ai-office-task-list li,.ai-office-work-list li{flex-direction:column;align-items:flex-start}.ai-office-floormap-status-strip{flex-direction:column;align-items:stretch}.ai-office-strip-chip{min-width:0}}
 @media(max-width:480px){.ai-office-floormap-token{width:72px;height:81px}.ai-office-floormap-bubble{max-width:104px;font-size:9px;padding:5px 7px;transform:translate(-50%,calc(-100% - 68px))}.ai-office-nameplate{font-size:8px;padding:1px 5px}.ai-office-monitor-glow{transform:translate(calc(-50% + 40px),calc(-50% - 62px))}.ai-office-progress-board{max-width:62%;font-size:9px;padding:5px 7px}.ai-office-progress-board b{font-size:9px}.ai-office-command-pulse{width:18px;height:18px}.ai-office-report-banner{font-size:11px;padding:8px 10px}.ai-office-report-panel-line{font-size:11px}.ai-office-report-legend{font-size:9px}}
+/* MISSION 083: オフィス・社長室・休憩室の3スペースで、AIオフィスと同じ
+   スプライト社員トークンを再利用するための追加スタイル。 */
+.space-roster-note{position:relative;z-index:1;margin:10px auto 0;max-width:860px;font-size:11px;color:var(--sub);line-height:1.6;text-align:center}
+.space-status-list{position:relative;z-index:1;list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.space-status-list li{flex:1 1 220px;background:#0d1b2fe0;border:1px solid var(--edge);border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.6;color:var(--sub)}
+.space-status-list b{display:block;color:var(--ink);font-size:12px;margin-bottom:2px}
+.space-status-list .is-real{border-color:#34d399;color:var(--ink)}
+/* 休憩室の2つの訪問スロットは、既存のsofa-guest(pixel位置・モバイル
+   対応済み)の中にAIオフィスと同じトークンを差し込むため、絶対配置を
+   打ち消してsofa-guest内で自然に中央寄せされるようにする。 */
+.sofa-guest .ai-office-floormap-token{position:relative;left:auto!important;top:auto!important;transform:none;display:inline-block;margin:0 auto;animation-delay:0s!important}
+.sofa-guest .ai-office-floormap-token .ai-office-footstep{bottom:2%}
+/* MISSION 083: オフィスの4人は、デスクトップでは横一列に並べているが、
+   モバイル幅ではデスクと同じ2x2グリッドに合わせて再配置しないと、
+   横幅が足りず重なってしまう(横スクロールは発生しないが、キャラクター
+   同士が重なって見づらくなるため)。 */
+@media(max-width:760px){
+#space-token-office-room{left:17%!important;top:40%!important}
+#space-token-office-rin{left:51%!important;top:40%!important}
+#space-token-office-analytics{left:17%!important;top:66%!important}
+#space-token-office-sou{left:51%!important;top:66%!important}
+}
 </style>
 """
 
@@ -5875,6 +5897,82 @@ AI_OFFICE_IDLE_ANIMATION_BY_TYPE = {
     "waiting": "ai-office-idle-waiting",
 }
 
+# MISSION 083: オフィス・社長室・休憩室の3スペースで、部署担当・拡張担当を
+# 問わず1つの辞書から社員情報(名前・スプライト位置・idle種別)を引けるように
+# する(AIオフィス本体の_render_ai_office_scene内のローカル変数staff_names
+# などとは別に、モジュールレベルで公開する)。
+AI_OFFICE_STAFF_BY_KEY = {
+    d["key"]: {
+        "name": d["staff_name"], "sprite": d["sprite"], "idle_type": d["idle_type"],
+    }
+    for d in AI_OFFICE_DEPARTMENTS
+}
+AI_OFFICE_STAFF_BY_KEY.update({
+    s["key"]: {"name": s["name"], "sprite": s["sprite"], "idle_type": s["idle_type"]}
+    for s in AI_OFFICE_EXTENDED_STAFF
+})
+
+# 12人分のidleアニメーションの周期をずらすための通し番号(表示順に意味は
+# ない)。_render_ai_office_scene内のidle_index_by_keyと同じ考え方を、
+# オフィス・社長室・休憩室でも使えるようモジュールレベルに公開する。
+AI_OFFICE_IDLE_ORDER = [d["key"] for d in AI_OFFICE_DEPARTMENTS] + [
+    s["key"] for s in AI_OFFICE_EXTENDED_STAFF
+]
+AI_OFFICE_IDLE_INDEX_BY_KEY = {key: i for i, key in enumerate(AI_OFFICE_IDLE_ORDER)}
+
+
+def _ai_office_idle_style(key):
+  idx = AI_OFFICE_IDLE_INDEX_BY_KEY[key]
+  delay = -(idx * 0.37 + 0.2)
+  duration = 3.4 + (idx % 5) * 0.3
+  return f'animation-delay:{delay:.2f}s;animation-duration:{duration:.2f}s'
+
+
+def _ai_office_space_token(scope, key, pos, status_key="waiting", phase_text=""):
+  """MISSION 083: オフィス・社長室・休憩室で使う、AIオフィスと同じ立体
+  スプライト社員トークン。
+
+  AIオフィスのフロアマップで使っているものと同じCSSクラス
+  (ai-office-floormap-token/-sprite/-footstep/-report-ring/-nameplate)を
+  再利用するため、黒いカード背景・モヤ・四角い背景・過剰な発光は追加で
+  発生せず、足元の細い状態リングと小さな名前表示だけになる。各スペース
+  独自のシーン(position:relativeの.scene)の中に、左上を基準とした
+  left/top%の絶対配置でそのまま置ける。
+  """
+  person = AI_OFFICE_STAFF_BY_KEY[key]
+  name = person["name"]
+  idle_class = AI_OFFICE_IDLE_ANIMATION_BY_TYPE[person["idle_type"]]
+  clip_path = AI_OFFICE_SPRITE_CLIP_PATHS[key]
+  status_label = AI_OFFICE_STATUS_LABELS[status_key]
+  mode_label = "実績表示" if status_key == "working" else "デモ表示"
+  phase_html = (
+      f'<span class="ai-office-nameplate-phase">{phase_text}</span>'
+      if phase_text else ""
+  )
+  uid = f"{scope}-{key}"
+  return (
+      f'<span class="ai-office-floormap-token {idle_class} '
+      f'ai-office-floormap-token-{status_key}" '
+      f'id="space-token-{uid}" data-person="{key}" '
+      f'role="img" aria-label="{name}" '
+      f'style="left:{pos["left"]}%;top:{pos["top"]}%;{_ai_office_idle_style(key)}">'
+      f'<span class="ai-office-floormap-sprite" id="space-sprite-{uid}" '
+      f'style="background-position:{_ai_office_sprite_position(person["sprite"])};'
+      f'clip-path:{clip_path};-webkit-clip-path:{clip_path}"></span>'
+      '<span class="ai-office-footstep"></span>'
+      '<span class="ai-office-report-ring" aria-hidden="true"></span>'
+      f'<span class="ai-office-nameplate" id="space-nameplate-{uid}">'
+      f'<i class="ai-office-nameplate-dot ai-office-nameplate-dot-{status_key}" '
+      f'id="space-nameplate-dot-{uid}"></i>'
+      f'<span id="space-nameplate-name-{uid}">{name}</span>'
+      f'{phase_html}'
+      f'<span class="sr-only" id="space-nameplate-status-{uid}"> '
+      f'{status_label}（{mode_label}）</span>'
+      '</span>'
+      '</span>'
+  )
+
+
 # フロアマップ画像の中央通路(光る地球儀のあたり)を、交流デモ用の
 # 「休憩スペース」として扱う。
 AI_OFFICE_LOUNGE_POSITION = {"left": 50, "top": 55}
@@ -6131,6 +6229,48 @@ AI_OFFICE_DAILY_RECORD_TYPE_ACK = {
     "数字記録": "数字を記録として確認しました",
     "承認待ち": "承認待ちとして記録しました",
 }
+
+
+def _ai_office_daily_record_reader_script():
+  """MISSION 083: オフィス・社長室・休憩室の3スペースで共通に使う、運用
+  司令室の「本日の運用記録」localStorageを読み取るためのJS断片(読み取り
+  専用。書き込み・削除は一切行わない)。
+
+  AIオフィス本体のbuildRealRecordQueueと同じ判定順(種別→媒体→fallback)
+  を、書き込みを伴わない小さな関数群として切り出したもの。
+  """
+  data = json.dumps(
+      {
+          "recordKey": AI_OFFICE_DAILY_RECORD_STORAGE_KEY,
+          "typeOwners": AI_OFFICE_DAILY_RECORD_TYPE_OWNERS,
+          "mediaOwners": AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS,
+          "fallbackOwner": AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER,
+      },
+      ensure_ascii=False,
+  )
+  return (
+      f'var SPACE_RECORD_DATA={data};'
+      'function spaceTodayDateStr(){'
+      'var d=new Date();'
+      'function pad(n){return n<10?"0"+n:""+n;}'
+      'return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());'
+      '}'
+      'function spaceLoadTodayRecords(){'
+      'var raw=null;'
+      'try{raw=window.localStorage.getItem(SPACE_RECORD_DATA.recordKey);}catch(e){raw=null;}'
+      'var list=[];'
+      'try{list=raw?JSON.parse(raw):[];}catch(e){list=[];}'
+      'if(!Array.isArray(list))list=[];'
+      'var today=spaceTodayDateStr();'
+      'return list.filter(function(r){return r&&r.date===today&&r.content&&'
+      'String(r.content).trim();});'
+      '}'
+      'function spaceOwnerForRecord(rec){'
+      'return SPACE_RECORD_DATA.typeOwners[rec.type]||'
+      'SPACE_RECORD_DATA.mediaOwners[rec.media]||SPACE_RECORD_DATA.fallbackOwner;'
+      '}'
+  )
+
 
 # MISSION 081: 「手動投稿を完了した」ボタン(楽天ROOM候補・note記事候補、
 # 将来のPinterest候補にも再利用する共通部品)。押すと、運用司令室の
@@ -7286,14 +7426,25 @@ def register_office_views(app):
   """Flaskアプリへ表示専用ルートを登録する。"""
   @app.route("/office")
   def office():
+    # MISSION 083: オフィスを「実在12人と無関係な架空キャラクター」から、
+    # AIオフィスと同じ社員(里奈・凛・葵・蒼)が実際にそこにいるスペースへ
+    # 変更した。他画面(社長室・休憩室)には表示しない、この4人だけを表示
+    # する(同じ社員を全画面に常時重複表示しない)。
     desks = (
-        ("misaki", "美咲", "WEBディレクター", "進行を整理中", "&lt;/&gt;"),
-        ("umi", "海", "UIデザイナー", "デザイン調整中", "✦"),
-        ("minato", "湊", "フロントエンド", "実装中", "▍_"),
-        ("ito", "伊藤", "QA・SEO", "テスト中", "✓"),
-        ("kotoe", "琴衣", "運用チーム", "確認中", "▣"),
-        ("aoi", "蒼", "運用チーム", "投稿準備中", "●"),
+        ("room", "里奈", "ROOM担当", "楽天ROOMの反応が良いジャンルを確認中", "ROOM"),
+        ("rin", "凛", "資料室管理", "資料室の内容を確認中", "資料"),
+        ("analytics", "葵", "分析担当", "今週の数字を比較中", "分析"),
+        ("sou", "蒼", "技術担当", "画面・動作を確認中", "技術"),
     )
+    # トークン(社員本人の立体キャラクター)は、対応するデスクのすぐ上に
+    # 置く(トークンの座標はシーン全体に対する%で、デスクのd1〜d4と同じ
+    # 列に揃える)。
+    token_positions = {
+        "room": {"left": 36, "top": 34},
+        "rin": {"left": 52, "top": 34},
+        "analytics": {"left": 68, "top": 34},
+        "sou": {"left": 82, "top": 34},
+    }
     # MISSION 025/028: 各デスクをクリック・キーボード操作可能な<button>に
     # している(<button>はEnter/Spaceでの活性化を標準で備えるため、
     # キーボード操作対応を別途実装する必要がない)。
@@ -7304,17 +7455,14 @@ def register_office_views(app):
     # 「現在の作業」として表示すると実態と食い違ってしまう。DB(work_logs)
     # 自体は変更しないため、このページでは/api/logsの参照をやめ、柴犬社長が
     # 確認した現在の投稿運用状況(Pinterest・note・Threadsの実際の状況)を
-    # 静的に表示する。デスクの役割・作業中フレーバーテキストは、いずれも
-    # 個別の実データに基づかない演出として、そのまま維持する。
-    # MISSION 053: d1〜d4(奥の列)をdesk-back、d5〜d6(手前の列)をdesk-front
-    # にして、手前・奥の2層で床の奥行きを表現する(CSS変数--sで人物の
-    # 拡大縮小のみを行い、実データや座標の意味は変更しない)。役割も
-    # クリック不要で見えるよう、デスクの上に直接表示する。
+    # 静的に表示する。
+    # MISSION 083: デスク本体からは人物イラストを取り除き(社員本人は上の
+    # フロアトークンとして別に表示する)、役割・現在の作業・状態だけを示す。
     desk_html = "".join(
-        f'<button type="button" class="desk d{i + 1} {"desk-front" if i >= 4 else "desk-back"}" '
+        f'<button type="button" class="desk d{i + 1} desk-back" '
         f'id="desk-{key}" data-key="{key}" '
         f'data-screen="{screen}" aria-haspopup="true" aria-expanded="false" '
-        f'aria-controls="desk-detail-panel">{figure(key, name)}<b>{name}</b>'
+        f'aria-controls="desk-detail-panel">'
         f'<i class="desk-role">{role}</i>'
         f'<em id="desk-task-{key}">{task}</em>'
         f'<i class="status-chip status-pending" id="desk-status-{key}" aria-hidden="true"></i></button>'
@@ -7322,6 +7470,15 @@ def register_office_views(app):
     )
     desk_info_js = ",".join(
         f'"{key}":{{name:"{name}",role:"{role}"}}' for key, name, role, _t, _s in desks
+    )
+    floor_tokens = "".join(
+        _ai_office_space_token("office", key, token_positions[key], "waiting")
+        for key, _n, _r, _t, _s in desks
+    )
+    status_items = "".join(
+        f'<li id="office-status-item-{key}"><b>{name}（{role}）</b>'
+        f'<span id="office-status-text-{key}">{task}（デモ表示）</span></li>'
+        for key, name, role, task, _s in desks
     )
     scene = (
         '<section class="scene office" aria-label="作業フロア"><div class="label">WEB制作・運用フロア<span>● LIVE</span>'
@@ -7335,10 +7492,10 @@ def register_office_views(app):
         '</ul></div>'
         '<div class="windows" aria-hidden="true"><i></i><i></i><i></i></div><div class="plant" aria-hidden="true">🪴</div>'
         '<div class="lamp" aria-hidden="true"></div>'
-        '<div class="door"><b>☕</b><small>BREAK ROOM</small></div><div class="route" aria-hidden="true"></div>' + desk_html +
+        '<div class="door"><b>☕</b><small>BREAK ROOM</small></div><div class="route" aria-hidden="true"></div>' + desk_html + floor_tokens +
         '<div class="meeting" aria-hidden="true"><small>MTG SPACE</small>'
-        '<span>🪑</span><span>🪑</span></div>' +
-        f'<div class="walker">{figure("ayaka", "彩・休憩へ移動中")}<span>彩・休憩へ</span></div></section>'
+        '<span>🪑</span><span>🪑</span></div>'
+        '</section>'
         # MISSION 028/051: デスクの詳細パネル。通常のドキュメントフロー内に
         # 置き、クリック/キーボードで選択したデスクの名前・役割をJSで書き
         # 込んで表示する(初期状態はhiddenで、DB/APIへの副作用は一切ない)。
@@ -7362,6 +7519,16 @@ def register_office_views(app):
         '柴犬社長が確認した現在の投稿運用状況を表示しています。'
         '実際にこのAIが個人で担当した記録ではありません。</p>'
         '</div>'
+        # MISSION 083: 各担当の「実績表示／デモ表示」を一覧できる小さな
+        # 一覧。運用司令室の本日の運用記録に該当があれば実績表示へ切り
+        # 替わる(JS側でlocalStorageを読み取り専用で参照するだけで、書き
+        # 込みは一切行わない)。
+        '<div class="ai-office-record-mode-badge" id="office-record-mode-badge">'
+        '読み込み中…（デモ表示）</div>'
+        f'<ul class="space-status-list" id="office-status-list">{status_items}</ul>'
+        '<p class="space-roster-note">本日の運用記録（運用司令室で入力）に該当する担当がいる'
+        '場合は「実績表示」に切り替わります。記録がない担当は、通常の待機・確認・入力中の'
+        '小さな動きのままです。</p>'
         # MISSION 028/051: クリック/Enter/Spaceでデスクを選択すると、上記の
         # 静的な現在状況を詳細パネルに表示する(DB・APIへのアクセスは
         # 一切行わない)。URLに #desk-<key> が付与されている場合は、該当
@@ -7413,7 +7580,58 @@ def register_office_views(app):
         '}'
         '}'
         '</script>'
-        '<p class="note"><span class="dot"></span><b>いまの様子</b>彩が経理デスクから休憩室へ向かい、しばらくするとフロアへ戻ります。</p>'
+        # MISSION 083: 里奈(楽天ROOM)・葵(数字記録)は、運用司令室の本日の
+        # 運用記録に該当があれば「実績表示」へ切り替える(読み取り専用)。
+        # 凛・蒼はどの記録種別・媒体にも直接対応しないため、常に通常の
+        # 待機・確認の小さな動きのままになる(これは仕様どおりであり、
+        # バグではない)。
+        '<script>(function(){'
+        + _ai_office_daily_record_reader_script() +
+        'var WATCH={'
+        '"room":{name:"里奈",demoText:"楽天ROOMの反応が良いジャンルを確認中"},'
+        '"analytics":{name:"葵",demoText:"今週の数字を比較中"}'
+        '};'
+        'var records=spaceLoadTodayRecords();'
+        'var byOwner={};'
+        'records.forEach(function(rec){'
+        'var owner=spaceOwnerForRecord(rec);'
+        'if(!byOwner[owner])byOwner[owner]=rec;'
+        '});'
+        'var anyReal=false;'
+        'Object.keys(WATCH).forEach(function(key){'
+        'var cfg=WATCH[key];'
+        'var rec=byOwner[key];'
+        'var textEl=document.querySelector("#office-status-text-"+key);'
+        'var tokenEl=document.querySelector("#space-token-office-"+key);'
+        'var dotEl=document.querySelector("#space-nameplate-dot-office-"+key);'
+        'if(rec){'
+        'anyReal=true;'
+        'if(textEl){'
+        'var content=(rec.content||rec.metric||"").toString();'
+        'textEl.textContent=content+"（実績表示）";'
+        '}'
+        'if(tokenEl){'
+        'tokenEl.classList.remove("ai-office-floormap-token-waiting");'
+        'tokenEl.classList.add("ai-office-floormap-token-working","is-working");'
+        '}'
+        'if(dotEl){'
+        'dotEl.classList.remove("ai-office-nameplate-dot-waiting");'
+        'dotEl.classList.add("ai-office-nameplate-dot-working");'
+        '}'
+        'var itemEl=document.querySelector("#office-status-item-"+key);'
+        'if(itemEl)itemEl.classList.add("is-real");'
+        '}'
+        '});'
+        'var badge=document.querySelector("#office-record-mode-badge");'
+        'if(badge){'
+        'if(anyReal){'
+        'badge.textContent="本日：あなたが記録した運用実績を表示中（実績表示）";'
+        'badge.classList.add("is-real");'
+        '}else{'
+        'badge.textContent="本日はまだ運用記録がありません（デモ表示）";'
+        '}'
+        '}'
+        '})();</script>'
     )
     return _page(
         "office", "ライブオフィス",
@@ -7424,36 +7642,138 @@ def register_office_views(app):
 
   @app.route("/office/break-room")
   def break_room():
-    # MISSION 051: 架空スタッフ(琴衣・海・蒼・伊藤)の氏名・休憩理由・移動
-    # 予定は、現在の実際の運用状況と関係がなかったため一旦削除した。
-    # MISSION 053: 「投稿後の反応確認や次の企画を気軽に相談している空気感」
-    # を出すため、琴衣・蒼(いずれもオフィスの運用チームと同じ架空
-    # キャラクター)をソファに座らせ、実際に確定している状態(Pinterest
-    # 反応待ち・note次の記事準備済み)についてだけ、ふたりで話している
-    # 体裁の短い一言を添える。新しい勤怠・休憩理由・移動予定などの実データは
-    # 一切増やしていない(この部屋の内容はすべて静的な表示専用テキストで
-    # あり、DB・APIへの書き込みは行わない)。
+    # MISSION 083: 休憩室を、AIオフィスに実在しない架空キャラクター(琴衣等)
+    # から、実在12人のうち彩(連携担当)を中心にしたスペースへ変更した。
+    # 美咲(Pinterest)・海(note)・里奈(楽天ROOM)・葵(分析)のうち、本日の
+    # 運用記録がある担当を優先し、常に「彩+最大2人」だけを表示する(残り
+    # 2人はこのページには登場しない=常時全員を置かない)。9秒おきに、
+    # ソファの2つの枠に入る担当をJSで入れ替える(時間差で短時間だけ訪れる
+    # 演出)。読み取り専用のlocalStorage参照のみで、外部通信・投稿・送信・
+    # ログインは一切行わない。
+    aya_pos = {"left": 60, "top": 34}
+    candidates = [
+        ("pinterest", "美咲", "Pinterestの反応、まだ様子見だね"),
+        ("note", "海", "note の次の記事、もう準備できてるよ"),
+        ("room", "里奈", "楽天ROOMの候補、あとで一緒に見てね"),
+        ("analytics", "葵", "今週の数字、あとでまとめて共有するね"),
+    ]
+    aya_token = _ai_office_space_token("break", "aya", aya_pos, "waiting")
+
+    def _slot_html(slot_num, key, name, demo_line):
+      token = _ai_office_space_token("break", key, {"left": 0, "top": 0}, "waiting")
+      return (
+          f'<div class="sofa-guest sofa-guest-{slot_num}" data-slot="{slot_num}">'
+          f'{token}'
+          '<span class="sofa-chat">'
+          f'<b id="break-slot-name-{slot_num}">{name}</b>'
+          f'<span id="break-slot-text-{slot_num}">{demo_line}（デモ表示）</span>'
+          '</span>'
+          '</div>'
+      )
+
+    slot1_html = _slot_html(1, *candidates[0])
+    slot2_html = _slot_html(2, *candidates[1])
+
+    candidates_js = json.dumps(
+        {
+            key: {
+                "name": name,
+                "spritePos": _ai_office_sprite_position(
+                    AI_OFFICE_STAFF_BY_KEY[key]["sprite"]
+                ),
+                "clipPath": AI_OFFICE_SPRITE_CLIP_PATHS[key],
+                "idleClass": AI_OFFICE_IDLE_ANIMATION_BY_TYPE[
+                    AI_OFFICE_STAFF_BY_KEY[key]["idle_type"]
+                ],
+                "demoLine": demo_line,
+            }
+            for key, name, demo_line in candidates
+        },
+        ensure_ascii=False,
+    )
+    pool_order_js = json.dumps([key for key, _n, _l in candidates], ensure_ascii=False)
+
     scene = (
         '<section class="scene break" aria-label="休憩室">'
         '<div class="label">BREAK ROOM<span>☕ 反応待ち・整理中</span>'
         '<span class="cast-badge">AI Hive OSの架空キャラクター</span></div>'
         '<div class="break-window" aria-hidden="true">☁</div>'
         '<div class="coffee">☕<b>COFFEE BAR</b><i></i><i></i><i></i></div>'
+        f'{aya_token}'
         '<div class="sofa">'
-        f'<div class="sofa-guest sofa-guest-1">{figure("kotoe", "琴衣：Pinterestの反応を、ひと息ついて確認中")}'
-        '<span class="sofa-chat"><b>琴衣</b>Pinterestの反応、まだ様子見だね</span></div>'
-        f'<div class="sofa-guest sofa-guest-2">{figure("aoi", "蒼：次の記事・投稿の準備を、ゆるく相談中")}'
-        '<span class="sofa-chat"><b>蒼</b>note の次の記事、もう準備できてるよ</span></div>'
-        '<small>Pinterest投稿の反応を待つ時間</small></div>'
-        f'<div class="break-walker">{figure("ayaka", "彩：次の投稿・記事の準備状況を整理中")}'
-        '<small>次の投稿・記事の準備状況を整理中</small></div>'
+        f'{slot1_html}{slot2_html}'
+        '<small>ひと息ついたら、また確認へ戻ります</small></div>'
         '<div class="reading"><span aria-hidden="true">☕</span>'
-        '<span>note・Threadsの状況をひと息ついて振り返り中</span></div>'
+        '<span>彩：部署間の連携状況を、ひと息ついて整理中</span></div>'
         '</section>'
-        '<p class="note"><span class="dot"></span><b>いまの状態。</b>'
-        'Pinterestは前回投稿から48時間ほど反応を見ている段階です。'
-        'この待機・振り返りの時間はすべて画面演出であり、勤怠・休憩予定・'
-        '作業ログの実データは表示・記録していません。</p>'
+        '<div class="ai-office-record-mode-badge" id="break-record-mode-badge">'
+        '読み込み中…（デモ表示）</div>'
+        '<p class="space-roster-note">彩を中心に、Pinterest・note・楽天ROOM・分析の担当のうち、'
+        '本日の運用記録がある担当を優先して1〜2人だけ、時間差で短時間訪れます。'
+        '外部への投稿・送信・ログインは行いません。</p>'
+        '<script>(function(){'
+        + _ai_office_daily_record_reader_script() +
+        f'var CANDIDATES={candidates_js};'
+        f'var POOL_ORDER={pool_order_js};'
+        'var reduceMotion=window.matchMedia&&'
+        'window.matchMedia("(prefers-reduced-motion: reduce)").matches;'
+        'var records=spaceLoadTodayRecords();'
+        'var realOwners={};'
+        'var anyReal=false;'
+        'records.forEach(function(rec){'
+        'var owner=spaceOwnerForRecord(rec);'
+        'if(CANDIDATES[owner]&&!realOwners[owner]){'
+        'realOwners[owner]={content:(rec.content||rec.metric||"").toString()};'
+        'anyReal=true;'
+        '}'
+        '});'
+        'var badge=document.querySelector("#break-record-mode-badge");'
+        'if(badge){'
+        'if(anyReal){'
+        'badge.textContent="本日：実績のある担当が休憩室に立ち寄っています（実績表示）";'
+        'badge.classList.add("is-real");'
+        '}else{'
+        'badge.textContent="本日はまだ運用記録がありません（デモ表示）";'
+        '}'
+        '}'
+        'var queue=POOL_ORDER.filter(function(k){return realOwners[k];})'
+        '.concat(POOL_ORDER.filter(function(k){return !realOwners[k];}));'
+        'function renderSlot(slotNum,key){'
+        'var info=CANDIDATES[key];'
+        'if(!info)return;'
+        'var real=!!realOwners[key];'
+        'var wrap=document.querySelector(\'.sofa-guest[data-slot="\'+slotNum+\'"]\');'
+        'if(!wrap)return;'
+        'var token=wrap.querySelector(".ai-office-floormap-token");'
+        'var sprite=wrap.querySelector(".ai-office-floormap-sprite");'
+        'sprite.style.backgroundPosition=info.spritePos;'
+        'sprite.style.clipPath=info.clipPath;'
+        'sprite.style.webkitClipPath=info.clipPath;'
+        'token.setAttribute("aria-label",info.name);'
+        'token.className="ai-office-floormap-token "+info.idleClass+'
+        '" ai-office-floormap-token-"+(real?"working":"waiting");'
+        'var dot=wrap.querySelector(".ai-office-nameplate-dot");'
+        'dot.className="ai-office-nameplate-dot ai-office-nameplate-dot-"+(real?"working":"waiting");'
+        'var nameEl=wrap.querySelector(\'.ai-office-nameplate span[id^="space-nameplate-name-"]\');'
+        'if(nameEl)nameEl.textContent=info.name;'
+        'var slotName=document.querySelector("#break-slot-name-"+slotNum);'
+        'if(slotName)slotName.textContent=info.name;'
+        'var slotText=document.querySelector("#break-slot-text-"+slotNum);'
+        'if(slotText){'
+        'slotText.textContent=real?'
+        '("さっき「"+realOwners[key].content+"」を確認したよ。（実績表示）"):'
+        '(info.demoLine+"（デモ表示）");'
+        '}'
+        '}'
+        'var rotateIndex=0;'
+        'function rotate(){'
+        'renderSlot(1,queue[rotateIndex%queue.length]);'
+        'renderSlot(2,queue[(rotateIndex+1)%queue.length]);'
+        'rotateIndex++;'
+        '}'
+        'rotate();'
+        'if(!reduceMotion){setInterval(rotate,9000);}'
+        '})();</script>'
     )
     return _page(
         "break", "休憩室",
@@ -7479,6 +7799,28 @@ def register_office_views(app):
     # 社長が実際に見ている想定のPinterest・note・Threadsの状況を、
     # 既存の.command-statsと同じ数値のまま、デスク脇の小さな画面
     # (.ceo-monitor)としても表示する(数値・事実は一切増やしていない)。
+    # MISSION 083: 社長室に、柴犬社長(常駐)・悠(進行管理)・蓮(安全・承認
+    # 確認)を基本配置し、伊織(品質確認)は蒼からの確認をときどき伝える
+    # デモの来訪として表示する。本日の運用記録が、既存の対面報告ルート
+    # (AI_OFFICE_REPORT_ROUTES)上で最終的に柴犬社長・悠・蓮のいずれかへ
+    # 届く内容であれば、そのルートと同じ担当者・受け手・実際の記録内容で
+    # 「誰が誰へ何を報告しているか」を表示する(実績表示)。該当する記録が
+    # ない場合は、これまでどおりのデモの会話(バブル)のままになる。
+    president_token = _ai_office_space_token(
+        "ceo", "operations_lead", {"left": 50, "top": 66}, "waiting"
+    )
+    yu_token = _ai_office_space_token("ceo", "yu", {"left": 24, "top": 58}, "waiting")
+    ren_token = _ai_office_space_token("ceo", "ren", {"left": 78, "top": 40}, "waiting")
+    iori_token = _ai_office_space_token("ceo", "iori", {"left": 50, "top": 22}, "waiting")
+
+    staff_names_json = json.dumps(
+        {k: v["name"] for k, v in AI_OFFICE_STAFF_BY_KEY.items()}, ensure_ascii=False
+    )
+    route_receiver_json = json.dumps(
+        {r["mover"]: r["receiver"] for r in AI_OFFICE_REPORT_ROUTES}, ensure_ascii=False
+    )
+    type_ack_json = json.dumps(AI_OFFICE_DAILY_RECORD_TYPE_ACK, ensure_ascii=False)
+
     scene = (
         '<section class="scene ceo" aria-label="柴犬社長の執務室"><div class="label">PRESIDENT’S OFFICE<span>承認デスク</span>'
         '<span class="cast-badge">AI Hive OSの主役キャラクター</span></div>'
@@ -7489,9 +7831,21 @@ def register_office_views(app):
         '<div><span>note(今回)</span><span>3件公開</span></div>'
         '<div><span>Threads</span><span>Dify運用</span></div>'
         '</div>'
-        f'<div class="ceo-desk">{figure("president", "柴犬社長")}'
-        '<div class="approval">承認デスク</div></div>'
-        '<div class="bubble">「Pinterestの反応、確認できた？次の投稿タイミングを一緒に考えよう。」</div></section>'
+        '<div class="ceo-desk"><div class="approval">承認デスク</div></div>'
+        f'{iori_token}{yu_token}{president_token}{ren_token}'
+        '<div class="bubble" id="ceo-bubble">「Pinterestの反応、確認できた？次の投稿タイミングを一緒に考えよう。」</div></section>'
+        '<div class="ai-office-record-mode-badge" id="ceo-record-mode-badge">'
+        '読み込み中…（デモ表示）</div>'
+        '<div class="ai-office-report-banner" id="ceo-report-banner">'
+        '対面報告中の担当はまだいません（デモ表示）</div>'
+        '<div class="ai-office-report-panel" id="ceo-report-panel">'
+        '<p class="ai-office-report-panel-line" id="ceo-report-panel-mover">'
+        '対面報告が始まると、ここに会話が表示されます（デモ表示）</p>'
+        '<p class="ai-office-report-panel-line" id="ceo-report-panel-receiver"></p>'
+        '</div>'
+        '<p class="space-roster-note">実績がある日は、既存の対面報告ルールと同じ担当者が'
+        '柴犬社長または悠・蓮へ報告します。伊織（品質確認）は、蒼からの確認をときどき'
+        '伝えに顔を出す、デモの来訪として表示しています。</p>'
         '<section class="command" aria-label="業務司令室"><h2 class="sr-only">業務司令室</h2>'
         '<div class="command-stats">'
         '<div class="stat"><b>5件</b><span>Pinterest公開済み</span></div>'
@@ -7550,6 +7904,61 @@ def register_office_views(app):
         '公開まで完了しているよ。");'
         '});'
         '</script>'
+        # MISSION 083: 本日の運用記録を読み取り(読み取り専用)、既存の
+        # 対面報告ルートで柴犬社長・悠・蓮のいずれかへ届く内容があれば、
+        # 実際の担当者・受け手・記録内容で対面報告バナー・会話パネルを
+        # 実績表示に切り替える。該当がなければデモ表示のままにする。
+        '<script>(function(){'
+        + _ai_office_daily_record_reader_script() +
+        f'var STAFF_NAMES={staff_names_json};'
+        f'var ROUTE_RECEIVER={route_receiver_json};'
+        f'var TYPE_ACK={type_ack_json};'
+        'var CEO_RECEIVERS={"yu":1,"ren":1,"operations_lead":1};'
+        'var records=spaceLoadTodayRecords();'
+        'var reportEntry=null;'
+        'for(var i=0;i<records.length;i++){'
+        'var rec=records[i];'
+        'var owner=spaceOwnerForRecord(rec);'
+        'var receiver=ROUTE_RECEIVER[owner];'
+        'if(receiver&&CEO_RECEIVERS[receiver]){'
+        'reportEntry={owner:owner,receiver:receiver,rec:rec};break;'
+        '}'
+        '}'
+        'function setTokenReal(key){'
+        'var token=document.querySelector("#space-token-ceo-"+key);'
+        'var dot=document.querySelector("#space-nameplate-dot-ceo-"+key);'
+        'if(token){'
+        'token.classList.remove("ai-office-floormap-token-waiting");'
+        'token.classList.add("ai-office-floormap-token-working","is-working");'
+        '}'
+        'if(dot){'
+        'dot.classList.remove("ai-office-nameplate-dot-waiting");'
+        'dot.classList.add("ai-office-nameplate-dot-working");'
+        '}'
+        '}'
+        'var badge=document.querySelector("#ceo-record-mode-badge");'
+        'var banner=document.querySelector("#ceo-report-banner");'
+        'var panelMover=document.querySelector("#ceo-report-panel-mover");'
+        'var panelReceiver=document.querySelector("#ceo-report-panel-receiver");'
+        'if(reportEntry){'
+        'var content=(reportEntry.rec.content||reportEntry.rec.metric||"").toString();'
+        'var typeLabel=reportEntry.rec.type||"記録";'
+        'var ownerName=STAFF_NAMES[reportEntry.owner]||reportEntry.owner;'
+        'var receiverName=STAFF_NAMES[reportEntry.receiver]||"柴犬社長";'
+        'var ack=TYPE_ACK[reportEntry.rec.type]||"確認しました";'
+        'setTokenReal(reportEntry.receiver);'
+        'if(reportEntry.owner==="yu"||reportEntry.owner==="ren")setTokenReal(reportEntry.owner);'
+        'if(banner)banner.textContent=ownerName+"が"+receiverName+"へ報告中（実績表示）";'
+        'if(panelMover)panelMover.textContent=ownerName+" → "+receiverName+"「"+typeLabel+"："+content+"」";'
+        'if(panelReceiver)panelReceiver.textContent=receiverName+"「"+ack+"」";'
+        'if(badge){'
+        'badge.textContent="本日："+ownerName+"が"+receiverName+"へ報告しています（実績表示）";'
+        'badge.classList.add("is-real");'
+        '}'
+        '}else if(badge){'
+        'badge.textContent="本日はまだ運用記録がありません（デモ表示）";'
+        '}'
+        '})();</script>'
     )
     return _page(
         "ceo", "社長室",
