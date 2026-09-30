@@ -7883,6 +7883,199 @@ class DashboardDesignTestCase(unittest.TestCase):
         office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY.endswith("daily-record-log")
     )
 
+  # --- MISSION 084: AIオフィスに「今日の実行キュー」を追加する -----------
+
+  def test_ai_office_execution_queue_section_is_present(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("<h2>今日の実行キュー</h2>", html)
+    self.assertIn('id="ai-office-queue-list"', html)
+    self.assertIn('id="ai-office-queue-empty"', html)
+    self.assertIn(office_views.AI_OFFICE_QUEUE_EMPTY_MESSAGE, html)
+    self.assertIn('href="/command-center"', html)
+
+  def test_ai_office_queue_owner_assignment_matches_the_operating_rules(self):
+    # Pinterest→美咲・note→海・楽天ROOM→里奈・数字記録→葵・承認待ち→蓮・
+    # 共通/その他→悠、という指定どおりの割り当てになっていることを確認
+    # する。既存の対面報告ルート向けdailyRecordMediaOwners(共通→彩)とは
+    # 別の、このキュー専用のマッピングを使う。
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_QUEUE_MEDIA_OWNERS,
+        {"Pinterest": "pinterest", "note": "note", "楽天ROOM": "room"},
+    )
+    self.assertNotIn("共通", office_views.AI_OFFICE_QUEUE_MEDIA_OWNERS)
+    self.assertEqual(
+        office_views.AI_OFFICE_DAILY_RECORD_TYPE_OWNERS["数字記録"], "analytics"
+    )
+    self.assertEqual(
+        office_views.AI_OFFICE_DAILY_RECORD_TYPE_OWNERS["承認待ち"], "ren"
+    )
+    self.assertEqual(office_views.AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER, "yu")
+
+  def test_ai_office_queue_status_and_next_action_avoid_overclaiming(self):
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_QUEUE_STATUS_BY_TYPE,
+        {
+            "下書き": "手動投稿待ち",
+            "投稿済み": "反応確認待ち",
+            "数字記録": "数値を確認済み",
+            "承認待ち": "確認・承認待ち",
+            "確認": "確認済み",
+        },
+    )
+    # 「投稿済み」の状態文言(反応確認待ち)は、外部への投稿を断定する表現
+    # ではなく、利用者自身が記録した場合にのみ表示される。
+    self.assertNotIn(
+        "外部に投稿しました", office_views.AI_OFFICE_QUEUE_STATUS_BY_TYPE.values()
+    )
+    for record_type in office_views.AI_OFFICE_QUEUE_STATUS_BY_TYPE:
+      self.assertIn(record_type, office_views.AI_OFFICE_QUEUE_NEXT_ACTION_BY_TYPE)
+
+  def test_ai_office_queue_script_reads_records_read_only(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function queueOwnerForRecord(rec){", html)
+    self.assertIn("function renderExecutionQueue(){", html)
+    self.assertIn("renderExecutionQueue();", html)
+    self.assertIn("loadTodayRecords()", html)
+    # 記録が0件のときは、空メッセージ<li>を書き換えずに残す。
+    self.assertIn("if(records.length===0)return;", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+      self.assertNotIn(forbidden, html)
+
+  def test_ai_office_queue_uses_text_content_not_inner_html_for_record_data(self):
+    # 利用者が入力した内容(content/metric)をDOMへ書き込む際、innerHTMLでは
+    # なくtextContentを使っていることを確認する(HTMLインジェクション対策)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("contentEl.textContent=content;", html)
+    self.assertIn('listEl.innerHTML="";', html)
+    self.assertNotIn("innerHTML=content", html)
+    self.assertNotIn("innerHTML=rec.content", html)
+
+  def test_ai_office_queue_does_not_break_existing_ai_office_content(self):
+    # 既存のキャラクター表示・対面報告・デモ表示は、このミッションの対象
+    # 外であり、そのまま維持されている。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-record-mode-badge"', html)
+    self.assertIn('id="ai-office-report-banner"', html)
+    self.assertIn("function buildRealRecordQueue(){", html)
+    self.assertIn("<h2>社員名簿（12人・状態一覧）</h2>", html)
+    self.assertIn("デモ表示・実データ未接続", html)
+
+  def test_mission_084_does_not_change_office_ceo_office_or_break_room(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn(title, html)
+        self.assertNotIn("今日の実行キュー", html)
+
+  def test_ai_office_queue_css_has_no_new_animation_and_respects_reduced_motion(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        '@media(prefers-reduced-motion:reduce){*,*::before,*::after{'
+        "animation-duration:.001ms!important;animation-iteration-count:1!"
+        'important;transition-duration:.001ms!important}}',
+        html,
+    )
+    self.assertNotIn("@keyframes ai-office-queue", html)
+
+  # --- MISSION 085: AIオフィスに「直近の実績」を追加する -------------------
+
+  def test_ai_office_recent_records_section_is_present_after_the_queue(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("<h2>直近の実績</h2>", html)
+    self.assertIn('id="ai-office-recent-list"', html)
+    self.assertIn('id="ai-office-recent-empty"', html)
+    self.assertIn(office_views.AI_OFFICE_RECENT_EMPTY_MESSAGE, html)
+    # 「今日の実行キュー」セクションの直後に続いていることを確認する。
+    queue_idx = html.index("<h2>今日の実行キュー</h2>")
+    recent_idx = html.index("<h2>直近の実績</h2>")
+    roster_idx = html.index("<h2>社員名簿（12人・状態一覧）</h2>")
+    self.assertLess(queue_idx, recent_idx)
+    self.assertLess(recent_idx, roster_idx)
+
+  def test_ai_office_recent_records_labels_avoid_overclaiming_external_execution(self):
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_RECENT_LABEL_BY_TYPE["投稿済み"],
+        "利用者が投稿済みとして記録",
+    )
+    self.assertEqual(
+        office_views.AI_OFFICE_RECENT_LABEL_BY_TYPE["下書き"], "下書きとして記録"
+    )
+    for label in office_views.AI_OFFICE_RECENT_LABEL_BY_TYPE.values():
+      self.assertNotIn("しました", label)
+      self.assertNotIn("完了しました", label)
+    self.assertEqual(office_views.AI_OFFICE_RECENT_MAX_ITEMS, 5)
+
+  def test_ai_office_recent_records_script_is_read_only_and_scoped_to_past_dates(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function loadAllRecords(){", html)
+    self.assertIn("function loadRecentRecords(){", html)
+    self.assertIn("function renderRecentRecords(){", html)
+    self.assertIn("renderRecentRecords();", html)
+    # 当日より前(< today)だけを対象にし、今日の実行キュー(loadTodayRecords)
+    # とは別の読み取り専用ロジックであることを確認する。
+    self.assertIn("r.date<today", html)
+    self.assertIn("past.slice(0,RECENT_MAX_ITEMS)", html)
+    self.assertIn("if(records.length===0)return;", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+      self.assertNotIn(forbidden, html)
+
+  def test_ai_office_recent_records_uses_text_content_not_inner_html(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("contentEl.textContent=content;", html)
+    self.assertIn('listEl.innerHTML="";', html)
+    self.assertNotIn("innerHTML=content", html)
+    self.assertNotIn("innerHTML=rec.content", html)
+
+  def test_ai_office_recent_records_link_to_command_center(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('linkEl.href="/command-center";', html)
+    self.assertIn('linkEl.textContent="運用司令室へ移動する";', html)
+
+  def test_ai_office_recent_records_reuse_queue_owner_assignment(self):
+    # 昨日のPinterest投稿記録は、実行キューと同じ担当割り当て(美咲)で
+    # 表示されることを、共通のqueueOwnerForRecord関数の再利用によって
+    # 保証する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("var owner=queueOwnerForRecord(rec);", html)
+
+  def test_mission_085_does_not_change_office_ceo_office_or_break_room(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn(title, html)
+        self.assertNotIn("直近の実績", html)
+
+  def test_mission_085_preserves_mission_084_execution_queue(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("<h2>今日の実行キュー</h2>", html)
+    self.assertIn(office_views.AI_OFFICE_QUEUE_EMPTY_MESSAGE, html)
+    self.assertIn("function renderExecutionQueue(){", html)
+    self.assertIn("var records=loadTodayRecords();", html)
+
 
 if __name__ == "__main__":
   unittest.main()

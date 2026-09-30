@@ -335,6 +335,20 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office-task-dept{color:var(--cyan);font-weight:700;font-size:11px;margin-right:8px}
 .ai-office-demo-tag{display:inline-block;font-size:10px;font-weight:700;color:#fbbf24;background:#3d3106;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .ai-office-activity-feed li{padding:8px 10px;background:#0b1120;border:1px solid #253651;border-radius:8px;font-size:12px;color:var(--sub)}
+.ai-office-queue-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.ai-office-queue-item{background:var(--panel);border:1px solid var(--edge);border-left:3px solid var(--cyan);border-radius:10px;padding:12px 14px}
+.ai-office-queue-media{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--blue);background:#0b2540;border-radius:999px;padding:3px 10px;margin-bottom:6px}
+.ai-office-queue-content{margin:0 0 6px;font-size:13px;color:var(--ink);line-height:1.6;word-break:break-word}
+.ai-office-queue-meta{margin:0 0 4px;font-size:11px;color:var(--sub)}
+.ai-office-queue-meta b{color:var(--ink)}
+.ai-office-queue-next{margin:0 0 8px;font-size:12px;color:var(--ink);line-height:1.6;word-break:break-word}
+.ai-office-queue-next b{color:var(--cyan)}
+.ai-office-queue-link{display:inline-block;font-size:11px}
+.ai-office-queue-empty{list-style:none;background:var(--panel);border:1px dashed var(--edge);border-radius:10px;padding:14px;text-align:center;color:var(--sub);font-size:12px}
+.ai-office-recent-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.ai-office-recent-item{background:var(--panel);border:1px solid var(--edge);border-left:3px solid var(--green);border-radius:10px;padding:12px 14px}
+.ai-office-recent-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.ai-office-recent-date{font-size:11px;color:var(--sub);font-weight:700}
 .ai-office-chat-demo{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:14px 16px}
 .ai-office-chat-demo .log{height:auto;max-height:none}
 .ai-office-chat-note{margin:10px 0 0;font-size:11px;color:var(--sub);line-height:1.6;padding-top:10px;border-top:1px dashed var(--edge)}
@@ -6230,6 +6244,59 @@ AI_OFFICE_DAILY_RECORD_TYPE_ACK = {
     "承認待ち": "承認待ちとして記録しました",
 }
 
+# MISSION 084: 「今日の実行キュー」(/ai-office)専用の媒体→担当割り当て。
+# 既存の対面報告ルート向けAI_OFFICE_DAILY_RECORD_MEDIA_OWNERSでは
+# 媒体「共通」を彩(aya、部署間の引き継ぎ役)に割り当てているが、この
+# キューでは要件どおり「共通・その他 → 悠」にするため、専用の媒体
+# マッピングを別に持つ(Pinterest・note・楽天ROOMの3媒体は共通)。
+# 種別(数字記録→分析担当・承認待ち→蓮)の割り当てと、どれにも該当しない
+# 場合のfallback(悠)は、既存のAI_OFFICE_DAILY_RECORD_TYPE_OWNERS /
+# AI_OFFICE_DAILY_RECORD_FALLBACK_OWNERをそのまま再利用する。
+AI_OFFICE_QUEUE_MEDIA_OWNERS = {
+    "Pinterest": "pinterest",
+    "note": "note",
+    "楽天ROOM": "room",
+}
+
+# 種別ごとに、利用者へ誤解を与えない「現在の状態」表現。「投稿済み」は
+# 利用者自身が記録した場合にのみこの状態になり、AIオフィス側が独自に
+# 外部投稿の成否を判断・断定することはない(すべて読み取り専用)。
+AI_OFFICE_QUEUE_STATUS_BY_TYPE = {
+    "下書き": "手動投稿待ち",
+    "投稿済み": "反応確認待ち",
+    "数字記録": "数値を確認済み",
+    "承認待ち": "確認・承認待ち",
+    "確認": "確認済み",
+}
+
+AI_OFFICE_QUEUE_NEXT_ACTION_BY_TYPE = {
+    "下書き": "下書きを確認し、準備ができたら手動で投稿してください。",
+    "投稿済み": "外部サービスで実際の反応（保存数・クリック・スキなど）を確認してください。",
+    "数字記録": "記録した数字を分析ラボの比較メモに反映してください。",
+    "承認待ち": "内容を確認し、承認するかどうかを判断してください。",
+    "確認": "追加の対応は不要です。必要であれば次の記録を残してください。",
+}
+
+AI_OFFICE_QUEUE_DEFAULT_STATUS = "記録を確認してください"
+AI_OFFICE_QUEUE_DEFAULT_NEXT_ACTION = "内容を確認し、必要な対応を判断してください。"
+AI_OFFICE_QUEUE_EMPTY_MESSAGE = (
+    "本日の記録はまだありません。運用司令室で記録するとここに表示されます。"
+)
+
+# MISSION 085: 「直近の実績」(当日より前の運用記録、新しい順で最大5件)。
+# 種別ごとに「記録した」という事実だけを述べ、外部での実行結果を断定
+# しない表現にする(「投稿済み」だけは、利用者本人が投稿済みとして記録
+# したことを明示する「利用者が投稿済みとして記録」という文言にする)。
+AI_OFFICE_RECENT_LABEL_BY_TYPE = {
+    "投稿済み": "利用者が投稿済みとして記録",
+    "下書き": "下書きとして記録",
+    "数字記録": "数字を記録",
+    "承認待ち": "承認待ちとして記録",
+    "確認": "確認として記録",
+}
+AI_OFFICE_RECENT_MAX_ITEMS = 5
+AI_OFFICE_RECENT_EMPTY_MESSAGE = "直近の運用記録はまだありません"
+
 
 def _ai_office_daily_record_reader_script():
   """MISSION 083: オフィス・社長室・休憩室の3スペースで共通に使う、運用
@@ -6773,6 +6840,15 @@ def _render_ai_office_scene():
           "dailyRecordMediaOwners": AI_OFFICE_DAILY_RECORD_MEDIA_OWNERS,
           "dailyRecordFallbackOwner": AI_OFFICE_DAILY_RECORD_FALLBACK_OWNER,
           "dailyRecordTypeAck": AI_OFFICE_DAILY_RECORD_TYPE_ACK,
+          # MISSION 084: 「今日の実行キュー」専用のデータ。
+          "queueMediaOwners": AI_OFFICE_QUEUE_MEDIA_OWNERS,
+          "queueStatusByType": AI_OFFICE_QUEUE_STATUS_BY_TYPE,
+          "queueNextActionByType": AI_OFFICE_QUEUE_NEXT_ACTION_BY_TYPE,
+          "queueDefaultStatus": AI_OFFICE_QUEUE_DEFAULT_STATUS,
+          "queueDefaultNextAction": AI_OFFICE_QUEUE_DEFAULT_NEXT_ACTION,
+          # MISSION 085: 「直近の実績」専用のデータ。
+          "recentLabelByType": AI_OFFICE_RECENT_LABEL_BY_TYPE,
+          "recentMaxItems": AI_OFFICE_RECENT_MAX_ITEMS,
       },
       ensure_ascii=False,
   )
@@ -6857,6 +6933,39 @@ def _render_ai_office_scene():
       f'<ul class="ai-office-floormap-status-strip">{status_strip}</ul>'
       '</div>'
 
+      # MISSION 084: 運用司令室の本日の運用記録を、読み取り専用で
+      # 「次に何をすればよいか」の実行キューとして表示する。記録がない
+      # 場合は、実在しない作業を作らず、その旨を明記した空メッセージの
+      # ままにする(JS側でrecords.length===0のときは書き換えない)。
+      '<div class="ai-office-section">'
+      '<h2>今日の実行キュー</h2>'
+      '<p class="ai-office-floormap-hint">運用司令室（'
+      '<a href="/command-center">/command-center</a>'
+      '）に入力した本日の運用記録を、次に行うべきことの一覧として表示'
+      'します。ここから外部サービスへの投稿・送信・ログイン・承認は'
+      '一切行いません。</p>'
+      '<ul class="ai-office-queue-list" id="ai-office-queue-list">'
+      '<li class="ai-office-queue-empty" id="ai-office-queue-empty">'
+      f'{AI_OFFICE_QUEUE_EMPTY_MESSAGE}</li>'
+      '</ul>'
+      '</div>'
+
+      # MISSION 085: 当日より前の運用記録を、新しい順で最大5件、読み取り
+      # 専用で表示する。今日の実行キューとは対象期間を分け、当日分は
+      # 混ぜない(JS側でtodayDateStrより前のdateだけを対象にする)。記録が
+      # ない場合は、実在しない実績を作らず、空メッセージのままにする。
+      '<div class="ai-office-section">'
+      '<h2>直近の実績</h2>'
+      '<p class="ai-office-floormap-hint">運用司令室に記録した、本日より'
+      '前の運用記録を新しい順で最大5件表示します。今日の実行キューには'
+      '含めません。ここから外部サービスへの投稿・送信・ログイン・承認は'
+      '一切行いません。</p>'
+      '<ul class="ai-office-recent-list" id="ai-office-recent-list">'
+      '<li class="ai-office-queue-empty" id="ai-office-recent-empty">'
+      f'{AI_OFFICE_RECENT_EMPTY_MESSAGE}</li>'
+      '</ul>'
+      '</div>'
+
       '<div class="ai-office-section">'
       '<h2>社員名簿（12人・状態一覧）</h2>'
       '<p class="ai-office-floormap-hint">柴犬社長を含む12人の役割・配置・'
@@ -6918,7 +7027,14 @@ def _render_ai_office_scene():
       'RECORD_TYPE_OWNERS=DATA.dailyRecordTypeOwners,'
       'RECORD_MEDIA_OWNERS=DATA.dailyRecordMediaOwners,'
       'RECORD_FALLBACK_OWNER=DATA.dailyRecordFallbackOwner,'
-      'RECORD_TYPE_ACK=DATA.dailyRecordTypeAck;'
+      'RECORD_TYPE_ACK=DATA.dailyRecordTypeAck,'
+      'QUEUE_MEDIA_OWNERS=DATA.queueMediaOwners,'
+      'QUEUE_STATUS_BY_TYPE=DATA.queueStatusByType,'
+      'QUEUE_NEXT_ACTION_BY_TYPE=DATA.queueNextActionByType,'
+      'QUEUE_DEFAULT_STATUS=DATA.queueDefaultStatus,'
+      'QUEUE_DEFAULT_NEXT_ACTION=DATA.queueDefaultNextAction,'
+      'RECENT_LABEL_BY_TYPE=DATA.recentLabelByType,'
+      'RECENT_MAX_ITEMS=DATA.recentMaxItems;'
       'function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}'
       # MISSION 080: 運用司令室の「本日の運用記録」(localStorage)を読み、
       # 今日の日付の記録だけを、対応する社員の対面報告に変換する。
@@ -6985,6 +7101,127 @@ def _render_ai_office_scene():
       'recordModeBadgeEl.classList.add("is-real");'
       '}'
       '}'
+      # MISSION 084: 「今日の実行キュー」。媒体の担当割り当ては、既存の
+      # 対面報告ルート向けownerForRecordとは別に、要件どおり「共通・
+      # その他→悠」となるQUEUE_MEDIA_OWNERSを使う(種別の割り当てと
+      # fallbackは既存のRECORD_TYPE_OWNERS/RECORD_FALLBACK_OWNERを再利用)。
+      'function queueOwnerForRecord(rec){'
+      'return RECORD_TYPE_OWNERS[rec.type]||QUEUE_MEDIA_OWNERS[rec.media]||'
+      'RECORD_FALLBACK_OWNER;'
+      '}'
+      'function renderExecutionQueue(){'
+      'var listEl=document.querySelector("#ai-office-queue-list");'
+      'if(!listEl)return;'
+      'var records=loadTodayRecords();'
+      # 記録がない場合は、既存の空メッセージ<li>をそのまま残す(実在しない
+      # 作業を作らない)。
+      'if(records.length===0)return;'
+      'listEl.innerHTML="";'
+      'records.forEach(function(rec){'
+      'var owner=queueOwnerForRecord(rec);'
+      'var ownerName=STAFF_NAMES[owner]||owner;'
+      'var status=QUEUE_STATUS_BY_TYPE[rec.type]||QUEUE_DEFAULT_STATUS;'
+      'var nextAction=QUEUE_NEXT_ACTION_BY_TYPE[rec.type]||QUEUE_DEFAULT_NEXT_ACTION;'
+      'var content=(rec.content||rec.metric||"").toString();'
+      'var li=document.createElement("li");'
+      'li.className="ai-office-queue-item";'
+      'var mediaEl=document.createElement("span");'
+      'mediaEl.className="ai-office-queue-media";'
+      'mediaEl.textContent=rec.media||"媒体未設定";'
+      'var contentEl=document.createElement("p");'
+      'contentEl.className="ai-office-queue-content";'
+      'contentEl.textContent=content;'
+      'var metaEl=document.createElement("p");'
+      'metaEl.className="ai-office-queue-meta";'
+      'var ownerLabel=document.createElement("b");'
+      'ownerLabel.textContent="担当：";'
+      'metaEl.append(ownerLabel,document.createTextNode(ownerName+"　"));'
+      'var statusLabel=document.createElement("b");'
+      'statusLabel.textContent="状態：";'
+      'metaEl.append(statusLabel,document.createTextNode(status));'
+      'var nextEl=document.createElement("p");'
+      'nextEl.className="ai-office-queue-next";'
+      'var nextLabel=document.createElement("b");'
+      'nextLabel.textContent="次の行動：";'
+      'nextEl.append(nextLabel,document.createTextNode(nextAction));'
+      'var linkEl=document.createElement("a");'
+      'linkEl.className="ai-office-queue-link";'
+      'linkEl.href="/command-center";'
+      'linkEl.textContent="運用司令室へ移動する";'
+      'li.append(mediaEl,contentEl,metaEl,nextEl,linkEl);'
+      'listEl.appendChild(li);'
+      '});'
+      '}'
+      'renderExecutionQueue();'
+      # MISSION 085: 「直近の実績」。当日より前の記録だけを対象にし、
+      # 新しい順(日付の文字列比較。YYYY-MM-DD形式は辞書順=時系列順に
+      # なるため単純比較で足りる)に並べて最大5件だけ表示する。今日の
+      # 実行キュー(loadTodayRecords)とは対象期間が異なるため、当日分は
+      # 混ざらない。
+      'function loadAllRecords(){'
+      'var raw=null;'
+      'try{raw=window.localStorage.getItem(RECORD_KEY);}catch(e){raw=null;}'
+      'var list=[];'
+      'try{list=raw?JSON.parse(raw):[];}catch(e){list=[];}'
+      'if(!Array.isArray(list))list=[];'
+      'return list.filter(function(r){return r&&r.date&&r.content&&'
+      'String(r.content).trim();});'
+      '}'
+      'function loadRecentRecords(){'
+      'var today=todayDateStr();'
+      'var past=loadAllRecords().filter(function(r){return r.date<today;});'
+      'past.sort(function(a,b){'
+      'if(a.date===b.date)return 0;'
+      'return a.date<b.date?1:-1;'
+      '});'
+      'return past.slice(0,RECENT_MAX_ITEMS);'
+      '}'
+      'function renderRecentRecords(){'
+      'var listEl=document.querySelector("#ai-office-recent-list");'
+      'if(!listEl)return;'
+      'var records=loadRecentRecords();'
+      # 記録がない場合は、既存の空メッセージ<li>をそのまま残す(架空の
+      # 実績を作らない)。
+      'if(records.length===0)return;'
+      'listEl.innerHTML="";'
+      'records.forEach(function(rec){'
+      'var owner=queueOwnerForRecord(rec);'
+      'var ownerName=STAFF_NAMES[owner]||owner;'
+      'var typeLabel=rec.type||"記録";'
+      'var recordLabel=RECENT_LABEL_BY_TYPE[rec.type]||(typeLabel+"として記録");'
+      'var content=(rec.content||rec.metric||"").toString();'
+      'var li=document.createElement("li");'
+      'li.className="ai-office-recent-item";'
+      'var headerEl=document.createElement("div");'
+      'headerEl.className="ai-office-recent-header";'
+      'var dateEl=document.createElement("span");'
+      'dateEl.className="ai-office-recent-date";'
+      'dateEl.textContent=rec.date;'
+      'var mediaEl=document.createElement("span");'
+      'mediaEl.className="ai-office-queue-media";'
+      'mediaEl.textContent=rec.media||"媒体未設定";'
+      'headerEl.append(dateEl,mediaEl);'
+      'var contentEl=document.createElement("p");'
+      'contentEl.className="ai-office-queue-content";'
+      'contentEl.textContent=content;'
+      'var metaEl=document.createElement("p");'
+      'metaEl.className="ai-office-queue-meta";'
+      'var ownerLabel=document.createElement("b");'
+      'ownerLabel.textContent="担当：";'
+      'metaEl.append(ownerLabel,document.createTextNode(ownerName+"　"));'
+      'var typeLabelEl=document.createElement("b");'
+      'typeLabelEl.textContent="種別：";'
+      'metaEl.append(typeLabelEl,document.createTextNode(typeLabel+'
+      '"（"+recordLabel+"）"));'
+      'var linkEl=document.createElement("a");'
+      'linkEl.className="ai-office-queue-link";'
+      'linkEl.href="/command-center";'
+      'linkEl.textContent="運用司令室へ移動する";'
+      'li.append(headerEl,contentEl,metaEl,linkEl);'
+      'listEl.appendChild(li);'
+      '});'
+      '}'
+      'renderRecentRecords();'
       'var bubbleEl=document.querySelector("#ai-office-floormap-bubble");'
       # MISSION 076: 対面報告の「報告者の吹き出し」と「受け手の返答の
       # 吹き出し」を別要素にする(bubbleElReceiver、CSSで配色を変える)。
