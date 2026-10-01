@@ -4453,9 +4453,9 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(f'class="rc-comments" data-slot="{slot}"', card)
       self.assertIn(f'class="rc-checked-date" data-slot="{slot}"', card)
       self.assertIn('type="date"', card)
-      # 紹介文下書き(300字程度)とハッシュタグ5個
+      # 紹介文(120〜180字程度)とハッシュタグ(最大5個、詳細設定内)
       self.assertIn(f'class="rc-intro" data-slot="{slot}"', card)
-      self.assertIn("300字程度の目安", card)
+      self.assertIn("120〜180字程度の目安", card)
       self.assertEqual(
           card.count(f'class="rc-hashtag" data-slot="{slot}"'),
           office_views.ROOM_CANDIDATE_HASHTAG_COUNT,
@@ -4593,10 +4593,12 @@ class DashboardDesignTestCase(unittest.TestCase):
       )
 
   def test_room_daily_candidates_has_bulk_generate_button(self):
+    # MISSION 087: 利用者向けに分かりやすい文言へ変更した
+    # (「入力済みの候補をまとめて下書きを作成」→「まとめて紹介文を作成する」)。
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
     self.assertIn(
         '<button type="button" id="rc-generate-all">'
-        "入力済みの候補をまとめて下書きを作成</button>",
+        "まとめて紹介文を作成する</button>",
         html,
     )
     # まとめてボタンは日付ナビゲーションの後、候補カードより前に配置する。
@@ -4660,28 +4662,36 @@ class DashboardDesignTestCase(unittest.TestCase):
         "あります。上書きします。よろしいですか？",
         html,
     )
+    # MISSION 087: 単一候補で項目が不足しているときは、ブラウザの
+    # window.alertではなく、各欄のすぐ下のインライン表示で案内する
+    # ようになった(旧アラート文言は削除)。「候補が1つもない」という
+    # 全体状況のときだけ、引き続きwindow.alertを使う。
+    self.assertNotIn("ジャンルと商品名を入力してから作成してください。", html)
     self.assertIn("window.alert(", html)
-    self.assertIn("ジャンルと商品名を入力してから作成してください。", html)
-    self.assertIn("ジャンルと商品名を入力した候補がありません。", html)
+    self.assertIn("ジャンル・商品名・楽天市場URLを入力した候補がありません。", html)
 
   def test_room_daily_candidates_notice_discloses_generate_feature_constraints(self):
+    # MISSION 087: ボタン名の変更(「まとめて下書きを作成」→「まとめて
+    # 紹介文を作成する」)、および生成が♡数・コメント数を使わなくなった
+    # ことに合わせて、注意書きの文言も更新した。
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
     self.assertIn(
-        "「紹介文とハッシュタグを作成」「まとめて下書きを作成」は、入力済みの"
-        "ジャンル・商品名・♡数・コメント数だけをもとに、このブラウザの中だけで"
-        "文章を組み立てる機能です。外部API・AI APIへの送信は行わず、実際に使用した・"
-        "購入した・効果があった・口コミで高評価・最安値といった、入力から確認できない"
-        "内容は書きません。すでに紹介文やハッシュタグが入力されている場合は、"
-        "上書き前に確認が表示されます。",
+        "「紹介文とハッシュタグを作成」「まとめて紹介文を作成する」は、入力済みの"
+        "ジャンル・商品名だけをもとに、このブラウザの中だけで文章を組み立てる機能です。"
+        "外部API・AI APIへの送信は行わず、実際に使用した・購入した・効果があった・"
+        "口コミで高評価・最安値といった、入力から確認できない内容は書きません。"
+        "すでに紹介文やハッシュタグが入力されている場合は、上書き前に確認が表示されます。",
         html,
     )
 
-  def test_room_daily_candidates_intro_length_guidance_uses_220_to_300(self):
+  def test_room_daily_candidates_intro_length_guidance_uses_120_to_180(self):
+    # MISSION 087: 読者がそのまま読める長さへ短縮した
+    # (220〜300字 → 120〜180字程度)。
     import office_views
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
-    self.assertEqual(office_views.ROOM_CANDIDATE_INTRO_MIN_LENGTH, 220)
-    self.assertEqual(office_views.ROOM_CANDIDATE_INTRO_TARGET_LENGTH, 300)
-    self.assertIn("紹介文下書き（220〜300字程度の目安", html)
+    self.assertEqual(office_views.ROOM_CANDIDATE_INTRO_MIN_LENGTH, 120)
+    self.assertEqual(office_views.ROOM_CANDIDATE_INTRO_TARGET_LENGTH, 180)
+    self.assertIn("紹介文（120〜180字程度の目安", html)
 
   def test_room_daily_candidates_hashtag_data_includes_base_tag_and_priority_genres(self):
     import office_views
@@ -4708,10 +4718,40 @@ class DashboardDesignTestCase(unittest.TestCase):
         "レビューで人気", "最安値", "効果がありました", "おすすめです！",
     ):
       self.assertNotIn(forbidden, script)
-    self.assertIn(
-        "商品の価格や仕様、レビューの内容は、この下書きの時点では確認しておらず",
-        script,
-    )
+
+  def test_room_daily_candidates_generate_intro_has_no_internal_jargon(self):
+    # MISSION 087: 生成される紹介文の構成要素(ジャンル別テンプレート+
+    # フォールバック)に、読者へ不要な社内向け語や、反応数の直書き、
+    # 未確認の断定表現が含まれないことを確認する。
+    import office_views
+    all_text = []
+    for tmpl in office_views.ROOM_CANDIDATE_INTRO_TEMPLATES.values():
+      all_text.extend([tmpl["hook"], tmpl["scene"], tmpl["check"]])
+    all_text.extend([
+        office_views.ROOM_CANDIDATE_INTRO_FALLBACK_HOOK,
+        office_views.ROOM_CANDIDATE_INTRO_FALLBACK_SCENE,
+        office_views.ROOM_CANDIDATE_INTRO_FALLBACK_CHECK,
+    ])
+    combined = "".join(all_text)
+    for forbidden in (
+        "候補", "下書き", "記録", "入力", "アプリ", "この画面", "ローカル",
+        "データベース", "確認していない", "実際に使用していない",
+        "口コミには触れていない", "♡", "コメントが",
+    ):
+      self.assertNotIn(forbidden, combined)
+
+  def test_room_daily_candidates_generate_intro_js_builds_three_part_structure(self):
+    # MISSION 087: hook(困りごと・使う場面)→scene(商品カテゴリが役立ち
+    # そうな場面)→check(購入前に見るポイント)の3文構成だけで組み立てる
+    # (反応数・コメント数を引数に取らない、入力はgenre/productNameだけ)。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("function generateIntro(genre,productName){", html)
+    self.assertIn('return [hook,scene,check].join("\\n\\n");', html)
+    self.assertIn("const tmpl=INTRO_TEMPLATES[g];", html)
+    self.assertIn("const INTRO_TEMPLATES=", html)
+    self.assertIn("const INTRO_FALLBACK_HOOK=", html)
+    self.assertIn("const INTRO_FALLBACK_SCENE=", html)
+    self.assertIn("const INTRO_FALLBACK_CHECK=", html)
 
   def test_room_daily_candidates_existing_checkbox_semantics_unchanged(self):
     # MISSION 061で生成ボタンを追加しても、「手動確認済み」「ROOMで投稿する」
@@ -8224,6 +8264,121 @@ class DashboardDesignTestCase(unittest.TestCase):
     cs_html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn(".cs-today-step{", cs_html)
     self.assertIn("prefers-reduced-motion:reduce", cs_html)
+
+  # --- MISSION 087: 楽天ROOM候補の文章生成を読者向けに改善する -----------
+
+  def test_room_candidates_gadget_pouch_example_matches_required_wording(self):
+    # ユーザーが提示した「スマホ周辺の持ち運び収納」ジャンルのガジェット
+    # ポーチ例と一致する、hook/scene/checkの3文構成になっていることを
+    # 確認する。
+    import office_views
+    tmpl = office_views.ROOM_CANDIDATE_INTRO_TEMPLATES["スマホ周辺の持ち運び収納"]
+    self.assertEqual(
+        tmpl["hook"], "バッグの中で充電ケーブルやモバイルバッテリーが絡まりがちな方へ。"
+    )
+    body = tmpl["hook"] + tmpl["scene"].replace("{product}", "ガジェットポーチ") + tmpl["check"]
+    self.assertGreaterEqual(len(body), office_views.ROOM_CANDIDATE_INTRO_MIN_LENGTH)
+    self.assertLessEqual(len(body), office_views.ROOM_CANDIDATE_INTRO_TARGET_LENGTH + 20)
+    for forbidden in (
+        "候補", "下書き", "記録", "入力", "アプリ", "この画面", "ローカル",
+        "データベース", "確認していない", "実際に使用していない", "口コミ",
+        "最安値", "在庫",
+    ):
+      self.assertNotIn(forbidden, body)
+
+  def test_room_candidates_field_errors_are_inline_not_alert_only(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for slot in range(office_views.ROOM_CANDIDATE_MAX_PER_DAY):
+      for field, message in (
+          ("genre", "ジャンルを入力してください"),
+          ("product-name", "商品名を入力してください"),
+          ("product-url", "楽天市場URLを入力してください"),
+      ):
+        self.assertIn(
+            f'<p class="rc-field-error" data-slot="{slot}" data-field="{field}" '
+            f'hidden>{message}</p>',
+            html,
+        )
+    self.assertIn("function setFieldError(slot,field,show){", html)
+    self.assertIn("function validateSlot(slot,fields){", html)
+
+  def test_room_candidates_primary_fields_are_genre_name_url_only(self):
+    # 最初に表示する入力は、ジャンル・商品名・楽天市場URLの3つだけに
+    # 絞り、♡数・コメント数・確認日・ハッシュタグは詳細設定(<details>)に
+    # 折りたたまれていることを確認する。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    for slot in range(5):
+      card = html.split(f'<div class="room-candidate-card" data-slot="{slot}">', 1)[1]
+      card = card.split('<div class="room-candidate-card"', 1)[0]
+      primary = card.split('<details class="room-candidate-advanced">', 1)[0]
+      self.assertIn("rc-genre", primary)
+      self.assertIn("rc-product-name", primary)
+      self.assertIn("rc-product-url", primary)
+      self.assertNotIn("rc-hearts", primary)
+      self.assertNotIn("rc-comments", primary)
+      self.assertNotIn("rc-checked-date", primary)
+      self.assertNotIn("rc-hashtag", primary)
+      advanced = card.split('<details class="room-candidate-advanced">', 1)[1]
+      self.assertIn("rc-hearts", advanced)
+      self.assertIn("rc-comments", advanced)
+      self.assertIn("rc-checked-date", advanced)
+      self.assertIn("rc-hashtag", advanced)
+      self.assertIn("<summary>詳細設定</summary>", advanced)
+
+  def test_room_candidates_hashtag_count_is_three_to_five(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertEqual(office_views.ROOM_CANDIDATE_HASHTAG_MIN_COUNT, 3)
+    self.assertEqual(office_views.ROOM_CANDIDATE_HASHTAG_COUNT, 5)
+    self.assertIn("const HASHTAG_MIN_COUNT=", html)
+    self.assertIn(
+        "while(tags.length<HASHTAG_MIN_COUNT&&i<FALLBACK_HASHTAGS.length){", html
+    )
+    self.assertIn("ハッシュタグ（3〜5個）", html)
+
+  def test_room_candidates_require_genre_name_and_url_before_generating(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn(
+        "return genreOk&&nameOk&&urlOk;",
+        html,
+    )
+    self.assertIn(
+        'return Boolean(fields.genre.value.trim())&&Boolean(fields.productName.value.trim())&&'
+        'Boolean(fields.productUrl.value.trim());',
+        html,
+    )
+
+  def test_room_candidates_generation_still_local_storage_only_no_external_calls(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("window.localStorage", html)
+    self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("/api/", html)
+    self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<form", html)
+    self.assertEqual(
+        html.count("https://"), office_views.ROOM_CANDIDATE_MAX_PER_DAY
+    )
+
+  def test_room_candidates_does_not_break_manual_post_complete_or_room_prep_link(self):
+    # 既存の候補保存・手動投稿確認・運用司令室への記録・楽天ROOM準備への
+    # リンクは、このミッションの対象外であり、そのまま動作し続ける。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("manual-post-complete-btn", html)
+    self.assertIn("ai-hive-command-center:daily-record-log", html)
+    revenue_html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('href="/content-studio/room-daily-candidates"', revenue_html)
+
+  def test_room_candidates_ai_office_execution_queue_still_reflects_room_records(self):
+    # AIオフィスの実績表示(MISSION 080・084)は、このミッションの対象外
+    # であり、楽天ROOM候補ページの手動投稿完了ボタンが書き込む記録を
+    # 引き続き読み取り専用で参照できることを確認する。
+    ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function buildRealRecordQueue(){", ai_office_html)
+    self.assertIn("function renderExecutionQueue(){", ai_office_html)
 
 
 if __name__ == "__main__":

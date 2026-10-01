@@ -239,6 +239,15 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .room-candidate-head h3{margin:0;font-size:14px}
 .room-candidate-verifying-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;background:#3d3106;color:#fbbf24}
 .room-candidate-verifying-badge[hidden]{display:none}
+.rc-field-error{margin:4px 0 0;font-size:11px;color:#fbbf24;font-weight:700}
+.rc-field-error[hidden]{display:none}
+.room-candidate-advanced{margin:10px 0;border-top:1px dashed var(--edge);padding-top:10px}
+.room-candidate-advanced>summary{cursor:pointer;list-style:none;font-size:12px;font-weight:700;color:var(--ink);background:#142039;border:1px solid var(--edge);border-radius:9px;padding:7px 12px;display:inline-block}
+.room-candidate-advanced>summary::-webkit-details-marker{display:none}
+.room-candidate-advanced>summary::marker{content:""}
+.room-candidate-advanced>summary:after{content:"▾";margin-left:6px;font-size:10px}
+.room-candidate-advanced[open]>summary{border-color:var(--blue);color:var(--blue)}
+.room-candidate-advanced-body{margin-top:10px}
 .room-candidate-field{margin-bottom:10px}
 .room-candidate-field label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px}
 .room-candidate-field input[type="text"],.room-candidate-field textarea{width:100%;background:#0b1120;color:var(--ink);border:1px solid #385072;border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;box-sizing:border-box}
@@ -1813,8 +1822,14 @@ def _render_room_prep_section(
 ROOM_CANDIDATE_HEART_THRESHOLD = 10
 ROOM_CANDIDATE_MAX_PER_DAY = 5
 ROOM_CANDIDATE_HASHTAG_COUNT = 5
-ROOM_CANDIDATE_INTRO_MIN_LENGTH = 220
-ROOM_CANDIDATE_INTRO_TARGET_LENGTH = 300
+# MISSION 087: ハッシュタグは#楽天ROOMを含め3〜5個にする(以前は常に5個へ
+# 埋めていたが、無理に汎用タグで埋めない)。
+ROOM_CANDIDATE_HASHTAG_MIN_COUNT = 3
+# MISSION 087: 生成する紹介文は、読者がそのまま読める120〜180字程度の
+# 文章にする(社内向けの「下書き」感を消すため、以前の220〜300字という
+# 長い目安から短縮した)。
+ROOM_CANDIDATE_INTRO_MIN_LENGTH = 120
+ROOM_CANDIDATE_INTRO_TARGET_LENGTH = 180
 # 現在、♡10以上の投稿が確認できている有力ジャンル(社長確認済みの事実)。
 # 具体的な♡数・コメント数は、候補ごとに柴犬社長が手動入力するため、ここ
 # には含めない(架空の数値を書かないため)。
@@ -1834,6 +1849,45 @@ ROOM_CANDIDATE_GENRE_HASHTAGS = {
 }
 ROOM_CANDIDATE_FALLBACK_HASHTAGS = ["#暮らしを整える", "#便利グッズ", "#収納アイデア"]
 ROOM_CANDIDATE_BASE_HASHTAG = "#楽天ROOM"
+
+# MISSION 087: 紹介文を、社内向けの説明が混ざらない読者向けの文章へ
+# 作り直すためのジャンル別テンプレート。「困りごと・使う場面(hook)」
+# 「商品カテゴリが役立ちそうな場面(scene、{product}に商品名が入る)」
+# 「購入前に見るポイントの案内(check)」の3文構成に固定する。反応数・
+# コメント数、断定的な使用体験・効果・レビュー・最安値・在庫には一切
+# 触れない(入力から確認できない事実のため)。辞書にないジャンルは
+# ROOM_CANDIDATE_INTRO_FALLBACK_*を使う。
+ROOM_CANDIDATE_INTRO_TEMPLATES = {
+    "バッグの中の整理": {
+        "hook": "バッグの中で物がごちゃつきがちな方へ。",
+        "scene": (
+            "{product}は、小物をまとめて整理したいときに役立ちそうな"
+            "アイテムです。必要なものをあらかじめ分けておくと、バッグの中で"
+            "探す手間も減らせそうです。"
+        ),
+        "check": "サイズや仕切りの数など、購入前に商品ページで確認してみてください。",
+    },
+    "スマホ周辺の持ち運び収納": {
+        "hook": "バッグの中で充電ケーブルやモバイルバッテリーが絡まりがちな方へ。",
+        "scene": (
+            "{product}は、スマホ周辺の小物をまとめて持ち運びたいときに"
+            "便利そうなアイテムです。仕事の日や旅行の準備で必要なものを"
+            "分けておくと、バッグの中を探す手間も減らせそうです。"
+        ),
+        "check": (
+            "手持ちの充電器や小物が入るか、サイズ・収納部分の仕様は"
+            "商品ページで確認してみてください。"
+        ),
+    },
+}
+ROOM_CANDIDATE_INTRO_FALLBACK_HOOK = "{genre}で気になることがある方へ。"
+ROOM_CANDIDATE_INTRO_FALLBACK_SCENE = (
+    "{product}は、{genre}の場面で役立ちそうなアイテムです。必要なものを"
+    "あらかじめまとめておくと、日々の準備や片付けの手間を減らせそうです。"
+)
+ROOM_CANDIDATE_INTRO_FALLBACK_CHECK = (
+    "気になる方は、サイズや仕様など、購入前に商品ページで確認してみてください。"
+)
 
 
 def _render_room_daily_candidates_scene():
@@ -1865,20 +1919,52 @@ def _render_room_daily_candidates_scene():
         f'<h3>候補 {slot + 1}</h3>'
         f'<span class="room-candidate-verifying-badge" data-slot="{slot}" hidden>検証中</span>'
         '</div>'
+        # MISSION 087: 最初に表示する入力は、ジャンル・商品名・楽天市場URL
+        # の3つだけに絞る。未入力のまま作成を押したときは、ブラウザの
+        # window.alertだけに頼らず、各欄のすぐ下に不足している項目名を
+        # 表示する(rc-field-error、JS側でhidden切り替え)。
         '<div class="room-candidate-field">'
         '<label>ジャンル（♡10以上の投稿があるジャンルを優先）</label>'
         f'<input type="text" class="rc-genre" data-slot="{slot}" '
         f'list="room-candidate-genre-options" placeholder="例：{ROOM_CANDIDATE_PRIORITY_GENRES[0]}">'
+        f'<p class="rc-field-error" data-slot="{slot}" data-field="genre" hidden>'
+        'ジャンルを入力してください</p>'
         '</div>'
         '<div class="room-candidate-field">'
         '<label>商品名</label>'
         f'<input type="text" class="rc-product-name" data-slot="{slot}" placeholder="商品名を入力">'
+        f'<p class="rc-field-error" data-slot="{slot}" data-field="product-name" hidden>'
+        '商品名を入力してください</p>'
         '</div>'
         '<div class="room-candidate-field">'
         '<label>楽天市場URL（貼り付けのみ。このアプリからのアクセス・取得は行いません）</label>'
         f'<input type="text" class="rc-product-url" data-slot="{slot}" '
         'placeholder="https://item.rakuten.co.jp/...">'
+        f'<p class="rc-field-error" data-slot="{slot}" data-field="product-url" hidden>'
+        '楽天市場URLを入力してください</p>'
         '</div>'
+        '<div class="room-candidate-generate-row">'
+        f'<button type="button" class="room-candidate-generate-btn rc-generate-draft" '
+        f'data-slot="{slot}">紹介文とハッシュタグを作成</button>'
+        '</div>'
+        '<div class="room-candidate-field">'
+        f'<label>紹介文（{ROOM_CANDIDATE_INTRO_MIN_LENGTH}〜'
+        f'{ROOM_CANDIDATE_INTRO_TARGET_LENGTH}字程度の目安。実際に使用していない商品について、'
+        '断定的な使用体験・口コミは書かないでください）'
+        f'<span class="room-candidate-intro-count" data-slot="{slot}">0字</span></label>'
+        f'<textarea class="rc-intro" data-slot="{slot}" rows="5" maxlength="600"></textarea>'
+        '</div>'
+        '<div class="room-candidate-checks">'
+        f'<label><input type="checkbox" class="rc-manual-checked" data-slot="{slot}"> 手動確認済み</label>'
+        f'<label><input type="checkbox" class="rc-post-in-room" data-slot="{slot}"> ROOMで投稿する'
+        '（このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は'
+        '行われません。実際の投稿は利用者がROOM上で手動で行ってください。）</label>'
+        '</div>'
+        # MISSION 087: ♡数・コメント数・確認日・ハッシュタグの細かな編集は
+        # 「詳細設定」に折りたたみ、最初の画面を簡潔にする。
+        '<details class="room-candidate-advanced">'
+        '<summary>詳細設定</summary>'
+        '<div class="room-candidate-advanced-body">'
         '<div class="room-candidate-field">'
         '<label>参考にした反応実績（ROOM上で確認した内容を手動入力）</label>'
         '<div class="room-candidate-reaction-inputs">'
@@ -1887,27 +1973,13 @@ def _render_room_daily_candidates_scene():
         f'<label>確認日<input type="date" class="rc-checked-date" data-slot="{slot}"></label>'
         '</div>'
         '</div>'
-        '<div class="room-candidate-generate-row">'
-        f'<button type="button" class="room-candidate-generate-btn rc-generate-draft" '
-        f'data-slot="{slot}">紹介文とハッシュタグを作成</button>'
-        '</div>'
         '<div class="room-candidate-field">'
-        f'<label>紹介文下書き（{ROOM_CANDIDATE_INTRO_MIN_LENGTH}〜'
-        f'{ROOM_CANDIDATE_INTRO_TARGET_LENGTH}字程度の目安。実際に使用していない商品について、'
-        '断定的な使用体験・口コミは書かないでください）'
-        f'<span class="room-candidate-intro-count" data-slot="{slot}">0字</span></label>'
-        f'<textarea class="rc-intro" data-slot="{slot}" rows="5" maxlength="600"></textarea>'
-        '</div>'
-        '<div class="room-candidate-field">'
-        f'<label>ハッシュタグ下書き（{ROOM_CANDIDATE_HASHTAG_COUNT}個）</label>'
+        f'<label>ハッシュタグ（{ROOM_CANDIDATE_HASHTAG_MIN_COUNT}〜'
+        f'{ROOM_CANDIDATE_HASHTAG_COUNT}個）</label>'
         f'<div class="room-candidate-hashtags">{hashtag_inputs}</div>'
         '</div>'
-        '<div class="room-candidate-checks">'
-        f'<label><input type="checkbox" class="rc-manual-checked" data-slot="{slot}"> 手動確認済み</label>'
-        f'<label><input type="checkbox" class="rc-post-in-room" data-slot="{slot}"> ROOMで投稿する'
-        '（このチェックは手動投稿の確認記録であり、ここから楽天ROOMへの投稿・送信は'
-        '行われません。実際の投稿は利用者がROOM上で手動で行ってください。）</label>'
         '</div>'
+        '</details>'
         f'{_manual_post_complete_box_html(slot)}'
         '</div>'
     )
@@ -1932,12 +2004,11 @@ def _render_room_daily_candidates_scene():
       '<li>商品画像の取得・生成画像の自動アップロード・#オリジナル写真の自動付与は'
       '行いません。実際に使用していない商品についての購入・使用体験や口コミは'
       '書かないでください。</li>'
-      '<li>「紹介文とハッシュタグを作成」「まとめて下書きを作成」は、入力済みの'
-      'ジャンル・商品名・♡数・コメント数だけをもとに、このブラウザの中だけで'
-      '文章を組み立てる機能です。外部API・AI APIへの送信は行わず、実際に使用した・'
-      '購入した・効果があった・口コミで高評価・最安値といった、入力から確認できない'
-      '内容は書きません。すでに紹介文やハッシュタグが入力されている場合は、'
-      '上書き前に確認が表示されます。</li>'
+      '<li>「紹介文とハッシュタグを作成」「まとめて紹介文を作成する」は、入力済みの'
+      'ジャンル・商品名だけをもとに、このブラウザの中だけで文章を組み立てる機能です。'
+      '外部API・AI APIへの送信は行わず、実際に使用した・購入した・効果があった・'
+      '口コミで高評価・最安値といった、入力から確認できない内容は書きません。'
+      'すでに紹介文やハッシュタグが入力されている場合は、上書き前に確認が表示されます。</li>'
       '</ul>'
       '</div>'
       '<div class="room-candidate-rules">'
@@ -1959,9 +2030,10 @@ def _render_room_daily_candidates_scene():
       '<span id="rc-date-label"></span>'
       '</div>'
       '<div class="room-candidate-bulk-actions">'
-      '<button type="button" id="rc-generate-all">入力済みの候補をまとめて下書きを作成</button>'
-      '<p>ジャンルと商品名を入力した候補すべてに、紹介文とハッシュタグをまとめて'
-      '自動入力します。入力済みの紹介文・ハッシュタグは確認のうえ上書きされます。</p>'
+      '<button type="button" id="rc-generate-all">まとめて紹介文を作成する</button>'
+      '<p>ジャンル・商品名・楽天市場URLを入力した候補すべてに、紹介文とハッシュタグを'
+      'まとめて自動入力します（外部への投稿・送信は行いません）。入力済みの紹介文・'
+      'ハッシュタグは確認のうえ上書きされます。</p>'
       '</div>'
       f'{candidate_cards}'
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の下書き'
@@ -1972,9 +2044,14 @@ def _render_room_daily_candidates_scene():
       'const MAX_SLOTS=' + str(ROOM_CANDIDATE_MAX_PER_DAY) + ';'
       'const HEART_THRESHOLD=' + str(ROOM_CANDIDATE_HEART_THRESHOLD) + ';'
       'const HASHTAG_COUNT=' + str(ROOM_CANDIDATE_HASHTAG_COUNT) + ';'
+      'const HASHTAG_MIN_COUNT=' + str(ROOM_CANDIDATE_HASHTAG_MIN_COUNT) + ';'
       'const BASE_HASHTAG=' + json.dumps(ROOM_CANDIDATE_BASE_HASHTAG) + ';'
       'const GENRE_HASHTAGS=' + json.dumps(ROOM_CANDIDATE_GENRE_HASHTAGS, ensure_ascii=False) + ';'
       'const FALLBACK_HASHTAGS=' + json.dumps(ROOM_CANDIDATE_FALLBACK_HASHTAGS, ensure_ascii=False) + ';'
+      'const INTRO_TEMPLATES=' + json.dumps(ROOM_CANDIDATE_INTRO_TEMPLATES, ensure_ascii=False) + ';'
+      'const INTRO_FALLBACK_HOOK=' + json.dumps(ROOM_CANDIDATE_INTRO_FALLBACK_HOOK, ensure_ascii=False) + ';'
+      'const INTRO_FALLBACK_SCENE=' + json.dumps(ROOM_CANDIDATE_INTRO_FALLBACK_SCENE, ensure_ascii=False) + ';'
+      'const INTRO_FALLBACK_CHECK=' + json.dumps(ROOM_CANDIDATE_INTRO_FALLBACK_CHECK, ensure_ascii=False) + ';'
       'const STORAGE_PREFIX="ai-hive-room-candidate:";'
       'const dateInput=document.querySelector("#rc-date-input");'
       'const dateLabel=document.querySelector("#rc-date-label");'
@@ -2054,11 +2131,36 @@ def _render_room_daily_candidates_scene():
       'updateIntroCount(slot,fields);'
       '}'
       'function isFilledSlot(fields){'
-      'return Boolean(fields.genre.value.trim())&&Boolean(fields.productName.value.trim());'
+      'return Boolean(fields.genre.value.trim())&&Boolean(fields.productName.value.trim())&&'
+      'Boolean(fields.productUrl.value.trim());'
+      '}'
+      'function hasAnyContent(fields){'
+      'return Boolean(fields.genre.value.trim())||Boolean(fields.productName.value.trim())||'
+      'Boolean(fields.productUrl.value.trim());'
       '}'
       'function hasDraftContent(fields){'
       'return Boolean(fields.intro.value.trim())||fields.hashtags.some(el=>el.value.trim());'
       '}'
+      # MISSION 087: ジャンル・商品名・楽天市場URLが未入力のときは、
+      # window.alertだけに頼らず、各欄のすぐ下に不足している項目名を
+      # 表示する(読み上げでも伝わるよう通常のテキストとして表示する)。
+      'function setFieldError(slot,field,show){'
+      'const el=document.querySelector('
+      '\'.rc-field-error[data-slot="\'+slot+\'"][data-field="\'+field+\'"]\');'
+      'if(el)el.hidden=!show;'
+      '}'
+      'function validateSlot(slot,fields){'
+      'const genreOk=Boolean(fields.genre.value.trim());'
+      'const nameOk=Boolean(fields.productName.value.trim());'
+      'const urlOk=Boolean(fields.productUrl.value.trim());'
+      'setFieldError(slot,"genre",!genreOk);'
+      'setFieldError(slot,"product-name",!nameOk);'
+      'setFieldError(slot,"product-url",!urlOk);'
+      'return genreOk&&nameOk&&urlOk;'
+      '}'
+      # MISSION 087: ハッシュタグは#楽天ROOMとジャンルに沿うものを含む
+      # 3〜5個にする(以前は汎用タグで必ず5個まで埋めていたが、最低3個の
+      # 下限だけにする)。
       'function generateHashtags(genre){'
       'const tags=[BASE_HASHTAG];'
       'const g=(genre||"").trim();'
@@ -2072,42 +2174,40 @@ def _render_room_daily_candidates_scene():
       'if(!tags.includes(t))tags.push(t);'
       '}'
       'let i=0;'
-      'while(tags.length<HASHTAG_COUNT&&i<FALLBACK_HASHTAGS.length){'
+      'while(tags.length<HASHTAG_MIN_COUNT&&i<FALLBACK_HASHTAGS.length){'
       'if(!tags.includes(FALLBACK_HASHTAGS[i]))tags.push(FALLBACK_HASHTAGS[i]);'
       'i++;'
       '}'
       'return tags.slice(0,HASHTAG_COUNT);'
       '}'
-      'function generateIntro(genre,productName,hearts,comments){'
-      'const g=genre||"気になるジャンル";'
-      'const p=productName||"この商品";'
-      'let reaction;'
-      'if(hearts!==""&&hearts!==undefined&&hearts!==null){'
-      'reaction="ROOM上ではこのジャンルの投稿に♡が"+hearts+"件";'
-      'if(comments!==""&&comments!==undefined&&comments!==null){'
-      'reaction+="、コメントが"+comments+"件";'
-      '}'
-      'reaction+="ついており、関心を持って見てくださっている方がいるようです。";'
+      # MISSION 087: 紹介文は、困りごと・使う場面(hook)→商品カテゴリが
+      # 役立ちそうな場面(scene)→購入前に見るポイントの案内(check)、の
+      # 3文構成だけで組み立てる。候補・下書き・記録・入力・アプリ・この
+      # 画面・ローカル・データベースといった社内向けの語や、♡数・
+      # コメント数、未確認の使用体験・効果・レビュー・最安値・在庫には
+      # 一切触れない(すべて入力から確認できる事実の範囲のみ)。
+      'function generateIntro(genre,productName){'
+      'const g=(genre||"").trim();'
+      'const p=(productName||"").trim()||"この商品";'
+      'const tmpl=INTRO_TEMPLATES[g];'
+      'let hook,scene,check;'
+      'if(tmpl){'
+      'hook=tmpl.hook;'
+      'scene=tmpl.scene.replace("{product}",p);'
+      'check=tmpl.check;'
       '}else{'
-      'reaction="まだ反応実績は記録できていませんが、今後ROOM上での様子を確認していく候補です。";'
+      'const gLabel=g||"気になるジャンル";'
+      'hook=INTRO_FALLBACK_HOOK.replace("{genre}",gLabel);'
+      'scene=INTRO_FALLBACK_SCENE.replace("{product}",p).replace("{genre}",gLabel);'
+      'check=INTRO_FALLBACK_CHECK;'
       '}'
-      'const lines=['
-      '"『"+g+"』が気になる方へ。",'
-      '"『"+p+"』を投稿候補として記録しています。",'
-      '"気になる方はチェックしてみてください。",'
-      '];'
-      'const body=reaction+'
-      '"商品の価格や仕様、レビューの内容は、この下書きの時点では確認しておらず、"+'
-      '"実際に使用した体験や口コミの評価についてもここでは触れていません。"+'
-      '"気になる方は、楽天ROOMの商品ページでサイズ・素材・価格などの詳細をご自身で"+'
-      '"ご確認のうえ、ご検討ください。";'
-      'return lines.join("\\n")+"\\n"+body;'
+      'return [hook,scene,check].join("\\n\\n");'
       '}'
       'function dispatchInput(el){el.dispatchEvent(new Event("input",{bubbles:true}));}'
       'function applyDraftToSlot(slot,fields){'
       'const genre=fields.genre.value.trim();'
       'const productName=fields.productName.value.trim();'
-      'fields.intro.value=generateIntro(genre,productName,fields.hearts.value,fields.comments.value);'
+      'fields.intro.value=generateIntro(genre,productName);'
       'const tags=generateHashtags(genre);'
       'fields.hashtags.forEach((el,i)=>{el.value=tags[i]||"";});'
       'dispatchInput(fields.intro);'
@@ -2116,10 +2216,7 @@ def _render_room_daily_candidates_scene():
       '}'
       'function generateForSlot(slot){'
       'const fields=fieldsForSlot(slot);'
-      'if(!isFilledSlot(fields)){'
-      'window.alert("ジャンルと商品名を入力してから作成してください。");'
-      'return;'
-      '}'
+      'if(!validateSlot(slot,fields))return;'
       'if(hasDraftContent(fields)){'
       'const ok=window.confirm('
       '"すでに入力されている紹介文・ハッシュタグを上書きします。よろしいですか？");'
@@ -2129,12 +2226,22 @@ def _render_room_daily_candidates_scene():
       '}'
       'function generateForAllFilled(){'
       'const targets=[];'
+      'let anyPartial=false;'
       'for(let slot=0;slot<MAX_SLOTS;slot++){'
       'const fields=fieldsForSlot(slot);'
-      'if(isFilledSlot(fields))targets.push({slot:slot,fields:fields});'
+      'if(!hasAnyContent(fields)){'
+      'setFieldError(slot,"genre",false);'
+      'setFieldError(slot,"product-name",false);'
+      'setFieldError(slot,"product-url",false);'
+      'continue;'
+      '}'
+      'anyPartial=true;'
+      'if(validateSlot(slot,fields))targets.push({slot:slot,fields:fields});'
       '}'
       'if(targets.length===0){'
-      'window.alert("ジャンルと商品名を入力した候補がありません。");'
+      'if(!anyPartial){'
+      'window.alert("ジャンル・商品名・楽天市場URLを入力した候補がありません。");'
+      '}'
       'return;'
       '}'
       'const hasExisting=targets.some(t=>hasDraftContent(t.fields));'
@@ -2162,6 +2269,12 @@ def _render_room_daily_candidates_scene():
       'el.addEventListener("input",()=>saveSlot(dateInput.value,slot));'
       'el.addEventListener("change",()=>saveSlot(dateInput.value,slot));'
       '});'
+      # MISSION 087: 不足項目を入力し始めたら、その場でエラー表示を消す。
+      'fields.genre.addEventListener("input",()=>setFieldError(slot,"genre",false));'
+      'fields.productName.addEventListener("input",()=>'
+      'setFieldError(slot,"product-name",false));'
+      'fields.productUrl.addEventListener("input",()=>'
+      'setFieldError(slot,"product-url",false));'
       '}'
       '}'
       'function shiftDate(days){'
