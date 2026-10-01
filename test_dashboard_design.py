@@ -841,9 +841,14 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertNotIn(removed, html)
 
   def test_content_studio_removes_refinement_workflow_and_status_tiers(self):
+    # MISSION 086: 「今日の一歩」カードの案内文に「楽天ROOMの投稿候補を
+    # 1件作る」という、ミッション要件どおりの文言を使うようになったため、
+    # 「投稿候補」という語そのものの禁止は外し、旧ワークフロー固有の
+    # 語(要確認・見送り・手動投稿候補・cs-status-badge・cs-refine-section)
+    # だけを引き続き禁止する。
     html = self.client.get("/content-studio").get_data(as_text=True)
     for removed in (
-        "投稿改善ワークフロー", "投稿候補", "要確認", "見送り",
+        "投稿改善ワークフロー", "要確認", "見送り",
         "手動投稿候補", "cs-status-badge", "cs-refine-section",
     ):
       self.assertNotIn(removed, html)
@@ -887,11 +892,20 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("localhost限定", html)
 
   def test_content_studio_has_no_external_resources_or_scripts(self):
+    # MISSION 086: 「今日の一歩」カードが、運用司令室のlocalStorageを
+    # 読み取り専用で参照するために<script>を追加した。外部URL・外部
+    # 通信・書き込み系APIが一切ないことは引き続き確認する
+    # (localStorage.getItemのみ許可、setItem/removeItem/clearは禁止)。
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertNotIn("http://", html)
     self.assertNotIn("https://", html)
-    self.assertNotIn("<script", html)
     self.assertNotIn("fetch(", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("<form", html)
+    self.assertIn("localStorage.getItem(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
     self.assertIn("prefers-reduced-motion:reduce", html)
 
   def test_content_studio_is_fully_read_only_no_api_or_write_methods(self):
@@ -8075,6 +8089,141 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn(office_views.AI_OFFICE_QUEUE_EMPTY_MESSAGE, html)
     self.assertIn("function renderExecutionQueue(){", html)
     self.assertIn("var records=loadTodayRecords();", html)
+
+  # --- MISSION 086: 柴犬社長の本日の指示 + 投稿企画工場「今日の一歩」 -----
+
+  def test_ai_office_directive_card_is_first_and_shows_a_single_action(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-directive-card"', html)
+    self.assertIn('id="ai-office-directive-task"', html)
+    self.assertIn('id="ai-office-directive-reason"', html)
+    self.assertIn('id="ai-office-directive-button"', html)
+    self.assertIn("🐕 柴犬社長からの本日の指示", html)
+    # カードが、デモ表示バナーより前(=最初)に現れることを確認する。
+    section_idx = html.index('<section class="ai-office" aria-label="AIオフィス">')
+    directive_idx = html.index('id="ai-office-directive-card"')
+    banner_idx = html.index('class="ai-office-demo-banner"')
+    self.assertLess(section_idx, directive_idx)
+    self.assertLess(directive_idx, banner_idx)
+    # 行動ボタンはこのカード内に1つだけ。
+    self.assertEqual(html.count('id="ai-office-directive-button"'), 1)
+
+  def test_ai_office_directive_rules_match_the_required_priority_order(self):
+    import office_views
+    rules = office_views.AI_OFFICE_DIRECTIVE_RULES
+    self.assertEqual(len(rules), 5)
+    self.assertEqual(
+        [r["key"] for r in rules],
+        ["draft", "posted", "approval", "prepare", "start"],
+    )
+    self.assertEqual(rules[0]["task"], "下書きを確認し、手動で投稿してください")
+    self.assertEqual(rules[1]["task"], "投稿の反応を確認してください")
+    self.assertEqual(rules[2]["task"], "承認待ちの内容を確認してください")
+    self.assertEqual(rules[3]["task"], "今日は投稿候補を1件だけ用意してください")
+    self.assertEqual(
+        rules[4]["task"], "まず運用司令室で、今日の作業を1件記録してください"
+    )
+    self.assertEqual(rules[1]["href"], "/command-center")
+    self.assertEqual(rules[2]["href"], "/command-center")
+    self.assertEqual(rules[4]["href"], "/command-center")
+    self.assertEqual(rules[0]["href"], "/content-studio")
+    self.assertEqual(rules[3]["href"], "/content-studio")
+
+  def test_ai_office_directive_posted_rule_does_not_overclaim_external_posting(self):
+    import office_views
+    posted_rule = office_views.AI_OFFICE_DIRECTIVE_RULES[1]
+    self.assertEqual(posted_rule["key"], "posted")
+    # 「投稿済み」の指示文は、利用者が記録した事実の確認を促すだけで、
+    # 外部投稿そのものを断定・推測する表現は使わない。
+    self.assertNotIn("完了しました", posted_rule["task"])
+    self.assertNotIn("成功しました", posted_rule["task"])
+
+  def test_ai_office_directive_script_picks_in_priority_order_and_is_read_only(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function pickDirective(){", html)
+    self.assertIn("function renderDirective(){", html)
+    self.assertIn("renderDirective();", html)
+    self.assertIn('if(today.some(function(r){return r.type==="下書き";}))', html)
+    self.assertIn('if(today.some(function(r){return r.type==="投稿済み";}))', html)
+    self.assertIn('if(today.some(function(r){return r.type==="承認待ち";}))', html)
+    self.assertIn("var hasPast=loadAllRecords().some(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+
+  def test_ai_office_directive_does_not_break_existing_sections(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-record-mode-badge"', html)
+    self.assertIn('id="ai-office-report-banner"', html)
+    self.assertIn("<h2>社員名簿（12人・状態一覧）</h2>", html)
+    self.assertIn("<h2>今日の実行キュー</h2>", html)
+    self.assertIn("<h2>直近の実績</h2>", html)
+
+  def test_content_studio_today_step_card_is_present_and_simple(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('id="cs-today-step"', html)
+    self.assertIn("今日の一歩", html)
+    self.assertIn('id="cs-today-step-task"', html)
+    self.assertIn('id="cs-today-step-button"', html)
+    # カードの直後、詳細は<details>に折りたたまれている。
+    card_idx = html.index('id="cs-today-step"')
+    details_idx = html.index('<details class="cs-details">')
+    summary_idx = html.index("詳細設定・注意事項")
+    self.assertLess(card_idx, details_idx)
+    self.assertLess(details_idx, summary_idx)
+
+  def test_content_studio_today_step_defaults_to_one_room_candidate(self):
+    import office_views
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("楽天ROOMの投稿候補を1件作る", html)
+    self.assertIn(
+        'href="/content-studio/room-daily-candidates">候補を作成する</a>', html
+    )
+    self.assertIn(office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY, html)
+
+  def test_content_studio_today_step_script_is_read_only(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn('return r.type==="下書き";', html)
+    self.assertIn("localStorage.getItem(", html)
+    self.assertNotIn("localStorage.setItem(", html)
+    self.assertNotIn("localStorage.removeItem(", html)
+    self.assertNotIn("localStorage.clear(", html)
+    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+      self.assertNotIn(forbidden, html)
+
+  def test_content_studio_details_preserves_all_existing_content(self):
+    # 既存の詳しい候補フォーム・注意事項は削除しておらず、<details>内に
+    # そのまま残っていることを確認する。
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    for existing in (
+        "この画面は投稿企画の手動準備用です。",
+        "楽天ROOMリンクについて。",
+        "初回手動投稿パッケージを見る",
+        "7日間コンテンツ計画を見る",
+        "デスク環境投稿パッケージを見る",
+        "投稿キューを見る（社長承認待ち）",
+        "note初回記事を見る",
+        "note記事候補（毎日2本の下書き）を見る",
+        "楽天ROOM投稿準備を見る",
+        "localhost限定で表示される社内検討用の",
+    ):
+      self.assertIn(existing, html)
+
+  def test_content_studio_does_not_break_room_or_note_candidate_pages(self):
+    for path in (
+        "/content-studio/room-daily-candidates",
+        "/content-studio/note-daily-candidates",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        self.assertIn("manual-post-complete-btn", html)
+
+  def test_mission_086_no_horizontal_scroll_css_additions_present(self):
+    ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(".ai-office-directive-card{", ai_office_html)
+    cs_html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn(".cs-today-step{", cs_html)
+    self.assertIn("prefers-reduced-motion:reduce", cs_html)
 
 
 if __name__ == "__main__":

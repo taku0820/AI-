@@ -110,6 +110,18 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .room-prep-checks ul{margin:0;padding-left:18px;font-size:12px;line-height:1.7}
 @media(max-width:760px){.room-prep-head{flex-direction:column;align-items:flex-start}}
 .content-studio{max-width:1000px;margin:0 auto}
+.cs-today-step{background:linear-gradient(135deg,#16233c,#0f1a2c);border:1px solid var(--blue);border-radius:16px;padding:18px 20px;margin-bottom:18px}
+.cs-today-step-label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--blue);background:#0b2540;border-radius:999px;padding:3px 10px;margin-bottom:10px}
+.cs-today-step-task{margin:0 0 14px;font-size:16px;font-weight:700;color:var(--ink);line-height:1.5}
+.cs-today-step-button{display:inline-block;background:#147fac;color:#fff;font-weight:700;font-size:13px;border-radius:10px;padding:10px 18px;text-decoration:none}
+.cs-today-step-button:hover,.cs-today-step-button:focus-visible{background:#1894c9}
+.cs-details{margin-top:4px}
+.cs-details>summary{cursor:pointer;list-style:none;font-size:12px;font-weight:700;color:var(--ink);background:#142039;border:1px solid var(--edge);border-radius:9px;padding:8px 12px;display:inline-block}
+.cs-details>summary::-webkit-details-marker{display:none}
+.cs-details>summary::marker{content:""}
+.cs-details>summary:after{content:"▾";margin-left:6px;font-size:10px}
+.cs-details[open]>summary{border-color:var(--blue);color:var(--blue)}
+.cs-details-body{margin-top:14px}
 .cs-theme{font-size:12px;color:var(--sub);margin:0 0 16px}
 .cs-theme b{color:var(--ink)}
 .cs-room-policy{background:#101827;border:1px solid var(--blue);color:var(--ink);padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.6;margin:0 0 16px}
@@ -308,6 +320,12 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cc-decision-log-entry b{color:var(--blue);display:inline-block;min-width:5.5em}
 @media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}
 .ai-office{max-width:1160px;margin:0 auto;--cyan:#22d3ee}
+.ai-office-directive-card{background:linear-gradient(135deg,#16233c,#0f1a2c);border:1px solid var(--blue);border-radius:16px;padding:18px 20px;margin-bottom:14px}
+.ai-office-directive-label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--blue);background:#0b2540;border-radius:999px;padding:3px 10px;margin-bottom:10px}
+.ai-office-directive-task{margin:0 0 6px;font-size:17px;font-weight:700;color:var(--ink);line-height:1.5}
+.ai-office-directive-reason{margin:0 0 14px;font-size:12px;color:var(--sub)}
+.ai-office-directive-button{display:inline-block;background:#147fac;color:#fff;font-weight:700;font-size:13px;border-radius:10px;padding:10px 18px;text-decoration:none}
+.ai-office-directive-button:hover,.ai-office-directive-button:focus-visible{background:#1894c9}
 .ai-office-demo-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#3d3106;border:1px solid #7a5c0a;color:#fbbf24;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12px;font-weight:700}
 .ai-office-demo-banner span{font-weight:400;color:#f4d98b}
 .ai-office-record-mode-badge{background:#142039;border:1px solid var(--edge);color:var(--sub);border-radius:10px;padding:8px 14px;margin-bottom:18px;font-size:12px;text-align:center}
@@ -1015,8 +1033,53 @@ def _render_content_studio_scene(
       + candidate_cards +
       f'<div class="cs-room-policy"><b>次に作るなら。</b>{next_candidates_recommendation}</div>'
   )
+  # MISSION 086: 初見でも迷わないよう、最上部に「今日の一歩」カード
+  # (今日やること+進めるボタンだけ)を置き、既存の詳しい候補フォーム・
+  # 注意事項はすべて削除せず<details>(詳細設定・注意事項)に折りたたむ。
+  # 実際の表示内容はJS側で、運用司令室のlocalStorageを読み取り専用で
+  # 参照して決める(本日の「下書き」記録があれば確認を促し、なければ
+  # 楽天ROOMの投稿候補を1件作ることを案内する)。
+  today_step_card = (
+      '<div class="cs-today-step" id="cs-today-step">'
+      '<div class="cs-today-step-label">今日の一歩</div>'
+      '<p class="cs-today-step-task" id="cs-today-step-task">読み込み中…</p>'
+      '<a class="cs-today-step-button" id="cs-today-step-button" '
+      'href="/content-studio/room-daily-candidates">候補を作成する</a>'
+      '</div>'
+  )
+  today_step_script = (
+      '<script>(function(){'
+      + _ai_office_daily_record_reader_script() +
+      'var drafts=spaceLoadTodayRecords().filter(function(r){'
+      'return r.type==="下書き";'
+      '});'
+      'var taskEl=document.querySelector("#cs-today-step-task");'
+      'var btnEl=document.querySelector("#cs-today-step-button");'
+      'if(drafts.length>0){'
+      'var rec=drafts[0];'
+      'if(taskEl)taskEl.textContent="本日の下書きがあります。内容を確認して'
+      'ください。";'
+      'if(btnEl){'
+      'btnEl.textContent="下書きを確認する";'
+      'btnEl.href=rec.media==="楽天ROOM"?"/content-studio/room-daily-candidates":'
+      'rec.media==="note"?"/content-studio/note-daily-candidates":'
+      '"/command-center";'
+      '}'
+      '}else{'
+      'if(taskEl)taskEl.textContent="楽天ROOMの投稿候補を1件作る";'
+      'if(btnEl){'
+      'btnEl.textContent="候補を作成する";'
+      'btnEl.href="/content-studio/room-daily-candidates";'
+      '}'
+      '}'
+      '})();</script>'
+  )
   return (
       '<section class="content-studio" aria-label="投稿企画工場">'
+      + today_step_card +
+      '<details class="cs-details">'
+      '<summary>詳細設定・注意事項</summary>'
+      '<div class="cs-details-body">'
       '<div class="revenue-notice">'
       '<b>この画面は投稿企画の手動準備用です。</b>'
       'この画面は投稿企画の手動準備用であり、外部サービスへの投稿・送信・連携は'
@@ -1044,6 +1107,9 @@ def _render_content_studio_scene(
       + next_candidates_html +
       '<p class="cs-footnote">この画面はlocalhost限定で表示される社内検討用の'
       '資料です。SNS投稿・note投稿・広告出稿・営業送信は行われません。</p>'
+      '</div>'
+      '</details>'
+      + today_step_script +
       '</section>'
   )
 
@@ -6297,6 +6363,49 @@ AI_OFFICE_RECENT_LABEL_BY_TYPE = {
 AI_OFFICE_RECENT_MAX_ITEMS = 5
 AI_OFFICE_RECENT_EMPTY_MESSAGE = "直近の運用記録はまだありません"
 
+# MISSION 086: 「柴犬社長からの本日の指示」カード用の優先ルール(上から
+# 順に最初に当てはまったものだけを使う)。常に1件だけを表示し、行動
+# ボタンも1つだけにする。「投稿済み」は利用者が投稿済みとして記録した
+# 場合にのみ判定に使い、外部投稿の成否をAI側が推測・断定することはない
+# (すべて読み取り専用でlocalStorageを参照するだけ)。
+AI_OFFICE_DIRECTIVE_RULES = [
+    {
+        "key": "draft",
+        "task": "下書きを確認し、手動で投稿してください",
+        "reason": "本日の下書き記録があります",
+        "href": "/content-studio",
+        "label": "投稿企画工場を開く",
+    },
+    {
+        "key": "posted",
+        "task": "投稿の反応を確認してください",
+        "reason": "本日投稿済みの記録があります",
+        "href": "/command-center",
+        "label": "運用司令室を開く",
+    },
+    {
+        "key": "approval",
+        "task": "承認待ちの内容を確認してください",
+        "reason": "本日の承認待ち記録があります",
+        "href": "/command-center",
+        "label": "運用司令室を開く",
+    },
+    {
+        "key": "prepare",
+        "task": "今日は投稿候補を1件だけ用意してください",
+        "reason": "過去の運用記録はありますが、本日の記録がまだありません",
+        "href": "/content-studio",
+        "label": "投稿企画工場を開く",
+    },
+    {
+        "key": "start",
+        "task": "まず運用司令室で、今日の作業を1件記録してください",
+        "reason": "運用記録がまだ1件もありません",
+        "href": "/command-center",
+        "label": "運用司令室を開く",
+    },
+]
+
 
 def _ai_office_daily_record_reader_script():
   """MISSION 083: オフィス・社長室・休憩室の3スペースで共通に使う、運用
@@ -6849,12 +6958,26 @@ def _render_ai_office_scene():
           # MISSION 085: 「直近の実績」専用のデータ。
           "recentLabelByType": AI_OFFICE_RECENT_LABEL_BY_TYPE,
           "recentMaxItems": AI_OFFICE_RECENT_MAX_ITEMS,
+          # MISSION 086: 「柴犬社長からの本日の指示」専用のデータ。
+          "directiveRules": AI_OFFICE_DIRECTIVE_RULES,
       },
       ensure_ascii=False,
   )
 
   return (
       '<section class="ai-office" aria-label="AIオフィス">'
+      # MISSION 086: 最初に読むべき「柴犬社長からの本日の指示」カード。
+      # 常に1件・ボタン1つだけを表示する。実際の値はJS側で、運用司令室の
+      # localStorageを読み取り専用で参照して決める(サーバー側は中身を
+      # 知り得ないため、初期表示は読み込み中の文言にしておく)。
+      '<div class="ai-office-directive-card" id="ai-office-directive-card">'
+      '<div class="ai-office-directive-label">🐕 柴犬社長からの本日の指示</div>'
+      '<p class="ai-office-directive-task" id="ai-office-directive-task">'
+      '読み込み中…</p>'
+      '<p class="ai-office-directive-reason" id="ai-office-directive-reason"></p>'
+      '<a class="ai-office-directive-button" id="ai-office-directive-button" '
+      'href="/command-center">運用司令室を開く</a>'
+      '</div>'
       '<div class="ai-office-demo-banner">デモ表示・実データ未接続'
       '<span>この画面の数値・状態・チャット・活動フィードはすべて、あらかじめ'
       '用意したデモデータです。AI社員が実際に自動稼働しているわけではあり'
@@ -7034,7 +7157,8 @@ def _render_ai_office_scene():
       'QUEUE_DEFAULT_STATUS=DATA.queueDefaultStatus,'
       'QUEUE_DEFAULT_NEXT_ACTION=DATA.queueDefaultNextAction,'
       'RECENT_LABEL_BY_TYPE=DATA.recentLabelByType,'
-      'RECENT_MAX_ITEMS=DATA.recentMaxItems;'
+      'RECENT_MAX_ITEMS=DATA.recentMaxItems,'
+      'DIRECTIVE_RULES=DATA.directiveRules;'
       'function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}'
       # MISSION 080: 運用司令室の「本日の運用記録」(localStorage)を読み、
       # 今日の日付の記録だけを、対応する社員の対面報告に変換する。
@@ -7222,6 +7346,32 @@ def _render_ai_office_scene():
       '});'
       '}'
       'renderRecentRecords();'
+      # MISSION 086: 「柴犬社長からの本日の指示」。常に1件だけを選び、
+      # 行動ボタンも1つだけにする。優先順位は上から
+      # 下書き→投稿済み→承認待ち→(過去の記録はあるが本日の記録なし)→
+      # (記録が1件もない)の順。
+      'function pickDirective(){'
+      'var today=loadTodayRecords();'
+      'if(today.some(function(r){return r.type==="下書き";}))'
+      'return DIRECTIVE_RULES[0];'
+      'if(today.some(function(r){return r.type==="投稿済み";}))'
+      'return DIRECTIVE_RULES[1];'
+      'if(today.some(function(r){return r.type==="承認待ち";}))'
+      'return DIRECTIVE_RULES[2];'
+      'var hasPast=loadAllRecords().some(function(r){return r.date<todayDateStr();});'
+      'if(hasPast)return DIRECTIVE_RULES[3];'
+      'return DIRECTIVE_RULES[4];'
+      '}'
+      'function renderDirective(){'
+      'var d=pickDirective();'
+      'var taskEl=document.querySelector("#ai-office-directive-task");'
+      'var reasonEl=document.querySelector("#ai-office-directive-reason");'
+      'var btnEl=document.querySelector("#ai-office-directive-button");'
+      'if(taskEl)taskEl.textContent=d.task;'
+      'if(reasonEl)reasonEl.textContent=d.reason;'
+      'if(btnEl){btnEl.href=d.href;btnEl.textContent=d.label;}'
+      '}'
+      'renderDirective();'
       'var bubbleEl=document.querySelector("#ai-office-floormap-bubble");'
       # MISSION 076: 対面報告の「報告者の吹き出し」と「受け手の返答の
       # 吹き出し」を別要素にする(bubbleElReceiver、CSSで配色を変える)。
