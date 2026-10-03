@@ -3,6 +3,7 @@ import sqlite3
 from flask import Flask, jsonify, render_template_string, request
 
 import hive_db
+from dashboard_db import register_dashboard_api
 from office_views import register_office_views
 
 app = Flask(__name__)
@@ -14,6 +15,11 @@ DB_NAME = "ai_company.db"
 # データには一切影響しない。
 hive_db.init_hive_schema()
 register_office_views(app)
+# MISSION 088: 運用記録・投稿候補をローカルSQLite(同じai_company.db、
+# daily_records/post_candidatesの2テーブルを新規追加)へ保存できるように
+# する。既存のGET /api/logsと同様に無認証・ローカル限定のJSON APIで、
+# 新しいログイン機構・外部送信は一切追加しない。
+register_dashboard_api(app)
 
 
 # ---------------------------------------------------------------------------

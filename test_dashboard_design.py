@@ -19,6 +19,7 @@ Flaskのテストクライアントで `GET /` のレスポンスHTMLを取得�
 実行方法: venv/bin/python test_dashboard_design.py
 """
 
+import json
 import os
 import re
 import shutil
@@ -26,6 +27,7 @@ import tempfile
 import unittest
 
 import app as app_module
+import dashboard_db
 
 PROJECT_DB_PATH = os.path.join(os.path.dirname(__file__), "ai_company.db")
 
@@ -39,6 +41,11 @@ class DashboardDesignTestCase(unittest.TestCase):
 
     self._orig_db_name = app_module.DB_NAME
     app_module.DB_NAME = self.temp_db_path
+    # MISSION 088: dashboard_db.py(daily_records/post_candidatesテーブル)も
+    # 本番のai_company.dbを汚さないよう、同じ一時コピーへリダイレクトする
+    # (test_hive_api.pyがhive_db.DB_NAMEに対して行っているのと同じ方針)。
+    self._orig_dashboard_db_name = dashboard_db.DB_NAME
+    dashboard_db.DB_NAME = self.temp_db_path
 
     app_module.app.testing = True
     self.client = app_module.app.test_client()
@@ -49,7 +56,12 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def tearDown(self):
     app_module.DB_NAME = self._orig_db_name
+    dashboard_db.DB_NAME = self._orig_dashboard_db_name
     os.remove(self.temp_db_path)
+
+  def _find_api_paths(self, html):
+    """html中に現れる "/api/..." パス文字列をすべて抽出する(安全テスト用)。"""
+    return re.findall(r'"(/api/[a-zA-Z0-9/_-]*)"', html)
 
   # --- 既存機能・既存ツールとの互換性 ------------------------------------------
 
@@ -4501,12 +4513,18 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('type="date"', html)
 
   def test_room_daily_candidates_uses_local_storage_only_no_external_calls(self):
+    # MISSION 088: 「手動投稿を完了した」ボタンが、このMac上のアプリ内
+    # DB(同一オリジンの/api/dashboard/*、無認証・ローカル限定)へも
+    # ベストエフォートで保存するようになった。外部サービスへの送信・
+    # ログイン・認証トークンが一切ないことは引き続き確認する。
     import office_views
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
     self.assertIn("window.localStorage", html)
-    self.assertNotIn("fetch(", html)
+    self.assertIn('postJsonSafe("/api/dashboard/daily-records"', html)
+    self.assertIn('postJsonSafe("/api/dashboard/candidates"', html)
     self.assertNotIn("XMLHttpRequest", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<form", html)
     self.assertNotIn("<script src", html)
@@ -4632,13 +4650,20 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_room_daily_candidates_generate_functions_make_no_external_calls(self):
-    # 生成機能を追加しても、外部API・AI API・楽天ROOM等への送信・ログインが
-    # 発生しないことを確認する(既存のlocalStorage限定チェックを再確認)。
+    # 生成機能(紹介文・ハッシュタグのテンプレート組み立て)自体は外部API・
+    # AI API・楽天ROOM等への送信・ログインを一切発生させない。MISSION 088
+    # で追加した、このMac上のアプリ内DBへの同一オリジンfetch(/api/
+    # dashboard/*)は「手動投稿を完了した」ボタン側にあり、生成関数の
+    # スコープ外であることを合わせて確認する。
     import office_views
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    script = html.split("function generateIntro(", 1)[1].split(
+        "function dispatchInput", 1
+    )[0]
+    self.assertNotIn("fetch(", script)
     self.assertNotIn("XMLHttpRequest", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<form", html)
     self.assertNotIn("<script src", html)
@@ -4913,11 +4938,17 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_note_daily_candidates_uses_local_storage_only_no_external_calls(self):
+    # MISSION 088: 「手動投稿を完了した」ボタンが、このMac上のアプリ内
+    # DB(同一オリジンの/api/dashboard/*、無認証・ローカル限定)へも
+    # ベストエフォートで保存するようになった。外部サービスへの送信・
+    # ログイン・認証トークンが一切ないことは引き続き確認する。
     html = self.client.get("/content-studio/note-daily-candidates").get_data(as_text=True)
     self.assertIn("window.localStorage", html)
-    self.assertNotIn("fetch(", html)
+    self.assertIn('postJsonSafe("/api/dashboard/daily-records"', html)
+    self.assertIn('postJsonSafe("/api/dashboard/candidates"', html)
     self.assertNotIn("XMLHttpRequest", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<form", html)
     self.assertNotIn("<script src", html)
@@ -5268,11 +5299,17 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(fn, html)
 
   def test_command_center_uses_local_storage_only_no_external_calls(self):
+    # MISSION 088: 本日の運用記録の保存時・「データ保存」セクションの
+    # 移行操作時に、このMac上のアプリ内DB(同一オリジンの/api/dashboard/*、
+    # 無認証・ローカル限定)へのfetchが追加された。外部サービスへの送信・
+    # ログイン・認証トークンが一切ないことは引き続き確認する。
     html = self.client.get("/command-center").get_data(as_text=True)
     self.assertIn("window.localStorage", html)
-    self.assertNotIn("fetch(", html)
+    self.assertIn('window.fetch("/api/dashboard/daily-records"', html)
+    self.assertIn('window.fetch("/api/dashboard/migrate"', html)
     self.assertNotIn("XMLHttpRequest", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<form", html)
     self.assertNotIn("<script src", html)
@@ -5510,9 +5547,11 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_no_external_calls_or_credentials(self):
     import re
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: アプリ内DBへの読み取り専用GETは許可する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<script src", html)
     self.assertNotIn("https://", html)
@@ -5768,10 +5807,12 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(html.count("<script"), 1)
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: アプリ内DBへの読み取り専用GETは許可する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
 
   def test_ai_office_floormap_mobile_media_query_stacks_status_strip(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
@@ -5930,10 +5971,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_demo_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -6172,10 +6218,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_demo_animation_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -6797,10 +6848,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_mission075_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -6973,10 +7029,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_mission076_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7158,10 +7219,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_mission077_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7309,10 +7375,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_mission078_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7395,10 +7466,15 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_mission079_still_no_external_communication(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertNotIn("fetch(", html)
+    # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」が、
+    # このMac上のアプリ内DB(同一オリジンの読み取り専用GET)を参照する
+    # ようになった。外部サービスへの送信・ログイン・認証トークンが
+    # 一切ないことは引き続き確認する。
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/daily-records")
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7627,15 +7703,21 @@ class DashboardDesignTestCase(unittest.TestCase):
     # test_room_daily_candidates_uses_local_storage_only_no_external_calls
     # 側で確認済み)であり、それ以外に新たな外部通信・投稿・送信・ログイン
     # に関わる文字列が増えていないことを確認する。
+    # MISSION 088: 「手動投稿を完了した」ボタンは、このMac上のアプリ内DB
+    # (同一オリジンの/api/dashboard/*、無認証・ローカル限定)へも
+    # ベストエフォートで保存するようになったため、fetch(自体は許可しつつ、
+    # それ以外の外部通信に関わる文字列が増えていないことを確認する。
     for path in (
         "/content-studio/room-daily-candidates",
         "/content-studio/note-daily-candidates",
     ):
       html = self.client.get(path).get_data(as_text=True)
-      self.assertNotIn("fetch(", html)
+      self.assertIn('postJsonSafe("/api/dashboard/daily-records"', html)
+      self.assertIn('postJsonSafe("/api/dashboard/candidates"', html)
       self.assertNotIn("XMLHttpRequest", html)
       self.assertNotIn("WebSocket", html)
-      self.assertNotIn("/api/", html)
+      for api_path in self._find_api_paths(html):
+        self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
       self.assertNotIn('method="POST"', html)
       self.assertNotIn("<form", html)
       self.assertNotIn("Authorization", html)
@@ -7988,17 +8070,24 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(record_type, office_views.AI_OFFICE_QUEUE_NEXT_ACTION_BY_TYPE)
 
   def test_ai_office_queue_script_reads_records_read_only(self):
+    # MISSION 088: 実行キューはアプリ内DB(loadTodayRecordsDb、同一
+    # オリジンの読み取り専用GET)を参照するようになった。対面報告
+    # (buildRealRecordQueue)は引き続きlocalStorage(loadTodayRecords)の
+    # ままで、どちらも書き込みは一切行わない。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function queueOwnerForRecord(rec){", html)
     self.assertIn("function renderExecutionQueue(){", html)
-    self.assertIn("renderExecutionQueue();", html)
+    self.assertIn("function loadTodayRecordsDb(){", html)
+    self.assertIn("var records=loadTodayRecordsDb();", html)
+    self.assertIn("initDashboardDrivenSections();", html)
     self.assertIn("loadTodayRecords()", html)
     # 記録が0件のときは、空メッセージ<li>を書き換えずに残す。
     self.assertIn("if(records.length===0)return;", html)
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("localStorage.clear(", html)
-    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
+    for forbidden in ("XMLHttpRequest", "<form", "Authorization", "api_key"):
       self.assertNotIn(forbidden, html)
 
   def test_ai_office_queue_uses_text_content_not_inner_html_for_record_data(self):
@@ -8074,12 +8163,14 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(office_views.AI_OFFICE_RECENT_MAX_ITEMS, 5)
 
   def test_ai_office_recent_records_script_is_read_only_and_scoped_to_past_dates(self):
+    # MISSION 088: 「直近の実績」はアプリ内DB(DB_RECORDS_CACHE、同一
+    # オリジンの読み取り専用GETで取得)を参照するようになった。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function loadAllRecords(){", html)
     self.assertIn("function loadRecentRecords(){", html)
     self.assertIn("function renderRecentRecords(){", html)
-    self.assertIn("renderRecentRecords();", html)
-    # 当日より前(< today)だけを対象にし、今日の実行キュー(loadTodayRecords)
+    self.assertIn("initDashboardDrivenSections();", html)
+    # 当日より前(< today)だけを対象にし、今日の実行キュー(loadTodayRecordsDb)
     # とは別の読み取り専用ロジックであることを確認する。
     self.assertIn("r.date<today", html)
     self.assertIn("past.slice(0,RECENT_MAX_ITEMS)", html)
@@ -8087,7 +8178,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("localStorage.clear(", html)
-    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
+    for forbidden in ("XMLHttpRequest", "<form", "Authorization", "api_key"):
       self.assertNotIn(forbidden, html)
 
   def test_ai_office_recent_records_uses_text_content_not_inner_html(self):
@@ -8351,12 +8443,17 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_room_candidates_generation_still_local_storage_only_no_external_calls(self):
+    # MISSION 088: 「手動投稿を完了した」ボタンが、このMac上のアプリ内DB
+    # (同一オリジンの/api/dashboard/*)へもベストエフォートで保存する
+    # ようになった。生成機能自体(紹介文・ハッシュタグ)は従来どおり
+    # ブラウザの中だけで完結する。
     import office_views
     html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
     self.assertIn("window.localStorage", html)
-    self.assertNotIn("fetch(", html)
+    self.assertIn('postJsonSafe("/api/dashboard/daily-records"', html)
     self.assertNotIn("XMLHttpRequest", html)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<form", html)
     self.assertEqual(
@@ -8379,6 +8476,228 @@ class DashboardDesignTestCase(unittest.TestCase):
     ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function buildRealRecordQueue(){", ai_office_html)
     self.assertIn("function renderExecutionQueue(){", ai_office_html)
+
+  # --- MISSION 088: 運用記録・投稿候補をアプリ内DBへ移行する --------------
+
+  def test_dashboard_db_schema_adds_tables_without_touching_existing_ones(self):
+    import sqlite3
+    conn = sqlite3.connect(self.temp_db_path)
+    try:
+      names = {
+          r[0]
+          for r in conn.execute(
+              "SELECT name FROM sqlite_master WHERE type='table'"
+          ).fetchall()
+      }
+    finally:
+      conn.close()
+    for existing in (
+        "work_logs", "employees", "missions", "tasks", "metrics", "reports",
+        "proposals", "decisions", "audit_logs",
+    ):
+      self.assertIn(existing, names)
+    self.assertIn("daily_records", names)
+    self.assertIn("post_candidates", names)
+
+  def test_dashboard_db_insert_daily_record_dedups_identical_entries(self):
+    r1 = dashboard_db.insert_daily_record(
+        "2026-10-01", "楽天ROOM", "投稿済み", "テスト商品A", "", ""
+    )
+    self.assertTrue(r1["inserted"])
+    r2 = dashboard_db.insert_daily_record(
+        "2026-10-01", "楽天ROOM", "投稿済み", "テスト商品A", "", ""
+    )
+    self.assertFalse(r2["inserted"])
+    rows = dashboard_db.list_daily_records("2026-10-01")
+    self.assertEqual(len(rows), 1)
+    # 内容が少しでも違えば別の記録として保存される。
+    r3 = dashboard_db.insert_daily_record(
+        "2026-10-01", "楽天ROOM", "投稿済み", "テスト商品B", "", ""
+    )
+    self.assertTrue(r3["inserted"])
+    self.assertEqual(len(dashboard_db.list_daily_records("2026-10-01")), 2)
+
+  def test_dashboard_db_insert_daily_record_rejects_missing_required_fields(self):
+    r = dashboard_db.insert_daily_record("", "楽天ROOM", "投稿済み", "内容")
+    self.assertFalse(r["inserted"])
+    self.assertEqual(len(dashboard_db.list_daily_records()), 0)
+
+  def test_dashboard_db_upsert_post_candidate_updates_instead_of_duplicating(self):
+    c1 = dashboard_db.upsert_post_candidate(
+        "2026-10-01", "楽天ROOM", 0, "スマホ周辺の持ち運び収納", "ガジェットポーチ",
+        "https://item.rakuten.co.jp/x/", "紹介文1", ["#楽天ROOM"], True, False,
+    )
+    self.assertTrue(c1["inserted"])
+    c2 = dashboard_db.upsert_post_candidate(
+        "2026-10-01", "楽天ROOM", 0, "スマホ周辺の持ち運び収納", "ガジェットポーチ",
+        "https://item.rakuten.co.jp/x/", "紹介文2(更新)", ["#楽天ROOM", "#ガジェット"],
+        True, True,
+    )
+    self.assertFalse(c2["inserted"])
+    self.assertTrue(c2["updated"])
+    rows = dashboard_db.list_post_candidates("2026-10-01")
+    self.assertEqual(len(rows), 1)
+    self.assertEqual(rows[0]["intro"], "紹介文2(更新)")
+    self.assertTrue(rows[0]["manual_posted"])
+    self.assertEqual(rows[0]["hashtags"], ["#楽天ROOM", "#ガジェット"])
+
+  def test_dashboard_db_migrate_dedups_and_does_not_grow_on_replay(self):
+    payload_records = [
+        {"date": "2026-09-30", "media": "Pinterest", "type": "投稿済み",
+         "content": "昨日のPin投稿", "metric": "", "reference": ""},
+        {"date": "2026-10-01", "media": "楽天ROOM", "type": "確認",
+         "content": "本日のROOM確認", "metric": "", "reference": ""},
+    ]
+    payload_candidates = [
+        {"targetDate": "2026-10-01", "media": "楽天ROOM", "slot": 0,
+         "genre": "バッグの中の整理", "productName": "収納ポーチ",
+         "url": "https://item.rakuten.co.jp/y/", "intro": "紹介文",
+         "hashtags": ["#楽天ROOM"], "manualChecked": True, "manualPosted": False},
+    ]
+    result1 = dashboard_db.migrate_from_payload(payload_records, payload_candidates)
+    self.assertEqual(result1["records"]["inserted"], 2)
+    self.assertEqual(result1["records"]["skipped"], 0)
+    self.assertEqual(result1["candidates"]["inserted"], 1)
+
+    result2 = dashboard_db.migrate_from_payload(payload_records, payload_candidates)
+    self.assertEqual(result2["records"]["inserted"], 0)
+    self.assertEqual(result2["records"]["skipped"], 2)
+    # 候補は同じ対象日・媒体・枠番号ならUPDATE扱いになり、やはり件数は
+    # 増えない。
+    self.assertEqual(len(dashboard_db.list_daily_records()), 2)
+    self.assertEqual(len(dashboard_db.list_post_candidates()), 1)
+
+  def test_dashboard_api_daily_records_post_and_get_round_trip(self):
+    res = self.client.post(
+        "/api/dashboard/daily-records",
+        json={"date": "2026-10-01", "media": "note", "type": "下書き",
+              "content": "テスト記事", "metric": "", "reference": ""},
+    )
+    self.assertEqual(res.status_code, 200)
+    self.assertTrue(res.get_json()["inserted"])
+    res2 = self.client.get("/api/dashboard/daily-records?date=2026-10-01")
+    data = res2.get_json()
+    self.assertEqual(len(data["records"]), 1)
+    self.assertEqual(data["records"][0]["content"], "テスト記事")
+    # 同じ内容を再度POSTしても重複登録されない。
+    self.client.post(
+        "/api/dashboard/daily-records",
+        json={"date": "2026-10-01", "media": "note", "type": "下書き",
+              "content": "テスト記事", "metric": "", "reference": ""},
+    )
+    res3 = self.client.get("/api/dashboard/daily-records?date=2026-10-01")
+    self.assertEqual(len(res3.get_json()["records"]), 1)
+
+  def test_dashboard_api_requires_no_authentication(self):
+    # MISSION 088: 新しいログイン機構・認証トークンは追加しない。既存の
+    # GET /api/logs と同様、Authorizationヘッダなしでアクセスできる。
+    res = self.client.get("/api/dashboard/daily-records")
+    self.assertEqual(res.status_code, 200)
+    res2 = self.client.post("/api/dashboard/daily-records", json={})
+    self.assertEqual(res2.status_code, 200)
+    self.assertFalse(res2.get_json()["inserted"])
+
+  def test_dashboard_api_migrate_endpoint_round_trip(self):
+    payload = {
+        "records": [
+            {"date": "2026-09-30", "media": "Pinterest", "type": "投稿済み",
+             "content": "昨日のPin投稿", "metric": "", "reference": ""},
+            {"date": "2026-10-01", "media": "楽天ROOM", "type": "確認",
+             "content": "本日のROOM確認", "metric": "", "reference": ""},
+        ],
+        "candidates": [],
+    }
+    res = self.client.post("/api/dashboard/migrate", json=payload)
+    self.assertEqual(res.status_code, 200)
+    data = res.get_json()
+    self.assertEqual(data["records"]["inserted"], 2)
+    res2 = self.client.post("/api/dashboard/migrate", json=payload)
+    data2 = res2.get_json()
+    self.assertEqual(data2["records"]["inserted"], 0)
+    self.assertEqual(data2["records"]["skipped"], 2)
+
+  def test_ai_office_directive_queue_recent_read_from_db_not_local_storage_only(self):
+    # MISSION 088: 本日の指示・実行キュー・直近の実績は、アプリ内DBを
+    # 読み取り専用GETで参照する(buildRealRecordQueue=対面報告は従来どおり
+    # localStorageのまま)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function initDashboardDrivenSections(){", html)
+    self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
+    self.assertIn("var DB_RECORDS_CACHE=[];", html)
+    self.assertIn("function loadTodayRecordsDb(){", html)
+    self.assertIn("var records=loadTodayRecordsDb();", html)
+    self.assertIn("var today=loadTodayRecordsDb();", html)
+
+  def test_command_center_data_storage_section_is_present_and_plain_language(self):
+    import office_views
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('id="cc-data-storage"', html)
+    self.assertIn("<h2>データ保存</h2>", html)
+    self.assertIn(office_views.DATA_STORAGE_LOCAL_NOTE, html)
+    self.assertIn("外部のサービスへは送信されません", html)
+    self.assertIn(
+        '<button type="button" id="cc-migrate-btn">'
+        "このブラウザの記録をこのアプリに保存する</button>",
+        html,
+    )
+    self.assertIn('id="cc-local-record-count"', html)
+    self.assertIn('id="cc-local-candidate-count"', html)
+    # 「DB保存中」のような技術的すぎる表現は使わない。
+    self.assertNotIn("DB保存中", html)
+
+  def test_command_center_migrate_script_reads_local_storage_and_posts_once(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn("function collectLocalRecords(){", html)
+    self.assertIn("function collectLocalCandidates(){", html)
+    self.assertIn("function updateLocalCounts(){", html)
+    self.assertIn('window.fetch("/api/dashboard/migrate"', html)
+    # 移行してもlocalStorage側のデータを削除する操作はない。
+    migrate_script = html.split('id="cc-data-storage"', 1)[1]
+    self.assertNotIn("localStorage.removeItem(", migrate_script)
+    self.assertNotIn("localStorage.clear(", migrate_script)
+
+  def test_command_center_daily_record_save_also_posts_to_db(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    handler = html.split('document.querySelector("#cc-record-add")', 1)[1][:1200]
+    self.assertIn('window.fetch("/api/dashboard/daily-records"', handler)
+    self.assertIn("safeSet(recordLogKey,JSON.stringify(entries));", handler)
+
+  def test_manual_post_complete_candidate_payload_has_required_fields(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    payload_script = html.split('postJsonSafe("/api/dashboard/candidates"', 1)[1][:400]
+    for key in (
+        "targetDate:targetDate", "media:MEDIA_LABEL", "slot:Number(slot)",
+        "genre:genre", "productName:content", "url:url", "intro:intro",
+        "hashtags:hashtags", "manualChecked:manualChecked", "manualPosted:true",
+    ):
+      self.assertIn(key, payload_script)
+
+  def test_mission_088_does_not_break_existing_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/content-studio", "投稿企画工場"),
+        ("/command-center", "運用司令室"),
+        ("/ai-office", "AIオフィス"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
+  def test_mission_088_empty_db_does_not_break_demo_or_empty_states(self):
+    # setUpで複製した一時DBは、daily_records/post_candidatesが0件の状態
+    # (本番側で手動テスト用の行を残していないことの回帰確認でもある)。
+    import office_views
+    self.assertEqual(len(dashboard_db.list_daily_records()), 0)
+    self.assertEqual(len(dashboard_db.list_post_candidates()), 0)
+    ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(office_views.AI_OFFICE_QUEUE_EMPTY_MESSAGE, ai_office_html)
+    self.assertIn(office_views.AI_OFFICE_RECENT_EMPTY_MESSAGE, ai_office_html)
+    self.assertIn("デモ表示・実データ未接続", ai_office_html)
 
 
 if __name__ == "__main__":

@@ -294,6 +294,16 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .note-candidate-price-note{font-size:11px;color:var(--sub);margin:4px 0 0;line-height:1.6}
 @media(max-width:760px){.note-candidate-date-nav{flex-direction:column;align-items:stretch}.note-candidate-generate-actions{flex-direction:column;align-items:stretch}}
 .command-center{max-width:1100px;margin:0 auto}
+.cc-data-storage{margin-top:22px;background:var(--panel);border:1px solid var(--blue);border-radius:14px;padding:16px 18px}
+.cc-data-storage h2{margin:0 0 8px;font-size:15px;color:var(--ink)}
+.cc-data-storage-note{margin:0 0 12px;font-size:12px;color:var(--sub);line-height:1.6}
+.cc-data-storage-counts{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 14px;font-size:12px;color:var(--sub)}
+.cc-data-storage-counts b{color:var(--ink);font-size:14px}
+.cc-data-storage button{background:#147fac;color:#fff;font-weight:700;font-size:13px;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-family:inherit}
+.cc-data-storage button:hover,.cc-data-storage button:focus-visible{background:#1894c9}
+.cc-data-storage button:disabled{opacity:.6;cursor:default}
+.cc-data-storage-result{margin:10px 0 0;font-size:12px;color:var(--green);min-height:1.5em}
+.cc-data-storage-hint{margin:10px 0 0;font-size:11px;color:var(--sub);line-height:1.6}
 .cc-topbar{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--sub);line-height:1.7}
 .cc-topbar b{color:var(--ink)}
 .cc-topbar .cc-approver{color:var(--green);font-weight:700}
@@ -1998,9 +2008,12 @@ def _render_room_daily_candidates_scene():
       '<li>「ROOMで投稿する」はチェック欄であり、外部投稿を実行するボタンでは'
       'ありません。実際の投稿は、利用者がROOM上で内容を確認したうえで手動で'
       '行ってください。</li>'
-      '<li>入力内容はお使いのブラウザのlocalStorageにのみ保存されます。このアプリの'
-      'データベース・バックアップへは保存されず、どこにも送信されません。ブラウザや'
-      '端末を変えたり、ブラウザのデータを消去すると内容は失われます。</li>'
+      '<li>入力内容は、まずお使いのブラウザのlocalStorageに保存されます。'
+      '「手動投稿を完了した」を押すと、その時点の内容がこのMac上のアプリ内'
+      'データ（SQLite）にも保存され、運用司令室・AIオフィスから参照できる'
+      'ようになります。どちらも外部のサービスへは送信されません。'
+      'ブラウザや端末を変えたり、ブラウザのデータを消去してlocalStorageが'
+      '失われても、アプリ内データに保存済みの内容は残ります。</li>'
       '<li>商品画像の取得・生成画像の自動アップロード・#オリジナル写真の自動付与は'
       '行いません。実際に使用していない商品についての購入・使用体験や口コミは'
       '書かないでください。</li>'
@@ -2301,7 +2314,7 @@ def _render_room_daily_candidates_scene():
       '.addEventListener("click",generateForAllFilled);'
       '})();'
       '</script>'
-      f'<script>{_manual_post_complete_script("楽天ROOM", ".rc-product-name", ".rc-product-url")}</script>'
+      f'<script>{_manual_post_complete_script("楽天ROOM", ".rc-product-name", ".rc-product-url", genre_selector=".rc-genre", intro_selector=".rc-intro", hashtag_selector=".rc-hashtag", manual_checked_selector=".rc-manual-checked", date_input_id="rc-date-input")}</script>'
       '</section>'
   )
 
@@ -2533,9 +2546,12 @@ def _render_note_daily_candidates_scene():
       '<li>「noteで手動公開する」はチェック欄であり、外部公開を実行するボタンでは'
       'ありません。実際の公開は、利用者がnote上で内容を確認したうえで手動で'
       '行ってください。</li>'
-      '<li>入力内容はお使いのブラウザのlocalStorageにのみ保存されます。このアプリの'
-      'データベース・バックアップへは保存されず、どこにも送信されません。ブラウザや'
-      '端末を変えたり、ブラウザのデータを消去すると内容は失われます。</li>'
+      '<li>入力内容は、まずお使いのブラウザのlocalStorageに保存されます。'
+      '「手動投稿を完了した」を押すと、その時点の内容がこのMac上のアプリ内'
+      'データ（SQLite）にも保存され、運用司令室・AIオフィスから参照できる'
+      'ようになります。どちらも外部のサービスへは送信されません。'
+      'ブラウザや端末を変えたり、ブラウザのデータを消去してlocalStorageが'
+      '失われても、アプリ内データに保存済みの内容は残ります。</li>'
       '<li>実際の購入・使用・収益・売上・体験談・口コミ・成果は架空で書きません。'
       '価格・投資・法律・医療・健康について断定的な判断は行いません。他者のnote記事・'
       'ブログ・書籍・SNS投稿の取得・転載・要約・言い換え・模倣は行わず、本文はすべて'
@@ -2841,7 +2857,7 @@ def _render_note_daily_candidates_scene():
       'document.querySelector("#nc-generate-today").addEventListener("click",generateToday);'
       '})();'
       '</script>'
-      f'<script>{_manual_post_complete_script("note", ".nc-title")}</script>'
+      f'<script>{_manual_post_complete_script("note", ".nc-title", intro_selector=".nc-intro", hashtag_selector=".nc-hashtag", manual_checked_selector=".nc-manual-checked", date_input_id="nc-date-input")}</script>'
       '</section>'
   )
 
@@ -5519,13 +5535,158 @@ COMMAND_CENTER_DAILY_RECORD_MEDIA_OPTIONS = COMMAND_CENTER_DECISION_MEDIA_OPTION
 COMMAND_CENTER_DAILY_RECORD_TYPES = ["確認", "下書き", "投稿済み", "数字記録", "承認待ち"]
 
 # MISSION 080: 運用司令室の「本日の運用記録」とAIオフィスの実績反映は、
-# 同じlocalStorageキーを読み書きする(ブラウザのlocalStorageのみで完結し、
-# 外部通信・DB書き込みは行わない)。キー文字列がずれると連携できなくなる
-# ため、Python側の定数を両画面のJSへ埋め込んで一致させる。
+# 同じlocalStorageキーを読み書きする。キー文字列がずれると連携できなく
+# なるため、Python側の定数を両画面のJSへ埋め込んで一致させる。
+# MISSION 088: 「手動投稿を完了した」・運用記録の保存操作では、同じ内容を
+# このMac上のアプリ内DB(/api/dashboard/daily-records、127.0.0.1限定・
+# 無認証のローカルAPI)へもベストエフォートで書き込む。外部サービスへの
+# 送信・ログインは行わない。
 AI_OFFICE_COMMAND_CENTER_STORAGE_PREFIX = "ai-hive-command-center:"
 AI_OFFICE_DAILY_RECORD_STORAGE_KEY = (
     AI_OFFICE_COMMAND_CENTER_STORAGE_PREFIX + "daily-record-log"
 )
+ROOM_CANDIDATE_STORAGE_PREFIX = "ai-hive-room-candidate:"
+NOTE_CANDIDATE_STORAGE_PREFIX = "ai-hive-note-candidate:"
+
+DATA_STORAGE_LOCAL_NOTE = (
+    "運用記録・投稿候補をこのアプリに保存します。保存先はこのMac上の"
+    "アプリ内データ（SQLite）で、外部のサービスへは送信されません。"
+)
+
+
+def _render_data_storage_section():
+  """運用司令室の「データ保存」セクションのHTML+JSを返す。
+
+  MISSION 088: ブラウザのlocalStorageにある運用記録・投稿候補を、利用者が
+  明示的に押す操作でこのMac上のアプリ内DBへ取り込めるようにする。
+  localStorage側のデータは削除しない。何度実行しても、同じ内容は重複して
+  保存されない(サーバー側のdedup_keyで判定)。外部サービスへの送信・
+  ログイン・API通信は一切行わない(/api/dashboard/* は同一オリジンの
+  ローカルAPI)。
+  """
+  return (
+      '<section class="cc-data-storage" aria-label="データ保存" '
+      'id="cc-data-storage">'
+      '<h2>データ保存</h2>'
+      f'<p class="cc-data-storage-note">{DATA_STORAGE_LOCAL_NOTE}</p>'
+      '<div class="cc-data-storage-counts">'
+      '<p>このブラウザに保存されている運用記録：'
+      '<b id="cc-local-record-count">0</b>件</p>'
+      '<p>このブラウザに保存されている投稿候補：'
+      '<b id="cc-local-candidate-count">0</b>件</p>'
+      '</div>'
+      '<button type="button" id="cc-migrate-btn">'
+      'このブラウザの記録をこのアプリに保存する</button>'
+      '<p class="cc-data-storage-result" id="cc-migrate-result" '
+      'aria-live="polite"></p>'
+      '<p class="cc-data-storage-hint">「手動投稿を完了した」を押したときや、'
+      'このページで本日の運用記録を保存したときは、このボタンを押さなくても'
+      '自動的にこのアプリ内データへ保存されます。このボタンは、それより前に'
+      '入力していた分をまとめて取り込みたいときに使います。</p>'
+      '<script>(function(){'
+      f'var RECORD_KEY={json.dumps(AI_OFFICE_DAILY_RECORD_STORAGE_KEY, ensure_ascii=False)};'
+      f'var ROOM_PREFIX={json.dumps(ROOM_CANDIDATE_STORAGE_PREFIX, ensure_ascii=False)};'
+      f'var NOTE_PREFIX={json.dumps(NOTE_CANDIDATE_STORAGE_PREFIX, ensure_ascii=False)};'
+      'function safeGet(key){'
+      'try{return window.localStorage.getItem(key);}catch(e){return null;}'
+      '}'
+      'function collectLocalRecords(){'
+      'try{'
+      'var raw=safeGet(RECORD_KEY);'
+      'var list=raw?JSON.parse(raw):[];'
+      'return Array.isArray(list)?list:[];'
+      '}catch(e){return [];}'
+      '}'
+      # MISSION 088: localStorageのキー一覧から、ROOM・noteの候補
+      # (ai-hive-room-candidate:<日付>:<枠番号> / ai-hive-note-candidate:
+      # <日付>:<枠番号>)だけを拾い、DBのcandidates形式へ変換する。
+      # 保存されている内容をそのまま読み取るだけで、外部への取得・送信は
+      # 行わない。
+      'function collectLocalCandidates(){'
+      'var candidates=[];'
+      'try{'
+      'for(var i=0;i<window.localStorage.length;i++){'
+      'var key=window.localStorage.key(i);'
+      'if(!key)continue;'
+      'var media=null;'
+      'if(key.indexOf(ROOM_PREFIX)===0)media="楽天ROOM";'
+      'else if(key.indexOf(NOTE_PREFIX)===0)media="note";'
+      'else continue;'
+      'var rest=key.slice((media==="楽天ROOM"?ROOM_PREFIX:NOTE_PREFIX).length);'
+      'var parts=rest.split(":");'
+      'if(parts.length<2)continue;'
+      'var targetDate=parts[0];'
+      'var slot=Number(parts[1]);'
+      'var raw=safeGet(key);'
+      'var data=null;'
+      'try{data=raw?JSON.parse(raw):null;}catch(e){data=null;}'
+      'if(!data)continue;'
+      'if(media==="楽天ROOM"){'
+      'if(!data.genre&&!data.productName)continue;'
+      'candidates.push({'
+      'targetDate:targetDate,media:media,slot:slot,'
+      'genre:data.genre||"",productName:data.productName||"",'
+      'url:data.productUrl||"",intro:data.intro||"",'
+      'hashtags:data.hashtags||[],'
+      'manualChecked:Boolean(data.manualChecked),'
+      'manualPosted:Boolean(data.postInRoom)'
+      '});'
+      '}else{'
+      'if(!data.title)continue;'
+      'candidates.push({'
+      'targetDate:targetDate,media:media,slot:slot,'
+      'genre:"",productName:data.title||"",url:"",'
+      'intro:data.intro||"",hashtags:data.hashtags||[],'
+      'manualChecked:Boolean(data.manualChecked),'
+      'manualPosted:Boolean(data.postInNote)'
+      '});'
+      '}'
+      '}'
+      '}catch(e){}'
+      'return candidates;'
+      '}'
+      'function updateLocalCounts(){'
+      'var recEl=document.querySelector("#cc-local-record-count");'
+      'var candEl=document.querySelector("#cc-local-candidate-count");'
+      'if(recEl)recEl.textContent=String(collectLocalRecords().length);'
+      'if(candEl)candEl.textContent=String(collectLocalCandidates().length);'
+      '}'
+      'updateLocalCounts();'
+      'var migrateBtn=document.querySelector("#cc-migrate-btn");'
+      'var resultEl=document.querySelector("#cc-migrate-result");'
+      'if(migrateBtn){'
+      'migrateBtn.addEventListener("click",function(){'
+      'var payload={'
+      'records:collectLocalRecords(),'
+      'candidates:collectLocalCandidates()'
+      '};'
+      'if(resultEl)resultEl.textContent="保存しています…";'
+      'migrateBtn.disabled=true;'
+      'window.fetch("/api/dashboard/migrate",{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify(payload)'
+      '}).then(function(res){return res.json();}).then(function(data){'
+      'var r=(data&&data.records)||{inserted:0,skipped:0};'
+      'var c=(data&&data.candidates)||{inserted:0,skipped:0};'
+      'var skipped=(r.skipped||0)+(c.skipped||0);'
+      'var message="運用記録"+r.inserted+"件、投稿候補"+c.inserted+'
+      '"件をこのアプリに保存しました。";'
+      'if(skipped>0){'
+      'message+="（すでに保存済みだった"+skipped+"件はそのままにしました）";'
+      '}'
+      'if(resultEl)resultEl.textContent=message;'
+      'migrateBtn.disabled=false;'
+      '}).catch(function(){'
+      'if(resultEl)resultEl.textContent='
+      '"保存できませんでした。しばらくしてからもう一度お試しください。";'
+      'migrateBtn.disabled=false;'
+      '});'
+      '});'
+      '}'
+      '})();</script>'
+      '</section>'
+  )
 
 
 def _render_command_center_scene():
@@ -5584,9 +5745,11 @@ def _render_command_center_scene():
       '<p><b>この画面はローカルのみで動作する確認・記録・判断用の画面です。</b> '
       '楽天ROOM・楽天アフィリエイト・note・Pinterest・Threadsへのアクセス・'
       'ログイン・投稿・送信・削除は一切行いません。</p>'
-      '<p>入力内容はお使いのブラウザのlocalStorageにのみ保存されます。この'
-      'アプリのデータベース・バックアップへは保存されません。ブラウザや端末を'
-      '変えたり、ブラウザのデータを消去すると内容は失われます。</p>'
+      '<p>入力内容は、まずお使いのブラウザのlocalStorageに保存されます。'
+      'このページ下部の「データ保存」から、このMac上のアプリ内データ'
+      '（SQLite）へも保存できます。どちらも外部のサービスへは送信されません。'
+      'ブラウザや端末を変えたり、ブラウザのデータを消去してlocalStorageが'
+      '失われても、アプリ内データに保存済みの内容は残ります。</p>'
       '</div>'
 
       '<h2 class="cc-section-title">今日の確認ボード</h2>'
@@ -5875,6 +6038,18 @@ def _render_command_center_scene():
       'entries.push(entry);'
       'safeSet(recordLogKey,JSON.stringify(entries));'
       'renderRecordLog();'
+      # MISSION 088: 保存した記録を、ブラウザのlocalStorageに加えて
+      # このMac上のアプリ内DBにも保存する(ベストエフォート。失敗しても
+      # localStorageへの保存・画面表示には影響させない)。これにより
+      # AIオフィスの本日の指示・実行キュー・直近の実績で即時に読み取れる
+      # ようになる。
+      'try{'
+      'window.fetch("/api/dashboard/daily-records",{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify(entry)'
+      '}).catch(function(){});'
+      '}catch(e){/* fetch未対応環境でも画面は壊さない */}'
       'recordContent.value="";'
       'recordMetric.value="";'
       'recordReference.value="";'
@@ -5882,6 +6057,7 @@ def _render_command_center_scene():
       'renderRecordLog();'
       '})();'
       '</script>'
+      + _render_data_storage_section() +
       '</section>'
   )
 
@@ -6593,7 +6769,11 @@ def _manual_post_complete_box_html(slot):
   )
 
 
-def _manual_post_complete_script(media_label, content_selector, url_selector=None):
+def _manual_post_complete_script(
+    media_label, content_selector, url_selector=None,
+    genre_selector=None, intro_selector=None, hashtag_selector=None,
+    manual_checked_selector=None, date_input_id=None,
+):
   """「手動投稿を完了した」ボタンのクリック処理(JS)を返す。
 
   media_label: 保存するentry.mediaの値(例:"楽天ROOM"、"note")。
@@ -6601,9 +6781,30 @@ def _manual_post_complete_script(media_label, content_selector, url_selector=Non
     読み取る入力欄のCSSセレクタ(例:".rc-product-name")。
   url_selector: 同様にURLを読み取るCSSセレクタ。候補にURL欄がない場合は
     Noneを渡す(noteの記事候補など)。
+  genre_selector/intro_selector/hashtag_selector/manual_checked_selector/
+    date_input_id: MISSION 088で追加。アプリ内DB(/api/dashboard/*)へ
+    候補の現在の状態(ジャンル・紹介文・ハッシュタグ・手動確認状態・
+    対象日)もあわせて保存するために使う(候補にその項目がない場合は
+    Noneのままでよい)。
   """
   url_selector_js = (
       json.dumps(url_selector, ensure_ascii=False) if url_selector else "null"
+  )
+  genre_selector_js = (
+      json.dumps(genre_selector, ensure_ascii=False) if genre_selector else "null"
+  )
+  intro_selector_js = (
+      json.dumps(intro_selector, ensure_ascii=False) if intro_selector else "null"
+  )
+  hashtag_selector_js = (
+      json.dumps(hashtag_selector, ensure_ascii=False) if hashtag_selector else "null"
+  )
+  manual_checked_selector_js = (
+      json.dumps(manual_checked_selector, ensure_ascii=False)
+      if manual_checked_selector else "null"
+  )
+  date_input_id_js = (
+      json.dumps(date_input_id, ensure_ascii=False) if date_input_id else "null"
   )
   return (
       '(function(){'
@@ -6611,6 +6812,11 @@ def _manual_post_complete_script(media_label, content_selector, url_selector=Non
       f'var MEDIA_LABEL={json.dumps(media_label, ensure_ascii=False)};'
       f'var CONTENT_SELECTOR={json.dumps(content_selector, ensure_ascii=False)};'
       f'var URL_SELECTOR={url_selector_js};'
+      f'var GENRE_SELECTOR={genre_selector_js};'
+      f'var INTRO_SELECTOR={intro_selector_js};'
+      f'var HASHTAG_SELECTOR={hashtag_selector_js};'
+      f'var MANUAL_CHECKED_SELECTOR={manual_checked_selector_js};'
+      f'var DATE_INPUT_ID={date_input_id_js};'
       'function safeGetRecord(){'
       'try{return window.localStorage.getItem(RECORD_KEY);}catch(e){return null;}'
       '}'
@@ -6630,6 +6836,19 @@ def _manual_post_complete_script(media_label, content_selector, url_selector=Non
       'var list=raw?JSON.parse(raw):[];'
       'return Array.isArray(list)?list:[];'
       '}catch(e){return [];}'
+      '}'
+      # MISSION 088: アプリ内DB(同一オリジンのローカルAPI)への保存は、
+      # 失敗してもローカル保存・画面表示には一切影響させない
+      # (fetchをcatchで握りつぶすだけの「ベストエフォート」書き込み)。
+      # 外部サービスへの送信・ログイン・API通信は行わない。
+      'function postJsonSafe(url,payload){'
+      'try{'
+      'window.fetch(url,{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify(payload)'
+      '}).catch(function(){});'
+      '}catch(e){/* fetch未対応環境でも画面は壊さない */}'
       '}'
       'document.querySelectorAll(".manual-post-complete-btn").forEach(function(btn){'
       'btn.addEventListener("click",function(){'
@@ -6661,6 +6880,32 @@ def _manual_post_complete_script(media_label, content_selector, url_selector=Non
       'safeSetRecord(JSON.stringify(entries));'
       'if(statusEl)statusEl.textContent='
       '"運用記録に保存しました（AIオフィスにも反映されます）。";'
+      # MISSION 088: 「手動投稿を完了した」を押したタイミングで、既存の
+      # 候補・運用記録をアプリ内DBへも保存する(読み取り専用ではなく、
+      # この操作の結果だけを書き込む)。
+      'postJsonSafe("/api/dashboard/daily-records",{'
+      'date:today,media:MEDIA_LABEL,type:"投稿済み",content:content,'
+      'metric:"",reference:url'
+      '});'
+      'var genreEl=(GENRE_SELECTOR&&card)?card.querySelector(GENRE_SELECTOR):null;'
+      'var genre=genreEl?genreEl.value.trim():"";'
+      'var introEl=(INTRO_SELECTOR&&card)?card.querySelector(INTRO_SELECTOR):null;'
+      'var intro=introEl?introEl.value:"";'
+      'var hashtagEls=(HASHTAG_SELECTOR&&card)?'
+      'card.querySelectorAll(HASHTAG_SELECTOR):[];'
+      'var hashtags=Array.prototype.map.call(hashtagEls,function(el){'
+      'return el.value.trim();'
+      '}).filter(function(v){return v;});'
+      'var checkedEl=(MANUAL_CHECKED_SELECTOR&&card)?'
+      'card.querySelector(MANUAL_CHECKED_SELECTOR):null;'
+      'var manualChecked=checkedEl?checkedEl.checked:false;'
+      'var dateInputEl=DATE_INPUT_ID?document.getElementById(DATE_INPUT_ID):null;'
+      'var targetDate=(dateInputEl&&dateInputEl.value)?dateInputEl.value:today;'
+      'postJsonSafe("/api/dashboard/candidates",{'
+      'targetDate:targetDate,media:MEDIA_LABEL,slot:Number(slot),genre:genre,'
+      'productName:content,url:url,intro:intro,hashtags:hashtags,'
+      'manualChecked:manualChecked,manualPosted:true'
+      '});'
       '});'
       '});'
       '})();'
@@ -7282,6 +7527,18 @@ def _render_ai_office_scene():
       'function pad(n){return n<10?"0"+n:""+n;}'
       'return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());'
       '}'
+      # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」の
+      # 3つだけは、ブラウザごとのlocalStorageではなく、このMac上のアプリ内
+      # DB(同一オリジンの/api/dashboard/daily-records、読み取り専用で
+      # GETするだけ)を参照する。対面報告(buildRealRecordQueue)・対面
+      # アニメーションは、このミッションの対象外であり、既存どおり
+      # localStorage(loadTodayRecords)を使い続ける。
+      'var DB_RECORDS_CACHE=[];'
+      'function loadTodayRecordsDb(){'
+      'var today=todayDateStr();'
+      'return DB_RECORDS_CACHE.filter(function(r){return r&&r.date===today&&'
+      'r.content&&String(r.content).trim();});'
+      '}'
       'function loadTodayRecords(){'
       'var raw=null;'
       'try{raw=window.localStorage.getItem(RECORD_KEY);}catch(e){raw=null;}'
@@ -7349,7 +7606,7 @@ def _render_ai_office_scene():
       'function renderExecutionQueue(){'
       'var listEl=document.querySelector("#ai-office-queue-list");'
       'if(!listEl)return;'
-      'var records=loadTodayRecords();'
+      'var records=loadTodayRecordsDb();'
       # 記録がない場合は、既存の空メッセージ<li>をそのまま残す(実在しない
       # 作業を作らない)。
       'if(records.length===0)return;'
@@ -7389,20 +7646,18 @@ def _render_ai_office_scene():
       'listEl.appendChild(li);'
       '});'
       '}'
-      'renderExecutionQueue();'
+      # MISSION 088: renderExecutionQueue/renderRecentRecords/renderDirective
+      # の呼び出しは、アプリ内DBからの読み込み(非同期fetch)完了後にまとめて
+      # 行う(initDashboardDrivenSections、このIIFEの末尾付近で定義)。
       # MISSION 085: 「直近の実績」。当日より前の記録だけを対象にし、
       # 新しい順(日付の文字列比較。YYYY-MM-DD形式は辞書順=時系列順に
       # なるため単純比較で足りる)に並べて最大5件だけ表示する。今日の
-      # 実行キュー(loadTodayRecords)とは対象期間が異なるため、当日分は
-      # 混ざらない。
+      # 実行キュー(loadTodayRecordsDb)とは対象期間が異なるため、当日分は
+      # 混ざらない。MISSION 088でDB_RECORDS_CACHE(アプリ内DB由来)を
+      # 参照するようになった。
       'function loadAllRecords(){'
-      'var raw=null;'
-      'try{raw=window.localStorage.getItem(RECORD_KEY);}catch(e){raw=null;}'
-      'var list=[];'
-      'try{list=raw?JSON.parse(raw):[];}catch(e){list=[];}'
-      'if(!Array.isArray(list))list=[];'
-      'return list.filter(function(r){return r&&r.date&&r.content&&'
-      'String(r.content).trim();});'
+      'return DB_RECORDS_CACHE.filter(function(r){return r&&r.date&&'
+      'r.content&&String(r.content).trim();});'
       '}'
       'function loadRecentRecords(){'
       'var today=todayDateStr();'
@@ -7458,13 +7713,12 @@ def _render_ai_office_scene():
       'listEl.appendChild(li);'
       '});'
       '}'
-      'renderRecentRecords();'
       # MISSION 086: 「柴犬社長からの本日の指示」。常に1件だけを選び、
       # 行動ボタンも1つだけにする。優先順位は上から
       # 下書き→投稿済み→承認待ち→(過去の記録はあるが本日の記録なし)→
       # (記録が1件もない)の順。
       'function pickDirective(){'
-      'var today=loadTodayRecords();'
+      'var today=loadTodayRecordsDb();'
       'if(today.some(function(r){return r.type==="下書き";}))'
       'return DIRECTIVE_RULES[0];'
       'if(today.some(function(r){return r.type==="投稿済み";}))'
@@ -7484,7 +7738,29 @@ def _render_ai_office_scene():
       'if(reasonEl)reasonEl.textContent=d.reason;'
       'if(btnEl){btnEl.href=d.href;btnEl.textContent=d.label;}'
       '}'
+      # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」は、
+      # このMac上のアプリ内DBを読み取り専用GETで1回取得してから、まとめて
+      # 描画する。取得前・取得失敗時はDB_RECORDS_CACHEが空のままなので、
+      # 既存の「記録がまだありません」という空状態表示に安全に収まる
+      # (架空の実績を作らない)。fetchが使えない環境でも描画自体は行う。
+      'function initDashboardDrivenSections(){'
+      'if(typeof window.fetch!=="function"){'
+      'renderDirective();renderExecutionQueue();renderRecentRecords();'
+      'return;'
+      '}'
+      'window.fetch("/api/dashboard/daily-records").then(function(res){'
+      'return res.json();'
+      '}).then(function(data){'
+      'DB_RECORDS_CACHE=(data&&Array.isArray(data.records))?data.records:[];'
+      '}).catch(function(){'
+      'DB_RECORDS_CACHE=[];'
+      '}).then(function(){'
       'renderDirective();'
+      'renderExecutionQueue();'
+      'renderRecentRecords();'
+      '});'
+      '}'
+      'initDashboardDrivenSections();'
       'var bubbleEl=document.querySelector("#ai-office-floormap-bubble");'
       # MISSION 076: 対面報告の「報告者の吹き出し」と「受け手の返答の
       # 吹き出し」を別要素にする(bubbleElReceiver、CSSで配色を変える)。
