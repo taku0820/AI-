@@ -46,6 +46,12 @@ class DashboardDesignTestCase(unittest.TestCase):
     # (test_hive_api.pyがhive_db.DB_NAMEに対して行っているのと同じ方針)。
     self._orig_dashboard_db_name = dashboard_db.DB_NAME
     dashboard_db.DB_NAME = self.temp_db_path
+    # MISSION 089: register_dashboard_api()のinit_schema()はapp.pyの
+    # import時に1度しか走らないため、DB_NAMEをこの一時コピーへ切り替えた
+    # 直後に明示的に呼び直し、bucket列の移行などが常にこの使い捨て
+    # コピーに対して確実に適用された状態でテストできるようにする
+    # (本番ai_company.dbの状態に依存しないようにするため)。
+    dashboard_db.init_schema()
 
     app_module.app.testing = True
     self.client = app_module.app.test_client()
@@ -62,6 +68,21 @@ class DashboardDesignTestCase(unittest.TestCase):
   def _find_api_paths(self, html):
     """html中に現れる "/api/..." パス文字列をすべて抽出する(安全テスト用)。"""
     return re.findall(r'"(/api/[a-zA-Z0-9/_-]*)"', html)
+
+  def _reset_dashboard_tables(self):
+    """MISSION 088/089: daily_records/post_candidatesの行数を厳密に数える
+    テスト用に、一時コピー(self.temp_db_path、使い捨てで本番ai_company.db
+    には一切影響しない)の該当2テーブルだけを空にする。本番DBには、実際の
+    利用で蓄積した行がすでに入っていることがあるため、件数アサーションが
+    その影響を受けないようにするための前処理。"""
+    import sqlite3
+    conn = sqlite3.connect(self.temp_db_path)
+    try:
+      conn.execute("DELETE FROM daily_records")
+      conn.execute("DELETE FROM post_candidates")
+      conn.commit()
+    finally:
+      conn.close()
 
   # --- 既存機能・既存ツールとの互換性 ------------------------------------------
 
@@ -904,17 +925,16 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("localhost限定", html)
 
   def test_content_studio_has_no_external_resources_or_scripts(self):
-    # MISSION 086: 「今日の一歩」カードが、運用司令室のlocalStorageを
-    # 読み取り専用で参照するために<script>を追加した。外部URL・外部
-    # 通信・書き込み系APIが一切ないことは引き続き確認する
-    # (localStorage.getItemのみ許可、setItem/removeItem/clearは禁止)。
+    # MISSION 086: 「今日の一歩」カードに<script>を追加した。
+    # MISSION 089: 参照先をlocalStorageから、このMac上のアプリ内DB
+    # (/api/dashboard/candidates、読み取り専用GET)へ変更した。外部URL・
+    # 外部通信・書き込み系APIが一切ないことは引き続き確認する。
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertNotIn("http://", html)
     self.assertNotIn("https://", html)
-    self.assertNotIn("fetch(", html)
+    self.assertIn('window.fetch("/api/dashboard/candidates")', html)
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("<form", html)
-    self.assertIn("localStorage.getItem(", html)
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("localStorage.clear(", html)
@@ -922,7 +942,8 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_content_studio_is_fully_read_only_no_api_or_write_methods(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertNotIn("/api/", html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/candidates")
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("AI_HIVE_", html)
@@ -5407,8 +5428,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertEqual(len(office_views.AI_OFFICE_DEPARTMENTS), 5)
-    self.assertEqual(len(office_views.AI_OFFICE_EXTENDED_STAFF), 7)
-    self.assertEqual(html.count('class="ai-office-desk"'), 12)
+    self.assertEqual(len(office_views.AI_OFFICE_EXTENDED_STAFF), 10)
+    self.assertEqual(html.count('class="ai-office-desk"'), 15)
     expected = [
         ("operations_lead", "指令デスク", "運用責任者"),
         ("room", "ROOM運用席", "ROOM担当"),
@@ -5551,7 +5572,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
     self.assertNotIn("XMLHttpRequest", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<script src", html)
     self.assertNotIn("https://", html)
@@ -5604,7 +5628,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertLess(
         html.index("オフィスフロアマップ（デモ表示）"),
-        html.index("社員名簿（12人・状態一覧）"),
+        html.index("社員名簿（15人・状態一覧）"),
     )
     self.assertLess(
         html.index('class="ai-office-floormap-image"'),
@@ -5764,7 +5788,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for heading in (
-        "社員名簿（12人・状態一覧）", "今日のタスク（デモ）",
+        "社員名簿（15人・状態一覧）", "今日のタスク（デモ）",
         "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
         "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
     ):
@@ -5812,7 +5836,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
 
   def test_ai_office_floormap_mobile_media_query_stacks_status_strip(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
@@ -5979,7 +6006,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -5994,7 +6024,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for heading in (
-        "社員名簿（12人・状態一覧）", "今日のタスク（デモ）",
+        "社員名簿（15人・状態一覧）", "今日のタスク（デモ）",
         "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
         "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
     ):
@@ -6042,6 +6072,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         {
             "sou": "蒼", "iori": "伊織", "aya": "彩", "rin": "凛",
             "yu": "悠", "yui": "結", "ren": "蓮",
+            "tsumugi": "紬", "nagi": "凪", "hina": "陽菜",
         },
     )
     extended_roles = {s["key"]: s["role_label"] for s in office_views.AI_OFFICE_EXTENDED_STAFF}
@@ -6052,6 +6083,8 @@ class DashboardDesignTestCase(unittest.TestCase):
             "aya": "連携担当（社内コーディネーター）",
             "rin": "資料室管理", "yu": "進行管理",
             "yui": "情報源の鮮度確認", "ren": "安全・承認確認",
+            # MISSION 089: 候補管理チーム3名。
+            "tsumugi": "候補整理席", "nagi": "商品確認席", "hina": "投稿準備席",
         },
     )
 
@@ -6083,9 +6116,18 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertTrue(os.path.isfile(legacy_path))
 
   def test_ai_office_all_twelve_people_have_valid_unique_sprite_coordinates(self):
+    # MISSION 089: 候補管理チーム3名(紬・凪・陽菜)は、新しい画像を追加
+    # せず、既存12コマのうちAI_OFFICE_SPRITE_REUSE_MAPで指定したコマを
+    # そのまま再利用する。よって「12コマを過不足なく使い切る」検証は
+    # 元の12人だけに対して行い、再利用組は再利用元と同じ座標であることを
+    # 別途確認する。
     import office_views
     people = list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF)
-    self.assertEqual(len(people), 12)
+    self.assertEqual(len(people), 15)
+    reused_keys = set(office_views.AI_OFFICE_SPRITE_REUSE_MAP.keys())
+    self.assertEqual(reused_keys, {"tsumugi", "nagi", "hina"})
+    original_people = [p for p in people if p["key"] not in reused_keys]
+    self.assertEqual(len(original_people), 12)
     seen = set()
     for p in people:
       row, col = p["sprite"]["row"], p["sprite"]["col"]
@@ -6093,10 +6135,15 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertLess(row, office_views.AI_OFFICE_SPRITE_ROWS)
       self.assertGreaterEqual(col, 0)
       self.assertLess(col, office_views.AI_OFFICE_SPRITE_COLS)
+    for p in original_people:
+      row, col = p["sprite"]["row"], p["sprite"]["col"]
       self.assertNotIn((row, col), seen)
       seen.add((row, col))
-    # 12人でスプライトシートの12コマすべてを過不足なく使い切っている。
+    # 元の12人でスプライトシートの12コマすべてを過不足なく使い切っている。
     self.assertEqual(len(seen), office_views.AI_OFFICE_SPRITE_COLS * office_views.AI_OFFICE_SPRITE_ROWS)
+    people_by_key = {p["key"]: p for p in people}
+    for key, source_key in office_views.AI_OFFICE_SPRITE_REUSE_MAP.items():
+      self.assertEqual(people_by_key[key]["sprite"], people_by_key[source_key]["sprite"])
     # 柴犬社長だけが1行目・左(0,0)であること。
     self.assertEqual(
         [p["sprite"] for p in office_views.AI_OFFICE_DEPARTMENTS if p["key"] == "operations_lead"][0],
@@ -6109,7 +6156,7 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_all_twelve_floor_tokens_rendered_with_nameplates(self):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertEqual(html.count('class="ai-office-floormap-token'), 12)
+    self.assertEqual(html.count('class="ai-office-floormap-token'), 15)
     dept_keys = [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
     extended_keys = [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
     for key in dept_keys + extended_keys:
@@ -6127,8 +6174,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertEqual(len(office_views.AI_OFFICE_DEPARTMENTS), 5)
-    self.assertEqual(len(office_views.AI_OFFICE_EXTENDED_STAFF), 7)
-    self.assertEqual(html.count('class="ai-office-desk"'), 12)
+    self.assertEqual(len(office_views.AI_OFFICE_EXTENDED_STAFF), 10)
+    self.assertEqual(html.count('class="ai-office-desk"'), 15)
     for s in office_views.AI_OFFICE_EXTENDED_STAFF:
       self.assertIn(f'data-department="{s["key"]}"', html)
       self.assertIn(s["name"], html)
@@ -6140,9 +6187,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     # (旧yui_monitor_check)は対面報告ルート(AI_OFFICE_REPORT_ROUTES)へ
     # 統合されたため、対面報告に該当しない彩(休憩スペース)・凛(資料室↔
     # note)の2件だけが残る。
+    # MISSION 089: 候補管理チームの引き継ぎ(紬→凪)を1件追加した。
     import office_views
     scenes = office_views.AI_OFFICE_INTERACTION_SCENES
-    self.assertEqual(len(scenes), 2)
+    self.assertEqual(len(scenes), 3)
     by_key = {s["key"]: s for s in scenes}
     self.assertEqual(by_key["aya_lounge"]["mover"], "aya")
     self.assertEqual(by_key["aya_lounge"]["location"], "lounge")
@@ -6150,6 +6198,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(by_key["rin_note_visit"]["mover"], "rin")
     self.assertEqual(by_key["rin_note_visit"]["location"], "note")
     self.assertEqual(by_key["rin_note_visit"]["line"], "資料を確認して戻ります")
+    self.assertEqual(by_key["tsumugi_nagi_handoff"]["mover"], "tsumugi")
+    self.assertEqual(by_key["tsumugi_nagi_handoff"]["location"], "nagi")
+    self.assertEqual(
+        by_key["tsumugi_nagi_handoff"]["line"], "今日の候補を確認してもらえますか"
+    )
     html = self.client.get("/ai-office").get_data(as_text=True)
     for scene in scenes:
       self.assertIn(scene["line"], html)
@@ -6160,8 +6213,8 @@ class DashboardDesignTestCase(unittest.TestCase):
     positions = office_views._ai_office_all_positions()
     self.assertIn("lounge", positions)
     self.assertEqual(positions["lounge"], office_views.AI_OFFICE_LOUNGE_POSITION)
-    # 5部署 + 拡張担当7人 + lounge
-    self.assertEqual(len(positions), 5 + 7 + 1)
+    # 5部署 + 拡張担当10人(MISSION 089で候補管理チーム3名を追加) + lounge
+    self.assertEqual(len(positions), 5 + 10 + 1)
 
   def test_ai_office_js_supports_working_moving_and_interaction_steps(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
@@ -6226,7 +6279,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -6247,7 +6303,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         html,
     )
     for heading in (
-        "社員名簿（12人・状態一覧）", "今日のタスク（デモ）",
+        "社員名簿（15人・状態一覧）", "今日のタスク（デモ）",
         "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
         "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
     ):
@@ -6310,11 +6366,15 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 柴犬社長以外が(0% 0%)を指していないことを確認する。
     # MISSION 076: background-positionは、向き反転用に分離した内側の
     # ai-office-floormap-sprite要素側に付与されている。
+    # MISSION 089: 候補管理チーム3名は既存コマを再利用するため、
+    # background-positionも再利用元と同じ値になる(値の重複はこの3名分だけ
+    # 想定どおり発生する)。
     import re
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     people = list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF)
-    self.assertEqual(len(people), 12)
+    self.assertEqual(len(people), 15)
+    reused_keys = set(office_views.AI_OFFICE_SPRITE_REUSE_MAP.keys())
     positions_seen = {}
     for p in people:
       key = p["key"]
@@ -6327,8 +6387,14 @@ class DashboardDesignTestCase(unittest.TestCase):
       bp_match = re.search(r"background-position:([^;\"]+)", style)
       self.assertIsNotNone(bp_match)
       positions_seen[key] = bp_match.group(1)
-    # 12人すべてのbackground-positionが互いに異なること(重複=不具合の再発)。
-    self.assertEqual(len(set(positions_seen.values())), 12)
+    # 元の12人分のbackground-positionが互いに異なること(重複=不具合の再発)。
+    original_positions = {
+        key: pos for key, pos in positions_seen.items() if key not in reused_keys
+    }
+    self.assertEqual(len(set(original_positions.values())), 12)
+    # 再利用組は、再利用元とまったく同じbackground-positionになる。
+    for key, source_key in office_views.AI_OFFICE_SPRITE_REUSE_MAP.items():
+      self.assertEqual(positions_seen[key], positions_seen[source_key])
     # 柴犬社長(operations_lead)だけが(0.00% 0.00%)であること。
     self.assertEqual(positions_seen["operations_lead"], "0.00% 0.00%")
     for key, pos in positions_seen.items():
@@ -6430,6 +6496,10 @@ class DashboardDesignTestCase(unittest.TestCase):
             "iori": "技術・品質スペース",
             "analytics": "分析ラボ",
             "yui": "分析ラボ",
+            # MISSION 089: 候補管理チーム3名の新しいゾーン。
+            "tsumugi": "候補管理スペース",
+            "nagi": "候補管理スペース",
+            "hina": "候補管理スペース",
         },
     )
     # 指令デスクの3人(柴犬社長・悠・蓮)が互いに8%以上離れていること。
@@ -6449,7 +6519,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
         + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
     )
-    self.assertEqual(len(people_keys), 12)
+    self.assertEqual(len(people_keys), 15)
     for i in range(len(people_keys)):
       for j in range(i + 1, len(people_keys)):
         p1, p2 = positions[people_keys[i]], positions[people_keys[j]]
@@ -6586,7 +6656,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
         + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
     )
-    self.assertEqual(len(people_keys), 12)
+    self.assertEqual(len(people_keys), 15)
     for i in range(len(people_keys)):
       for j in range(i + 1, len(people_keys)):
         p1, p2 = positions[people_keys[i]], positions[people_keys[j]]
@@ -6645,6 +6715,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         {
             "sou": "蒼", "iori": "伊織", "aya": "彩", "rin": "凛",
             "yu": "悠", "yui": "結", "ren": "蓮",
+            "tsumugi": "紬", "nagi": "凪", "hina": "陽菜",
         },
     )
 
@@ -6670,7 +6741,7 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_all_twelve_people_have_idle_type_assigned(self):
     import office_views
     people = list(office_views.AI_OFFICE_DEPARTMENTS) + list(office_views.AI_OFFICE_EXTENDED_STAFF)
-    self.assertEqual(len(people), 12)
+    self.assertEqual(len(people), 15)
     valid_types = set(office_views.AI_OFFICE_IDLE_ANIMATION_BY_TYPE.keys())
     self.assertEqual(valid_types, {"typing", "reading", "analyzing", "waiting"})
     for p in people:
@@ -6856,7 +6927,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7037,7 +7111,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7227,7 +7304,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7295,10 +7375,15 @@ class DashboardDesignTestCase(unittest.TestCase):
         [d["key"] for d in office_views.AI_OFFICE_DEPARTMENTS]
         + [s["key"] for s in office_views.AI_OFFICE_EXTENDED_STAFF]
     )
+    # MISSION 089: 候補管理チーム3名は新しい画像を追加しないため、
+    # AI_OFFICE_SPRITE_CLIP_PATHSには引き続き元の12人分しか無い
+    # (再利用元のclip-pathはAI_OFFICE_SPRITE_REUSE_MAP経由で解決する)。
     self.assertEqual(len(office_views.AI_OFFICE_SPRITE_CLIP_PATHS), 12)
+    reuse_map = office_views.AI_OFFICE_SPRITE_REUSE_MAP
     for key in people_keys:
-      self.assertIn(key, office_views.AI_OFFICE_SPRITE_CLIP_PATHS)
-      polygon = office_views.AI_OFFICE_SPRITE_CLIP_PATHS[key]
+      lookup_key = reuse_map.get(key, key)
+      self.assertIn(lookup_key, office_views.AI_OFFICE_SPRITE_CLIP_PATHS)
+      polygon = office_views.AI_OFFICE_SPRITE_CLIP_PATHS[lookup_key]
       self.assertTrue(polygon.startswith("polygon("))
       self.assertTrue(polygon.endswith(")"))
       # 単純な四角形・円形ではなく、体の輪郭をたどった十分な数の頂点を
@@ -7383,7 +7468,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7474,7 +7562,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("XMLHttpRequest", html)
     self.assertNotIn("WebSocket", html)
     for api_path in self._find_api_paths(html):
-      self.assertEqual(api_path, "/api/dashboard/daily-records")
+      self.assertIn(
+          api_path,
+          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+      )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
     self.assertNotIn("localStorage.setItem(", html)
@@ -7869,16 +7960,23 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_nav_reorg_does_not_add_external_calls_or_scripts(self):
-    # ナビ整理そのものはHTML/CSSのみの変更であり、新規のfetch/onclickを
-    # 追加していない(command-center・ai-officeはMISSION 080/081由来の
-    # 既存localStorage連携のみを持つため、この2画面はここでは対象外)。
+    # ナビ整理そのものはHTML/CSSのみの変更であり、新規のonclickを追加して
+    # いない(command-center・ai-officeはMISSION 080/081由来の既存
+    # localStorage連携のみを持つため、この2画面はここでは対象外)。
+    # MISSION 089: content-studioは「今日の一歩」カードがアプリ内DB
+    # (/api/dashboard/candidates)を読み取り専用で参照するため、fetch(
+    # 自体は許可しつつ、それ以外の外部通信が無いことを確認する。
     for path in ("/office", "/revenue", "/content-studio"):
       with self.subTest(path=path):
         html = self.client.get(path).get_data(as_text=True)
         self.assertNotIn("onclick=", html)
-        self.assertNotIn("fetch(", html)
         self.assertNotIn("XMLHttpRequest", html)
         self.assertNotIn("<form", html)
+        if path == "/content-studio":
+          for api_path in self._find_api_paths(html):
+            self.assertEqual(api_path, "/api/dashboard/candidates")
+        else:
+          self.assertNotIn("fetch(", html)
 
   def test_nav_reorg_preserves_ai_office_real_record_and_demo_fallback(self):
     # MISSION 080・081の実績表示・デモフォールバックの仕組みが、ナビ整理
@@ -8106,7 +8204,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('id="ai-office-record-mode-badge"', html)
     self.assertIn('id="ai-office-report-banner"', html)
     self.assertIn("function buildRealRecordQueue(){", html)
-    self.assertIn("<h2>社員名簿（12人・状態一覧）</h2>", html)
+    self.assertIn("<h2>社員名簿（15人・状態一覧）</h2>", html)
     self.assertIn("デモ表示・実データ未接続", html)
 
   def test_mission_084_does_not_change_office_ceo_office_or_break_room(self):
@@ -8144,7 +8242,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 「今日の実行キュー」セクションの直後に続いていることを確認する。
     queue_idx = html.index("<h2>今日の実行キュー</h2>")
     recent_idx = html.index("<h2>直近の実績</h2>")
-    roster_idx = html.index("<h2>社員名簿（12人・状態一覧）</h2>")
+    roster_idx = html.index("<h2>社員名簿（15人・状態一覧）</h2>")
     self.assertLess(queue_idx, recent_idx)
     self.assertLess(recent_idx, roster_idx)
 
@@ -8287,7 +8385,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn('id="ai-office-record-mode-badge"', html)
     self.assertIn('id="ai-office-report-banner"', html)
-    self.assertIn("<h2>社員名簿（12人・状態一覧）</h2>", html)
+    self.assertIn("<h2>社員名簿（15人・状態一覧）</h2>", html)
     self.assertIn("<h2>今日の実行キュー</h2>", html)
     self.assertIn("<h2>直近の実績</h2>", html)
 
@@ -8305,23 +8403,32 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertLess(details_idx, summary_idx)
 
   def test_content_studio_today_step_defaults_to_one_room_candidate(self):
-    import office_views
+    # MISSION 089: DB(アプリ内データ)に楽天ROOM候補が1件も無い初回状態
+    # では、従来どおり「楽天ROOMの投稿候補を1件作る」を案内する。
     html = self.client.get("/content-studio").get_data(as_text=True)
     self.assertIn("楽天ROOMの投稿候補を1件作る", html)
     self.assertIn(
         'href="/content-studio/room-daily-candidates">候補を作成する</a>', html
     )
-    self.assertIn(office_views.AI_OFFICE_DAILY_RECORD_STORAGE_KEY, html)
+    self.assertIn('window.fetch("/api/dashboard/candidates")', html)
+
+  def test_content_studio_today_step_shows_hold_guidance_when_candidates_exist(self):
+    # MISSION 089: 候補はあるが「今日」に設定した候補が無い場合は、
+    # 「保留の候補を1件選んで今日に入れる」と案内する。
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn("保留の候補を1件選んで今日に入れる", html)
 
   def test_content_studio_today_step_script_is_read_only(self):
     html = self.client.get("/content-studio").get_data(as_text=True)
-    self.assertIn('return r.type==="下書き";', html)
-    self.assertIn("localStorage.getItem(", html)
+    self.assertIn('c.bucket==="today"', html)
+    self.assertIn('window.fetch("/api/dashboard/candidates")', html)
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("localStorage.clear(", html)
-    for forbidden in ("fetch(", "XMLHttpRequest", "<form", "Authorization", "api_key"):
+    for forbidden in ("XMLHttpRequest", "<form", "Authorization", "api_key"):
       self.assertNotIn(forbidden, html)
+    for api_path in self._find_api_paths(html):
+      self.assertEqual(api_path, "/api/dashboard/candidates")
 
   def test_content_studio_details_preserves_all_existing_content(self):
     # 既存の詳しい候補フォーム・注意事項は削除しておらず、<details>内に
@@ -8500,56 +8607,65 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("post_candidates", names)
 
   def test_dashboard_db_insert_daily_record_dedups_identical_entries(self):
+    # MISSION 089: 本番ai_company.dbには実際の利用で蓄積した行がすでに
+    # 入っていることがあるため、一時コピー側の2テーブルを空にしてから
+    # 厳密な件数アサーションを行う(本番DBは一切変更しない)。
+    self._reset_dashboard_tables()
     r1 = dashboard_db.insert_daily_record(
-        "2026-10-01", "楽天ROOM", "投稿済み", "テスト商品A", "", ""
+        "2099-01-01", "楽天ROOM", "投稿済み", "テスト商品A", "", ""
     )
     self.assertTrue(r1["inserted"])
     r2 = dashboard_db.insert_daily_record(
-        "2026-10-01", "楽天ROOM", "投稿済み", "テスト商品A", "", ""
+        "2099-01-01", "楽天ROOM", "投稿済み", "テスト商品A", "", ""
     )
     self.assertFalse(r2["inserted"])
-    rows = dashboard_db.list_daily_records("2026-10-01")
+    rows = dashboard_db.list_daily_records("2099-01-01")
     self.assertEqual(len(rows), 1)
     # 内容が少しでも違えば別の記録として保存される。
     r3 = dashboard_db.insert_daily_record(
-        "2026-10-01", "楽天ROOM", "投稿済み", "テスト商品B", "", ""
+        "2099-01-01", "楽天ROOM", "投稿済み", "テスト商品B", "", ""
     )
     self.assertTrue(r3["inserted"])
-    self.assertEqual(len(dashboard_db.list_daily_records("2026-10-01")), 2)
+    self.assertEqual(len(dashboard_db.list_daily_records("2099-01-01")), 2)
 
   def test_dashboard_db_insert_daily_record_rejects_missing_required_fields(self):
+    self._reset_dashboard_tables()
     r = dashboard_db.insert_daily_record("", "楽天ROOM", "投稿済み", "内容")
     self.assertFalse(r["inserted"])
     self.assertEqual(len(dashboard_db.list_daily_records()), 0)
 
   def test_dashboard_db_upsert_post_candidate_updates_instead_of_duplicating(self):
+    self._reset_dashboard_tables()
     c1 = dashboard_db.upsert_post_candidate(
-        "2026-10-01", "楽天ROOM", 0, "スマホ周辺の持ち運び収納", "ガジェットポーチ",
+        "2099-01-01", "楽天ROOM", 0, "スマホ周辺の持ち運び収納", "ガジェットポーチ",
         "https://item.rakuten.co.jp/x/", "紹介文1", ["#楽天ROOM"], True, False,
     )
     self.assertTrue(c1["inserted"])
     c2 = dashboard_db.upsert_post_candidate(
-        "2026-10-01", "楽天ROOM", 0, "スマホ周辺の持ち運び収納", "ガジェットポーチ",
+        "2099-01-01", "楽天ROOM", 0, "スマホ周辺の持ち運び収納", "ガジェットポーチ",
         "https://item.rakuten.co.jp/x/", "紹介文2(更新)", ["#楽天ROOM", "#ガジェット"],
         True, True,
     )
     self.assertFalse(c2["inserted"])
     self.assertTrue(c2["updated"])
-    rows = dashboard_db.list_post_candidates("2026-10-01")
+    rows = dashboard_db.list_post_candidates("2099-01-01")
     self.assertEqual(len(rows), 1)
     self.assertEqual(rows[0]["intro"], "紹介文2(更新)")
     self.assertTrue(rows[0]["manual_posted"])
     self.assertEqual(rows[0]["hashtags"], ["#楽天ROOM", "#ガジェット"])
+    # bucket列はデフォルトで'hold'(保留)になっている。
+    self.assertEqual(rows[0]["bucket"], "hold")
 
   def test_dashboard_db_migrate_dedups_and_does_not_grow_on_replay(self):
+    self._reset_dashboard_tables()
     payload_records = [
-        {"date": "2026-09-30", "media": "Pinterest", "type": "投稿済み",
+        {"date": "2098-12-31", "media": "Pinterest", "type": "投稿済み",
          "content": "昨日のPin投稿", "metric": "", "reference": ""},
-        {"date": "2026-10-01", "media": "楽天ROOM", "type": "確認",
+        {"date": "2099-01-01", "media": "楽天ROOM", "type": "確認",
          "content": "本日のROOM確認", "metric": "", "reference": ""},
     ]
     payload_candidates = [
-        {"targetDate": "2026-10-01", "media": "楽天ROOM", "slot": 0,
+        {"targetDate": "2099-01-01", "media": "楽天ROOM", "slot": 0,
          "genre": "バッグの中の整理", "productName": "収納ポーチ",
          "url": "https://item.rakuten.co.jp/y/", "intro": "紹介文",
          "hashtags": ["#楽天ROOM"], "manualChecked": True, "manualPosted": False},
@@ -8566,26 +8682,30 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 増えない。
     self.assertEqual(len(dashboard_db.list_daily_records()), 2)
     self.assertEqual(len(dashboard_db.list_post_candidates()), 1)
+    # localStorageから移行した候補にはbucketが無いため、既存候補と同じく
+    # 'hold'(保留)として扱われる(勝手に「今日」へ割り当てない)。
+    self.assertEqual(dashboard_db.list_post_candidates()[0]["bucket"], "hold")
 
   def test_dashboard_api_daily_records_post_and_get_round_trip(self):
+    self._reset_dashboard_tables()
     res = self.client.post(
         "/api/dashboard/daily-records",
-        json={"date": "2026-10-01", "media": "note", "type": "下書き",
+        json={"date": "2099-01-01", "media": "note", "type": "下書き",
               "content": "テスト記事", "metric": "", "reference": ""},
     )
     self.assertEqual(res.status_code, 200)
     self.assertTrue(res.get_json()["inserted"])
-    res2 = self.client.get("/api/dashboard/daily-records?date=2026-10-01")
+    res2 = self.client.get("/api/dashboard/daily-records?date=2099-01-01")
     data = res2.get_json()
     self.assertEqual(len(data["records"]), 1)
     self.assertEqual(data["records"][0]["content"], "テスト記事")
     # 同じ内容を再度POSTしても重複登録されない。
     self.client.post(
         "/api/dashboard/daily-records",
-        json={"date": "2026-10-01", "media": "note", "type": "下書き",
+        json={"date": "2099-01-01", "media": "note", "type": "下書き",
               "content": "テスト記事", "metric": "", "reference": ""},
     )
-    res3 = self.client.get("/api/dashboard/daily-records?date=2026-10-01")
+    res3 = self.client.get("/api/dashboard/daily-records?date=2099-01-01")
     self.assertEqual(len(res3.get_json()["records"]), 1)
 
   def test_dashboard_api_requires_no_authentication(self):
@@ -8598,11 +8718,12 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertFalse(res2.get_json()["inserted"])
 
   def test_dashboard_api_migrate_endpoint_round_trip(self):
+    self._reset_dashboard_tables()
     payload = {
         "records": [
-            {"date": "2026-09-30", "media": "Pinterest", "type": "投稿済み",
+            {"date": "2098-12-31", "media": "Pinterest", "type": "投稿済み",
              "content": "昨日のPin投稿", "metric": "", "reference": ""},
-            {"date": "2026-10-01", "media": "楽天ROOM", "type": "確認",
+            {"date": "2099-01-01", "media": "楽天ROOM", "type": "確認",
              "content": "本日のROOM確認", "metric": "", "reference": ""},
         ],
         "candidates": [],
@@ -8689,15 +8810,306 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertIn(title, res.get_data(as_text=True))
 
   def test_mission_088_empty_db_does_not_break_demo_or_empty_states(self):
-    # setUpで複製した一時DBは、daily_records/post_candidatesが0件の状態
-    # (本番側で手動テスト用の行を残していないことの回帰確認でもある)。
+    # MISSION 089: 本番ai_company.dbは実際の利用で行が蓄積していることが
+    # あるため、一時コピー側のテーブルを明示的に空にしたうえで、DBが
+    # 空の状態でも既存のデモ・空状態表示が壊れないことを確認する
+    # (本番DBは一切変更しない)。
     import office_views
+    self._reset_dashboard_tables()
     self.assertEqual(len(dashboard_db.list_daily_records()), 0)
     self.assertEqual(len(dashboard_db.list_post_candidates()), 0)
     ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn(office_views.AI_OFFICE_QUEUE_EMPTY_MESSAGE, ai_office_html)
     self.assertIn(office_views.AI_OFFICE_RECENT_EMPTY_MESSAGE, ai_office_html)
     self.assertIn("デモ表示・実データ未接続", ai_office_html)
+
+  # --- MISSION 089: 楽天ROOM候補を「今日・今週・保留」に整理する ----------
+
+  def test_dashboard_db_migration_adds_bucket_column_to_pre_existing_table(self):
+    # MISSION 088時点のスキーマ(bucket列なし)を一時コピー上に人為的に
+    # 再現し、init_schema()の移行が既存の行を一切失わずにbucket列
+    # (デフォルト'hold')を追加できることを確認する(本番DBには触れない)。
+    import sqlite3
+    conn = sqlite3.connect(self.temp_db_path)
+    try:
+      conn.execute("DROP TABLE IF EXISTS post_candidates")
+      conn.execute(
+          "CREATE TABLE post_candidates ("
+          " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+          " dedup_key TEXT NOT NULL UNIQUE,"
+          " target_date TEXT NOT NULL,"
+          " media TEXT NOT NULL,"
+          " slot INTEGER,"
+          " genre TEXT, product_name TEXT, url TEXT, intro TEXT, hashtags TEXT,"
+          " manual_checked INTEGER NOT NULL DEFAULT 0,"
+          " manual_posted INTEGER NOT NULL DEFAULT 0,"
+          " created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),"
+          " updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))"
+          ")"
+      )
+      conn.execute(
+          "INSERT INTO post_candidates"
+          " (dedup_key, target_date, media, slot, product_name, manual_posted)"
+          " VALUES ('2098-01-01|楽天ROOM|0', '2098-01-01', '楽天ROOM', 0,"
+          " 'MISSION088時代の候補', 1)"
+      )
+      conn.commit()
+      cols_before = {
+          r[1] for r in conn.execute("PRAGMA table_info(post_candidates)").fetchall()
+      }
+      self.assertNotIn("bucket", cols_before)
+    finally:
+      conn.close()
+
+    dashboard_db.init_schema()
+
+    conn = sqlite3.connect(self.temp_db_path)
+    try:
+      cols_after = {
+          r[1] for r in conn.execute("PRAGMA table_info(post_candidates)").fetchall()
+      }
+      self.assertIn("bucket", cols_after)
+      row = conn.execute(
+          "SELECT product_name, manual_posted, bucket FROM post_candidates"
+      ).fetchone()
+      self.assertEqual(row[0], "MISSION088時代の候補")
+      self.assertEqual(row[1], 1)
+      self.assertEqual(row[2], "hold")
+    finally:
+      conn.close()
+
+  def test_dashboard_db_upsert_post_candidate_preserves_bucket_when_not_provided(self):
+    self._reset_dashboard_tables()
+    dashboard_db.upsert_post_candidate(
+        "2099-02-01", "楽天ROOM", 0, "ジャンルA", "商品A", "https://item.rakuten.co.jp/a/",
+        "紹介文", ["#楽天ROOM"], False, False, bucket="today",
+    )
+    row = dashboard_db.list_post_candidates("2099-02-01")[0]
+    self.assertEqual(row["bucket"], "today")
+    # bucketを指定せずに更新(例:「手動投稿を完了した」と同じ呼び出し方)
+    # すると、既存のbucketがそのまま保持される。
+    dashboard_db.upsert_post_candidate(
+        "2099-02-01", "楽天ROOM", 0, "ジャンルA", "商品A", "https://item.rakuten.co.jp/a/",
+        "紹介文", ["#楽天ROOM"], True, True,
+    )
+    row2 = dashboard_db.list_post_candidates("2099-02-01")[0]
+    self.assertEqual(row2["bucket"], "today")
+    self.assertTrue(row2["manual_posted"])
+
+  def test_dashboard_db_upsert_post_candidate_normalizes_invalid_bucket(self):
+    self._reset_dashboard_tables()
+    result = dashboard_db.upsert_post_candidate(
+        "2099-02-02", "楽天ROOM", 0, "ジャンルB", "商品B", "", "", [], False, False,
+        bucket="not-a-real-bucket",
+    )
+    self.assertTrue(result["inserted"])
+    row = dashboard_db.list_post_candidates("2099-02-02")[0]
+    # 無効な区分は無視され、新規行は'hold'(保留)になる。
+    self.assertEqual(row["bucket"], "hold")
+
+  def test_dashboard_db_bucket_values_are_limited_to_three_choices(self):
+    self.assertEqual(dashboard_db.BUCKET_VALUES, ("today", "week", "hold"))
+    self.assertEqual(dashboard_db.BUCKET_DEFAULT, "hold")
+
+  def test_dashboard_api_candidates_bucket_persists_across_reload(self):
+    # 「選択結果はローカルアプリのSQLite DBへ保存し、再読み込み後も
+    # 保持してください」の確認。POSTで保存した区分が、別のGETでも
+    # そのまま読み取れることを確認する(=再読み込みしても保持される)。
+    self._reset_dashboard_tables()
+    res = self.client.post(
+        "/api/dashboard/candidates",
+        json={
+            "targetDate": "2099-02-03", "media": "楽天ROOM", "slot": 2,
+            "genre": "バッグの中の整理", "productName": "商品C",
+            "url": "https://item.rakuten.co.jp/c/", "intro": "紹介文",
+            "hashtags": ["#楽天ROOM"], "manualChecked": False,
+            "manualPosted": False, "bucket": "week",
+        },
+    )
+    self.assertEqual(res.status_code, 200)
+    self.assertTrue(res.get_json()["inserted"])
+    res2 = self.client.get("/api/dashboard/candidates?targetDate=2099-02-03")
+    candidates = res2.get_json()["candidates"]
+    self.assertEqual(len(candidates), 1)
+    self.assertEqual(candidates[0]["bucket"], "week")
+    self.assertEqual(candidates[0]["product_name"], "商品C")
+
+  def test_dashboard_api_candidates_existing_rows_default_to_hold(self):
+    # 「既存候補は初期状態では「保留」として扱い、勝手に「今日」へ割り当て
+    # ない」の確認。bucketを指定しないPOST(=既存候補の保存と同じ形)は
+    # 'hold'になる。
+    self._reset_dashboard_tables()
+    res = self.client.post(
+        "/api/dashboard/candidates",
+        json={
+            "targetDate": "2099-02-04", "media": "楽天ROOM", "slot": 0,
+            "genre": "", "productName": "商品D", "url": "", "intro": "",
+            "hashtags": [], "manualChecked": False, "manualPosted": False,
+        },
+    )
+    self.assertEqual(res.status_code, 200)
+    res2 = self.client.get("/api/dashboard/candidates?targetDate=2099-02-04")
+    self.assertEqual(res2.get_json()["candidates"][0]["bucket"], "hold")
+
+  def test_room_candidates_bucket_summary_and_per_card_controls_present(self):
+    import office_views
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn('id="rc-bucket-summary"', html)
+    self.assertIn('id="rc-bucket-count-today"', html)
+    self.assertIn('id="rc-bucket-count-week"', html)
+    self.assertIn('id="rc-bucket-count-hold"', html)
+    for slot in range(office_views.ROOM_CANDIDATE_MAX_PER_DAY):
+      self.assertIn(
+          f'<b class="room-candidate-bucket-current" data-slot="{slot}">保留</b>',
+          html,
+      )
+      for bucket, label in (("today", "今日にする"), ("week", "今週にする"), ("hold", "保留にする")):
+        self.assertIn(
+            f'<button type="button" class="room-candidate-bucket-btn'
+            f'{" is-active" if bucket == "hold" else ""}" '
+            f'data-slot="{slot}" data-bucket="{bucket}">{label}</button>',
+            html,
+        )
+
+  def test_room_candidates_bucket_script_saves_to_db_and_reads_back(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("function setBucketForSlot(slot,bucket){", html)
+    self.assertIn("function loadSlotBucketsForDate(iso){", html)
+    self.assertIn("function refreshBucketSummary(){", html)
+    self.assertIn('window.fetch("/api/dashboard/candidates"', html)
+    self.assertIn(
+        'window.fetch("/api/dashboard/candidates?targetDate="+encodeURIComponent(iso))',
+        html,
+    )
+    self.assertIn("bucket:bucket", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+
+  def test_room_candidates_date_query_param_supported_for_deep_link(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("new URLSearchParams(window.location.search)", html)
+    self.assertIn('urlParams.get("date")', html)
+    res = self.client.get("/content-studio/room-daily-candidates?date=2099-03-01")
+    self.assertEqual(res.status_code, 200)
+
+  def test_room_candidates_manual_post_complete_marks_candidate_done_not_in_buckets(self):
+    # 投稿候補を手動投稿完了にした場合、既存どおり運用記録・AIオフィスの
+    # 実績へ反映される(manualPosted:trueを送る)。実行キュー・指示の対象は
+    # manual_posted=0の候補だけなので、完了済みは自動的に整理対象から
+    # 外れる。
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn("manualPosted:true", html)
+    self.assertIn("manual-post-complete-btn", html)
+
+  def test_content_studio_today_step_links_to_candidate_target_date(self):
+    html = self.client.get("/content-studio").get_data(as_text=True)
+    self.assertIn(
+        '"/content-studio/room-daily-candidates?date="+'
+        "encodeURIComponent(c.target_date||\"\")",
+        html,
+    )
+
+  def test_ai_office_directive_includes_room_candidate_today_case(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function todayRoomCandidate(){", html)
+    self.assertIn("楽天ROOM候補を確認し、手動で投稿する", html)
+    self.assertIn("本日「今日」に設定した楽天ROOM候補があります", html)
+    # 既存5ルールの優先順位・内容自体は変更していない。
+    self.assertEqual(len(office_views.AI_OFFICE_DIRECTIVE_RULES), 5)
+
+  def test_ai_office_execution_queue_includes_room_candidate_item(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function buildQueueItem(", html)
+    self.assertIn("var roomCandidate=todayRoomCandidate();", html)
+    self.assertIn("投稿企画工場へ移動する", html)
+    self.assertIn('"/content-studio/room-daily-candidates"', html)
+
+  def test_ai_office_candidate_team_real_state_only_when_today_bucket_exists(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function applyCandidateTeamRealState(hasTodayCandidate){", html)
+    self.assertIn("if(!hasTodayCandidate)return;", html)
+    self.assertIn(
+        'var CANDIDATE_TEAM_KEYS=["tsumugi","nagi","hina"];', html
+    )
+    self.assertIn(
+        'var hasTodayCandidate=loadActiveRoomCandidates().some(function(c){',
+        html,
+    )
+    # 投稿済み(manual_posted)の候補は対象から除外される。
+    self.assertIn(
+        'return c&&c.media==="楽天ROOM"&&!c.manual_posted;', html
+    )
+
+  def test_ai_office_candidate_management_staff_present_in_roster(self):
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    staff_by_key = {
+        s["key"]: s for s in office_views.AI_OFFICE_EXTENDED_STAFF
+        if s["key"] in ("tsumugi", "nagi", "hina")
+    }
+    self.assertEqual(len(staff_by_key), 3)
+    self.assertEqual(staff_by_key["tsumugi"]["name"], "紬")
+    self.assertEqual(staff_by_key["tsumugi"]["role_label"], "候補整理席")
+    self.assertEqual(staff_by_key["nagi"]["name"], "凪")
+    self.assertEqual(staff_by_key["nagi"]["role_label"], "商品確認席")
+    self.assertEqual(staff_by_key["hina"]["name"], "陽菜")
+    self.assertEqual(staff_by_key["hina"]["role_label"], "投稿準備席")
+    for key in ("tsumugi", "nagi", "hina"):
+      self.assertIn(f'data-department="{key}"', html)
+      self.assertIn(staff_by_key[key]["name"], html)
+      self.assertIn(f'id="ai-office-token-{key}"', html)
+
+  def test_ai_office_candidate_management_staff_reuse_existing_sprites_only(self):
+    # 「新しい画像素材の生成・追加は行わず」の確認。既存のスプライト
+    # シート画像ファイル自体は変更していない(ファイルは1枚のみ)。
+    import office_views
+    self.assertEqual(
+        office_views.AI_OFFICE_SPRITE_REUSE_MAP,
+        {"tsumugi": "yui", "nagi": "aya", "hina": "room"},
+    )
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertEqual(html.count("ai-office-team-3d.png"), html.count("ai-office-team-3d.png"))
+    self.assertIn("/static/images/ai-office-team-3d.png", html)
+
+  def test_mission_089_does_not_break_other_pages(self):
+    for path, title in (
+        ("/office", "ライブオフィス"),
+        ("/office/break-room", "休憩室"),
+        ("/office/ceo-office", "社長室"),
+        ("/revenue", "収益化ボード"),
+        ("/command-center", "運用司令室"),
+        ("/content-studio/note-daily-candidates", "note"),
+    ):
+      with self.subTest(path=path):
+        res = self.client.get(path)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(title, res.get_data(as_text=True))
+
+  def test_mission_089_no_new_external_communication_anywhere(self):
+    # /api/dashboard/* 以外の新しい外部通信・認証情報を追加していない
+    # ことを、関係する全画面で確認する。
+    for path in (
+        "/ai-office", "/content-studio", "/content-studio/room-daily-candidates",
+        "/command-center",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for api_path in self._find_api_paths(html):
+          self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+        self.assertNotIn("XMLHttpRequest", html)
+        self.assertNotIn("WebSocket", html)
+        self.assertNotIn("Authorization", html)
+        self.assertNotIn("api_key", html)
+        self.assertNotIn("access_token", html)
+        self.assertNotIn("<form", html)
+
+  def test_mission_089_no_horizontal_scroll_css_present(self):
+    html = self.client.get("/content-studio/room-daily-candidates").get_data(as_text=True)
+    self.assertIn(".room-candidate-bucket-summary{display:flex;gap:10px;flex-wrap:wrap", html)
+    self.assertIn(".rc-bucket-chip{flex:1 1 140px", html)
+    self.assertIn(".room-candidate-bucket-buttons{display:flex;gap:6px;flex-wrap:wrap}", html)
+    self.assertIn("prefers-reduced-motion:reduce", html)
 
 
 if __name__ == "__main__":

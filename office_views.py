@@ -227,6 +227,20 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .wp-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
 @media(max-width:760px){.wp-day-meta{flex-direction:column;gap:4px}}
 .room-candidate-board{max-width:900px;margin:0 auto}
+.room-candidate-bucket-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rc-bucket-chip{flex:1 1 140px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:10px 14px;text-align:center}
+.rc-bucket-chip b{display:block;font-size:22px;color:var(--ink);line-height:1.3}
+.rc-bucket-chip span{font-size:11px;color:var(--sub)}
+.rc-bucket-chip[data-bucket="today"]{border-color:var(--blue)}
+.rc-bucket-chip[data-bucket="today"] b{color:var(--blue)}
+.room-candidate-bucket-note{margin:0 0 14px;font-size:11px;color:var(--sub);line-height:1.6}
+.room-candidate-bucket-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--edge)}
+.room-candidate-bucket-label{font-size:12px;color:var(--sub)}
+.room-candidate-bucket-label b{color:var(--ink)}
+.room-candidate-bucket-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.room-candidate-bucket-btn{background:#142039;color:var(--ink);border:1px solid var(--edge);border-radius:999px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit}
+.room-candidate-bucket-btn:hover,.room-candidate-bucket-btn:focus-visible{border-color:var(--blue);color:var(--blue)}
+.room-candidate-bucket-btn.is-active{background:#0b2540;border-color:var(--blue);color:var(--blue);font-weight:700}
 .room-candidate-rules{background:#101827;border:1px solid var(--blue);color:var(--ink);padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:14px}
 .room-candidate-rules b{color:var(--blue);display:block;margin-bottom:4px;font-size:13px}
 .room-candidate-rules ul{margin:6px 0 0;padding-left:18px}
@@ -267,7 +281,7 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .room-candidate-bulk-actions button{background:#142039;color:var(--ink);border:1px solid var(--blue);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit}
 .room-candidate-bulk-actions button:hover,.room-candidate-bulk-actions button:focus-visible{background:#1b2d4b}
 .room-candidate-bulk-actions p{margin:0;font-size:11px;color:var(--sub);line-height:1.6}
-@media(max-width:760px){.room-candidate-date-nav{flex-direction:column;align-items:stretch}.room-candidate-reaction-inputs{flex-direction:column}.room-candidate-reaction-inputs input{width:100%}.room-candidate-bulk-actions{flex-direction:column;align-items:stretch}}
+@media(max-width:760px){.room-candidate-date-nav{flex-direction:column;align-items:stretch}.room-candidate-reaction-inputs{flex-direction:column}.room-candidate-reaction-inputs input{width:100%}.room-candidate-bulk-actions{flex-direction:column;align-items:stretch}.room-candidate-bucket-row{align-items:flex-start;flex-direction:column}}
 .note-candidate-board{max-width:900px;margin:0 auto}
 .note-candidate-date-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:10px 14px}
 .note-candidate-date-nav input[type="date"]{background:#0b1120;color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:6px 10px;font-family:inherit}
@@ -1055,9 +1069,11 @@ def _render_content_studio_scene(
   # MISSION 086: 初見でも迷わないよう、最上部に「今日の一歩」カード
   # (今日やること+進めるボタンだけ)を置き、既存の詳しい候補フォーム・
   # 注意事項はすべて削除せず<details>(詳細設定・注意事項)に折りたたむ。
-  # 実際の表示内容はJS側で、運用司令室のlocalStorageを読み取り専用で
-  # 参照して決める(本日の「下書き」記録があれば確認を促し、なければ
-  # 楽天ROOMの投稿候補を1件作ることを案内する)。
+  # MISSION 089: 表示内容はJS側で、このMac上のアプリ内DB(/api/dashboard/
+  # candidates、読み取り専用GET)を参照して決める。「今日」に設定した
+  # 楽天ROOM候補(未完了)があればその先頭1件を大きく表示し、無ければ
+  # 「保留の候補を1件選んで今日に入れる」と案内する。候補が1件も無い
+  # (DBが空の)初回状態では、従来どおり候補作成を案内する。
   today_step_card = (
       '<div class="cs-today-step" id="cs-today-step">'
       '<div class="cs-today-step-label">今日の一歩</div>'
@@ -1068,29 +1084,40 @@ def _render_content_studio_scene(
   )
   today_step_script = (
       '<script>(function(){'
-      + _ai_office_daily_record_reader_script() +
-      'var drafts=spaceLoadTodayRecords().filter(function(r){'
-      'return r.type==="下書き";'
-      '});'
       'var taskEl=document.querySelector("#cs-today-step-task");'
       'var btnEl=document.querySelector("#cs-today-step-button");'
-      'if(drafts.length>0){'
-      'var rec=drafts[0];'
-      'if(taskEl)taskEl.textContent="本日の下書きがあります。内容を確認して'
-      'ください。";'
-      'if(btnEl){'
-      'btnEl.textContent="下書きを確認する";'
-      'btnEl.href=rec.media==="楽天ROOM"?"/content-studio/room-daily-candidates":'
-      'rec.media==="note"?"/content-studio/note-daily-candidates":'
-      '"/command-center";'
+      'function setStep(task,label,href){'
+      'if(taskEl)taskEl.textContent=task;'
+      'if(btnEl){btnEl.textContent=label;btnEl.href=href;}'
       '}'
-      '}else{'
-      'if(taskEl)taskEl.textContent="楽天ROOMの投稿候補を1件作る";'
-      'if(btnEl){'
-      'btnEl.textContent="候補を作成する";'
-      'btnEl.href="/content-studio/room-daily-candidates";'
+      'function showNoCandidate(){'
+      'setStep("楽天ROOMの投稿候補を1件作る","候補を作成する",'
+      '"/content-studio/room-daily-candidates");'
       '}'
+      'if(typeof window.fetch!=="function"){showNoCandidate();return;}'
+      'window.fetch("/api/dashboard/candidates").then(function(res){'
+      'return res.json();'
+      '}).then(function(data){'
+      'var list=(data&&Array.isArray(data.candidates))?data.candidates:[];'
+      'var active=list.filter(function(c){'
+      'return c.media==="楽天ROOM"&&!c.manual_posted;'
+      '});'
+      'var todayList=active.filter(function(c){return c.bucket==="today";});'
+      'if(todayList.length>0){'
+      'var c=todayList[0];'
+      'var name=c.product_name||c.genre||"候補";'
+      'setStep(name+"を確認し、手動で投稿する","候補を確認する",'
+      '"/content-studio/room-daily-candidates?date="+'
+      'encodeURIComponent(c.target_date||""));'
+      'return;'
       '}'
+      'if(active.length>0){'
+      'setStep("保留の候補を1件選んで今日に入れる","候補を確認する",'
+      '"/content-studio/room-daily-candidates");'
+      'return;'
+      '}'
+      'showNoCandidate();'
+      '}).catch(showNoCandidate);'
       '})();</script>'
   )
   return (
@@ -1929,6 +1956,24 @@ def _render_room_daily_candidates_scene():
         f'<h3>候補 {slot + 1}</h3>'
         f'<span class="room-candidate-verifying-badge" data-slot="{slot}" hidden>検証中</span>'
         '</div>'
+        # MISSION 089: 候補を「今日・今週・保留」に分類する操作。選択結果は
+        # このMac上のアプリ内DBへ保存し、再読み込み後も保持する(ページ
+        # 読み込み時にJS側でDBから現在の区分を読み戻し、ここを更新する)。
+        # 新規候補・未保存の候補は、DBに行が無い間は「保留」表示のままで
+        # (既存候補を勝手に「今日」へ割り当てない)、実際にボタンを押した
+        # ときだけDBへ保存される。
+        f'<div class="room-candidate-bucket-row" data-slot="{slot}">'
+        '<span class="room-candidate-bucket-label">区分：'
+        f'<b class="room-candidate-bucket-current" data-slot="{slot}">保留</b></span>'
+        '<div class="room-candidate-bucket-buttons">'
+        f'<button type="button" class="room-candidate-bucket-btn" '
+        f'data-slot="{slot}" data-bucket="today">今日にする</button>'
+        f'<button type="button" class="room-candidate-bucket-btn" '
+        f'data-slot="{slot}" data-bucket="week">今週にする</button>'
+        f'<button type="button" class="room-candidate-bucket-btn is-active" '
+        f'data-slot="{slot}" data-bucket="hold">保留にする</button>'
+        '</div>'
+        '</div>'
         # MISSION 087: 最初に表示する入力は、ジャンル・商品名・楽天市場URL
         # の3つだけに絞る。未入力のまま作成を押したときは、ブラウザの
         # window.alertだけに頼らず、各欄のすぐ下に不足している項目名を
@@ -2000,6 +2045,20 @@ def _render_room_daily_candidates_scene():
 
   return (
       '<section class="room-candidate-board" aria-label="楽天ROOM 毎日の投稿候補（下書き）">'
+      # MISSION 089: 投稿完了していない楽天ROOM候補を「今日・今週・保留」
+      # で件数表示する。このMac上のアプリ内DBを読み取り専用で参照する
+      # (件数は全ての対象日をまたいで集計する)。
+      '<div class="room-candidate-bucket-summary" id="rc-bucket-summary" '
+      'aria-live="polite">'
+      '<div class="rc-bucket-chip" data-bucket="today">'
+      '<b id="rc-bucket-count-today">0</b><span>今日</span></div>'
+      '<div class="rc-bucket-chip" data-bucket="week">'
+      '<b id="rc-bucket-count-week">0</b><span>今週</span></div>'
+      '<div class="rc-bucket-chip" data-bucket="hold">'
+      '<b id="rc-bucket-count-hold">0</b><span>保留</span></div>'
+      '</div>'
+      '<p class="room-candidate-bucket-note">件数は、まだ投稿が完了していない楽天ROOM候補を、'
+      'このMac上のアプリ内データ（SQLite）から数えたものです。外部への送信は行いません。</p>'
       '<div class="room-prep-notice">'
       '<b>この画面はローカルのみで動作する下書きツールです。</b>'
       '<ul>'
@@ -2014,6 +2073,10 @@ def _render_room_daily_candidates_scene():
       'ようになります。どちらも外部のサービスへは送信されません。'
       'ブラウザや端末を変えたり、ブラウザのデータを消去してlocalStorageが'
       '失われても、アプリ内データに保存済みの内容は残ります。</li>'
+      '<li>「今日にする」「今週にする」「保留にする」は、候補を整理するための'
+      '区分であり、押すとその時点の内容がこのMac上のアプリ内データに保存されます。'
+      '外部サービスへの投稿・送信は行いません。既存の候補は、自分で区分を'
+      '選ぶまで「保留」のままです。</li>'
       '<li>商品画像の取得・生成画像の自動アップロード・#オリジナル写真の自動付与は'
       '行いません。実際に使用していない商品についての購入・使用体験や口コミは'
       '書かないでください。</li>'
@@ -2266,10 +2329,86 @@ def _render_room_daily_candidates_scene():
       '}'
       'targets.forEach(t=>applyDraftToSlot(t.slot,t.fields));'
       '}'
+      # MISSION 089: 候補を「今日・今週・保留」に整理する機能。選択結果は
+      # このMac上のアプリ内DB(/api/dashboard/candidates)へ保存し、
+      # 再読み込み後も保持する(外部サービスへの投稿・送信・ログインは
+      # 一切行わない、同一オリジンのローカルAPIのみ)。
+      'const BUCKET_LABELS={today:"今日",week:"今週",hold:"保留"};'
+      'let slotBucketState={};'
+      'function updateBucketRow(slot,bucket){'
+      'const normalized=BUCKET_LABELS[bucket]?bucket:"hold";'
+      'const label=document.querySelector('
+      '\'.room-candidate-bucket-current[data-slot="\'+slot+\'"]\');'
+      'if(label)label.textContent=BUCKET_LABELS[normalized];'
+      'document.querySelectorAll('
+      '\'.room-candidate-bucket-btn[data-slot="\'+slot+\'"]\').forEach(btn=>{'
+      'btn.classList.toggle("is-active",btn.dataset.bucket===normalized);'
+      '});'
+      '}'
+      # 既存候補は、DBにまだ区分が保存されていない間は「保留」として扱う
+      # (勝手に「今日」へ割り当てない)。
+      'function loadSlotBucketsForDate(iso){'
+      'slotBucketState={};'
+      'for(let slot=0;slot<MAX_SLOTS;slot++){updateBucketRow(slot,"hold");}'
+      'if(typeof window.fetch!=="function")return;'
+      'window.fetch("/api/dashboard/candidates?targetDate="+encodeURIComponent(iso))'
+      '.then(res=>res.json()).then(data=>{'
+      'const list=(data&&Array.isArray(data.candidates))?data.candidates:[];'
+      'list.forEach(c=>{'
+      'if(c.media!=="楽天ROOM"||c.slot===null||c.slot===undefined)return;'
+      'slotBucketState[c.slot]={bucket:c.bucket||"hold",manualPosted:Boolean(c.manual_posted)};'
+      'updateBucketRow(c.slot,c.bucket||"hold");'
+      '});'
+      '}).catch(()=>{});'
+      '}'
+      'function refreshBucketSummary(){'
+      'if(typeof window.fetch!=="function")return;'
+      'window.fetch("/api/dashboard/candidates").then(res=>res.json()).then(data=>{'
+      'const list=(data&&Array.isArray(data.candidates))?data.candidates:[];'
+      'const counts={today:0,week:0,hold:0};'
+      'list.forEach(c=>{'
+      'if(c.media!=="楽天ROOM"||c.manual_posted)return;'
+      'const b=BUCKET_LABELS[c.bucket]?c.bucket:"hold";'
+      'counts[b]++;'
+      '});'
+      '["today","week","hold"].forEach(b=>{'
+      'const el=document.querySelector("#rc-bucket-count-"+b);'
+      'if(el)el.textContent=String(counts[b]);'
+      '});'
+      '}).catch(()=>{});'
+      '}'
+      'function setBucketForSlot(slot,bucket){'
+      'const fields=fieldsForSlot(slot);'
+      'const genre=fields.genre.value.trim();'
+      'const productName=fields.productName.value.trim();'
+      'const productUrl=fields.productUrl.value.trim();'
+      'const intro=fields.intro.value;'
+      'const hashtags=fields.hashtags.map(el=>el.value.trim()).filter(v=>v);'
+      'const manualChecked=fields.manualChecked.checked;'
+      'const existing=slotBucketState[slot]||{};'
+      'updateBucketRow(slot,bucket);'
+      'slotBucketState[slot]={bucket:bucket,manualPosted:Boolean(existing.manualPosted)};'
+      'if(typeof window.fetch!=="function")return;'
+      'window.fetch("/api/dashboard/candidates",{'
+      'method:"POST",headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify({'
+      'targetDate:dateInput.value,media:"楽天ROOM",slot:slot,genre:genre,'
+      'productName:productName,url:productUrl,intro:intro,hashtags:hashtags,'
+      'manualChecked:manualChecked,manualPosted:Boolean(existing.manualPosted),'
+      'bucket:bucket'
+      '})'
+      '}).then(()=>{refreshBucketSummary();}).catch(()=>{});'
+      '}'
+      'document.querySelectorAll(".room-candidate-bucket-btn").forEach(btn=>{'
+      'btn.addEventListener("click",()=>{'
+      'setBucketForSlot(Number(btn.dataset.slot),btn.dataset.bucket);'
+      '});'
+      '});'
       'function loadAllSlots(){'
       'const iso=dateInput.value;'
       'dateLabel.textContent=iso;'
       'for(let slot=0;slot<MAX_SLOTS;slot++){loadSlot(iso,slot);}'
+      'loadSlotBucketsForDate(iso);'
       '}'
       'function bindSlotEvents(){'
       'for(let slot=0;slot<MAX_SLOTS;slot++){'
@@ -2297,9 +2436,16 @@ def _render_room_daily_candidates_scene():
       'loadAllSlots();'
       '}'
       'const today=new Date();'
-      'dateInput.value=toIsoDate(today);'
+      # MISSION 089: AIオフィス・投稿企画工場の「今日の一歩」から、特定の
+      # 候補が入っている対象日へ直接移動できるよう、?date=YYYY-MM-DDを
+      # 初期表示日として受け付ける(無効な値は無視して今日の日付を使う)。
+      'const urlParams=new URLSearchParams(window.location.search);'
+      'const dateParam=urlParams.get("date");'
+      'const isValidDateParam=dateParam&&/^\\d{4}-\\d{2}-\\d{2}$/.test(dateParam);'
+      'dateInput.value=isValidDateParam?dateParam:toIsoDate(today);'
       'bindSlotEvents();'
       'loadAllSlots();'
+      'refreshBucketSummary();'
       'document.querySelector("#rc-prev-day").addEventListener("click",()=>shiftDate(-1));'
       'document.querySelector("#rc-next-day").addEventListener("click",()=>shiftDate(1));'
       'document.querySelector("#rc-today").addEventListener("click",()=>{'
@@ -6254,7 +6400,66 @@ AI_OFFICE_EXTENDED_STAFF = [
         "pos": {"left": 20, "top": 58},
         "idle_type": "waiting",
     },
+    # MISSION 089: 楽天ROOM投稿候補を「今日・今週・保留」に整理する候補
+    # 管理チーム3名を追加。新しい画像素材は生成・追加せず、既存の
+    # スプライトシート(12コマ)の中から、役割の近いコマを再利用する
+    # (紬→結のコマ、凪→彩のコマ、陽菜→里奈のコマを流用。実在のコマ数は
+    # 12のまま変わらない)。どのコマを再利用するかはAI_OFFICE_SPRITE_
+    # REUSE_MAPで管理し、clip-pathも再利用元と同じものを使う。
+    {
+        "key": "tsumugi",
+        "name": "紬",
+        "zone_label": "候補管理スペース",
+        "role_label": "候補整理席",
+        "role_summary": "楽天ROOM候補を「今日・今週・保留」に分類し、進める順番を整理します。",
+        "sprite": {"row": 3, "col": 1},
+        # MISSION 089: 既存12人の座席(AI_OFFICE_FLOOR_POSITIONS)・拡張担当
+        # の座席・訪問者スロット(AI_OFFICE_VISITOR_SLOTS)のどれとも重ならない
+        # よう、空いている床の隅を使う(グリッド上の空きマスはすべて
+        # 訪問者スロットと重なってしまうため、グリッド外の位置を選んだ)。
+        "pos": {"left": 12, "top": 97},
+        "idle_type": "analyzing",
+    },
+    {
+        "key": "nagi",
+        "name": "凪",
+        "zone_label": "候補管理スペース",
+        "role_label": "商品確認席",
+        "role_summary": "楽天ROOM候補の商品名・URL・紹介文を確認します。",
+        "sprite": {"row": 1, "col": 2},
+        "pos": {"left": 68, "top": 40},
+        "idle_type": "reading",
+    },
+    {
+        "key": "hina",
+        "name": "陽菜",
+        "zone_label": "候補管理スペース",
+        "role_label": "投稿準備席",
+        "role_summary": "投稿前の最終確認を行います。実際の投稿はROOM上で利用者本人が行います。",
+        "sprite": {"row": 2, "col": 0},
+        "pos": {"left": 96, "top": 97},
+        "idle_type": "waiting",
+    },
 ]
+
+# MISSION 089: 上記3名が使い回すスプライトコマの再利用元(新しい画像を
+# 生成・追加しないための対応表)。AI_OFFICE_SPRITE_CLIP_PATHSは12コマ分
+# (既存12人分)のまま追加せず、再利用先の人物にはこのマップで元のclip-path
+# を引き当てる(同じコマ=同じ輪郭のため、そのまま使い回せる)。
+AI_OFFICE_SPRITE_REUSE_MAP = {
+    "tsumugi": "yui",
+    "nagi": "aya",
+    "hina": "room",
+}
+
+
+def _ai_office_clip_path_for(key):
+  """personKeyのclip-pathを返す。新しいコマを持たない人物
+  (AI_OFFICE_SPRITE_REUSE_MAP参照)は、再利用元のclip-pathをそのまま返す。
+  """
+  source_key = AI_OFFICE_SPRITE_REUSE_MAP.get(key, key)
+  return AI_OFFICE_SPRITE_CLIP_PATHS[source_key]
+
 
 # MISSION 075: 全12人に常時の小さな「生きている」動きを付けるための、
 # idle_typeごとのCSSアニメーション名マッピング。全員が同じ周期にならない
@@ -7000,6 +7205,17 @@ AI_OFFICE_INTERACTION_SCENES = [
         "line": "資料を確認して戻ります",
         "feed_text": "凛が資料室とnote編集席を行き来しました",
     },
+    # MISSION 089: 候補管理チームの引き継ぎ(紬→凪)をデモの交流として
+    # 追加する。「今日・今週・保留」への分類後、商品確認を依頼する短い
+    # やり取りで、候補管理の役割の流れが伝わるようにする。
+    {
+        "key": "tsumugi_nagi_handoff",
+        "mover": "tsumugi",
+        "location": "nagi",
+        "speaker": "tsumugi",
+        "line": "今日の候補を確認してもらえますか",
+        "feed_text": "紬が凪に、今日の候補の確認を依頼しました",
+    },
 ]
 
 
@@ -7136,7 +7352,7 @@ def _render_ai_office_scene():
     status_label = AI_OFFICE_STATUS_LABELS[status_key]
     idle_type = idle_type_by_key[key]
     idle_class = AI_OFFICE_IDLE_ANIMATION_BY_TYPE[idle_type]
-    clip_path = AI_OFFICE_SPRITE_CLIP_PATHS[key]
+    clip_path = _ai_office_clip_path_for(key)
     return (
         f'<span class="ai-office-floormap-token {idle_class} '
         f'ai-office-floormap-token-{status_key}" '
@@ -7363,7 +7579,7 @@ def _render_ai_office_scene():
       'aria-live="polite">対面報告中の社員はまだいません（デモ）</div>'
       '<p class="ai-office-floormap-caption"><b>オフィスフロアマップ（デモ表示）</b><br>'
       'AIオフィスの全体像を1枚のイラストで表したデモ画像の上に、立体的な'
-      'ゲームキャラクター風の社員12人本人を表示し、作業・移動・報告・交流の'
+      'ゲームキャラクター風の社員15人本人を表示し、作業・移動・報告・交流の'
       '様子をデモアニメーションで示しています。稼働中・移動中はシアン、'
       '確認待ちは黄色、待機中は控えめな青、デモ完了は緑で状態を示しますが、'
       'いずれも実際にAIが動作しているものではなく、すべてデモの表示です。</p>'
@@ -7448,8 +7664,8 @@ def _render_ai_office_scene():
       '</div>'
 
       '<div class="ai-office-section">'
-      '<h2>社員名簿（12人・状態一覧）</h2>'
-      '<p class="ai-office-floormap-hint">柴犬社長を含む12人の役割・配置・'
+      '<h2>社員名簿（15人・状態一覧）</h2>'
+      '<p class="ai-office-floormap-hint">柴犬社長を含む15人の役割・配置・'
       '状態をまとめた一覧です（すべてデモ表示）。</p>'
       f'<div class="ai-office-floor"><div class="ai-office-floor-grid">{desk_cards}</div></div>'
       '</div>'
@@ -7539,6 +7755,22 @@ def _render_ai_office_scene():
       'return DB_RECORDS_CACHE.filter(function(r){return r&&r.date===today&&'
       'r.content&&String(r.content).trim();});'
       '}'
+      # MISSION 089: 楽天ROOM候補の「今日・今週・保留」区分も、このMac上の
+      # アプリ内DB(/api/dashboard/candidates、読み取り専用GET)を参照する。
+      # manual_posted(投稿完了済み)の候補は、整理対象から除外する(完了済み
+      # 候補は「今日の指示」「実行キュー」に出さない)。
+      'var DB_CANDIDATES_CACHE=[];'
+      'function loadActiveRoomCandidates(){'
+      'return DB_CANDIDATES_CACHE.filter(function(c){'
+      'return c&&c.media==="楽天ROOM"&&!c.manual_posted;'
+      '});'
+      '}'
+      'function todayRoomCandidate(){'
+      'var list=loadActiveRoomCandidates().filter(function(c){'
+      'return c.bucket==="today";'
+      '});'
+      'return list.length?list[0]:null;'
+      '}'
       'function loadTodayRecords(){'
       'var raw=null;'
       'try{raw=window.localStorage.getItem(RECORD_KEY);}catch(e){raw=null;}'
@@ -7603,25 +7835,15 @@ def _render_ai_office_scene():
       'return RECORD_TYPE_OWNERS[rec.type]||QUEUE_MEDIA_OWNERS[rec.media]||'
       'RECORD_FALLBACK_OWNER;'
       '}'
-      'function renderExecutionQueue(){'
-      'var listEl=document.querySelector("#ai-office-queue-list");'
-      'if(!listEl)return;'
-      'var records=loadTodayRecordsDb();'
-      # 記録がない場合は、既存の空メッセージ<li>をそのまま残す(実在しない
-      # 作業を作らない)。
-      'if(records.length===0)return;'
-      'listEl.innerHTML="";'
-      'records.forEach(function(rec){'
-      'var owner=queueOwnerForRecord(rec);'
-      'var ownerName=STAFF_NAMES[owner]||owner;'
-      'var status=QUEUE_STATUS_BY_TYPE[rec.type]||QUEUE_DEFAULT_STATUS;'
-      'var nextAction=QUEUE_NEXT_ACTION_BY_TYPE[rec.type]||QUEUE_DEFAULT_NEXT_ACTION;'
-      'var content=(rec.content||rec.metric||"").toString();'
+      # MISSION 089: 実行キューの<li>を組み立てる共通処理(運用記録由来・
+      # 楽天ROOM候補由来のどちらからも使う)。
+      'function buildQueueItem(mediaLabel,content,ownerName,status,nextAction,'
+      'linkHref,linkText){'
       'var li=document.createElement("li");'
       'li.className="ai-office-queue-item";'
       'var mediaEl=document.createElement("span");'
       'mediaEl.className="ai-office-queue-media";'
-      'mediaEl.textContent=rec.media||"媒体未設定";'
+      'mediaEl.textContent=mediaLabel||"媒体未設定";'
       'var contentEl=document.createElement("p");'
       'contentEl.className="ai-office-queue-content";'
       'contentEl.textContent=content;'
@@ -7640,10 +7862,42 @@ def _render_ai_office_scene():
       'nextEl.append(nextLabel,document.createTextNode(nextAction));'
       'var linkEl=document.createElement("a");'
       'linkEl.className="ai-office-queue-link";'
-      'linkEl.href="/command-center";'
-      'linkEl.textContent="運用司令室へ移動する";'
+      'linkEl.href=linkHref;'
+      'linkEl.textContent=linkText;'
       'li.append(mediaEl,contentEl,metaEl,nextEl,linkEl);'
-      'listEl.appendChild(li);'
+      'return li;'
+      '}'
+      'function renderExecutionQueue(){'
+      'var listEl=document.querySelector("#ai-office-queue-list");'
+      'if(!listEl)return;'
+      'var records=loadTodayRecordsDb();'
+      'var roomCandidate=todayRoomCandidate();'
+      # 記録も楽天ROOM候補も無い場合は、既存の空メッセージ<li>をそのまま
+      # 残す(実在しない作業を作らない)。
+      'if(records.length===0&&!roomCandidate)return;'
+      'listEl.innerHTML="";'
+      # MISSION 089: 「今日」に設定した楽天ROOM候補(未完了)があれば、
+      # 運用記録より先に1件だけ実行キューへ加える。投稿準備席(陽菜)が
+      # 担当する最終確認として表示する。
+      'if(roomCandidate){'
+      'var candidateContent=roomCandidate.product_name||roomCandidate.genre||'
+      '"（商品名未入力）";'
+      'listEl.appendChild(buildQueueItem('
+      '"楽天ROOM",candidateContent,STAFF_NAMES.hina||"陽菜","手動投稿待ち",'
+      '"楽天ROOM候補を確認し、手動で投稿してください。",'
+      '"/content-studio/room-daily-candidates","投稿企画工場へ移動する"'
+      '));'
+      '}'
+      'records.forEach(function(rec){'
+      'var owner=queueOwnerForRecord(rec);'
+      'var ownerName=STAFF_NAMES[owner]||owner;'
+      'var status=QUEUE_STATUS_BY_TYPE[rec.type]||QUEUE_DEFAULT_STATUS;'
+      'var nextAction=QUEUE_NEXT_ACTION_BY_TYPE[rec.type]||QUEUE_DEFAULT_NEXT_ACTION;'
+      'var content=(rec.content||rec.metric||"").toString();'
+      'listEl.appendChild(buildQueueItem('
+      'rec.media,content,ownerName,status,nextAction,'
+      '"/command-center","運用司令室へ移動する"'
+      '));'
       '});'
       '}'
       # MISSION 088: renderExecutionQueue/renderRecentRecords/renderDirective
@@ -7715,9 +7969,21 @@ def _render_ai_office_scene():
       '}'
       # MISSION 086: 「柴犬社長からの本日の指示」。常に1件だけを選び、
       # 行動ボタンも1つだけにする。優先順位は上から
-      # 下書き→投稿済み→承認待ち→(過去の記録はあるが本日の記録なし)→
-      # (記録が1件もない)の順。
+      # 楽天ROOM候補(今日に設定・未完了)→下書き→投稿済み→承認待ち→
+      # (過去の記録はあるが本日の記録なし)→(記録が1件もない)の順。
+      # MISSION 089: 「今日」に設定した楽天ROOM候補は、最も具体的で
+      # すぐ動ける指示のため最優先にする。投稿済み・完了済みの候補は
+      # todayRoomCandidate()がmanual_postedを除外しているため指示に出ない。
       'function pickDirective(){'
+      'var roomCandidate=todayRoomCandidate();'
+      'if(roomCandidate){'
+      'return {'
+      'task:"楽天ROOM候補を確認し、手動で投稿する",'
+      'reason:"本日「今日」に設定した楽天ROOM候補があります",'
+      'href:"/content-studio",'
+      'label:"投稿企画工場を開く"'
+      '};'
+      '}'
       'var today=loadTodayRecordsDb();'
       'if(today.some(function(r){return r.type==="下書き";}))'
       'return DIRECTIVE_RULES[0];'
@@ -7738,26 +8004,64 @@ def _render_ai_office_scene():
       'if(reasonEl)reasonEl.textContent=d.reason;'
       'if(btnEl){btnEl.href=d.href;btnEl.textContent=d.label;}'
       '}'
+      # MISSION 089: 候補管理チーム(紬・凪・陽菜)は、楽天ROOM候補のうち
+      # 「今日」に設定した未完了候補が実際にある時だけ、社員名簿・
+      # フロアトークンを実績表示(稼働中)に切り替える。候補が無ければ、
+      # 通常の待機表示のまま(サーバー側の初期描画がすでに待機表示)なので、
+      # false時は何もしない(架空の実績を作らない)。
+      'var CANDIDATE_TEAM_KEYS=["tsumugi","nagi","hina"];'
+      'function applyCandidateTeamRealState(hasTodayCandidate){'
+      'if(!hasTodayCandidate)return;'
+      'CANDIDATE_TEAM_KEYS.forEach(function(key){'
+      'var deskEl=document.querySelector(\'.ai-office-desk[data-department="\'+key+\'"]\');'
+      'var badge=deskEl?deskEl.querySelector(".ai-office-status-badge"):null;'
+      'if(badge){'
+      'badge.classList.remove("ai-office-status-waiting");'
+      'badge.classList.add("ai-office-status-working");'
+      'badge.textContent=(STATUS_LABELS.working||"稼働中")+"（実績表示）";'
+      '}'
+      'var token=document.querySelector("#ai-office-token-"+key);'
+      'if(token){'
+      'token.classList.remove("ai-office-floormap-token-waiting");'
+      'token.classList.add("ai-office-floormap-token-working");'
+      '}'
+      'var dot=document.querySelector("#ai-office-nameplate-dot-"+key);'
+      'if(dot){'
+      'dot.classList.remove("ai-office-nameplate-dot-waiting");'
+      'dot.classList.add("ai-office-nameplate-dot-working");'
+      '}'
+      'var statusText=document.querySelector("#ai-office-nameplate-status-"+key);'
+      'if(statusText)statusText.textContent=" "+(STATUS_LABELS.working||"稼働中")+"（実績表示）";'
+      '});'
+      '}'
       # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」は、
       # このMac上のアプリ内DBを読み取り専用GETで1回取得してから、まとめて
       # 描画する。取得前・取得失敗時はDB_RECORDS_CACHEが空のままなので、
       # 既存の「記録がまだありません」という空状態表示に安全に収まる
       # (架空の実績を作らない)。fetchが使えない環境でも描画自体は行う。
+      # MISSION 089: 楽天ROOM候補(/api/dashboard/candidates)もあわせて
+      # 取得し、候補管理チームの実績表示切り替えに使う。
       'function initDashboardDrivenSections(){'
       'if(typeof window.fetch!=="function"){'
       'renderDirective();renderExecutionQueue();renderRecentRecords();'
       'return;'
       '}'
-      'window.fetch("/api/dashboard/daily-records").then(function(res){'
-      'return res.json();'
-      '}).then(function(data){'
+      'var recordsPromise=window.fetch("/api/dashboard/daily-records")'
+      '.then(function(res){return res.json();}).then(function(data){'
       'DB_RECORDS_CACHE=(data&&Array.isArray(data.records))?data.records:[];'
-      '}).catch(function(){'
-      'DB_RECORDS_CACHE=[];'
-      '}).then(function(){'
+      '}).catch(function(){DB_RECORDS_CACHE=[];});'
+      'var candidatesPromise=window.fetch("/api/dashboard/candidates")'
+      '.then(function(res){return res.json();}).then(function(data){'
+      'DB_CANDIDATES_CACHE=(data&&Array.isArray(data.candidates))?data.candidates:[];'
+      '}).catch(function(){DB_CANDIDATES_CACHE=[];});'
+      'Promise.all([recordsPromise,candidatesPromise]).then(function(){'
       'renderDirective();'
       'renderExecutionQueue();'
       'renderRecentRecords();'
+      'var hasTodayCandidate=loadActiveRoomCandidates().some(function(c){'
+      'return c.bucket==="today";'
+      '});'
+      'applyCandidateTeamRealState(hasTodayCandidate);'
       '});'
       '}'
       'initDashboardDrivenSections();'

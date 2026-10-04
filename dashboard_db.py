@@ -5,6 +5,13 @@ MISSION 088: これまでブラウザごとのlocalStorageだけに保存して�
 同じMac上で動くこのFlaskアプリ内のSQLite(既存のai_company.db)へも
 保存できるようにする。
 
+MISSION 089: post_candidatesに、楽天ROOM候補を「今日・今週・保留」に
+整理するための`bucket`列を追加する。すでにMISSION 088時点のDBで
+post_candidatesテーブルが存在する環境でも安全に動くよう、
+CREATE TABLE IF NOT EXISTS(新規DB用)とは別に、既存テーブルへは
+ALTER TABLE ADD COLUMN(列がまだ無い場合のみ)で移行する。既存の行は
+一切削除・上書きせず、bucket列だけが'hold'(保留)で追加される。
+
 安全方針:
 - 既存のai_company.db・work_logsテーブル・hive_db.pyの7テーブルには
   一切手を加えない(CREATE TABLE IF NOT EXISTSで新規2テーブルのみ追加)。
@@ -54,10 +61,17 @@ CREATE TABLE IF NOT EXISTS post_candidates (
     hashtags TEXT,
     manual_checked INTEGER NOT NULL DEFAULT 0,
     manual_posted INTEGER NOT NULL DEFAULT 0,
+    bucket TEXT NOT NULL DEFAULT 'hold',
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 """
+
+# MISSION 089: 候補の整理区分。「今日」「今週」「保留」の3つだけを許可し、
+# それ以外の値は無視する(無効な値でUPDATEしても既存値を変えない、INSERT
+# 時は'hold'にする)。
+BUCKET_VALUES = ("today", "week", "hold")
+BUCKET_DEFAULT = "hold"
 
 # sqlite3接続はスレッドごとに作り直す(Flask開発サーバーはリクエストごとに
 # 別スレッドで処理されうるため、1つのconnectionを使い回さない)。書き込みの
@@ -71,14 +85,40 @@ def get_connection():
   return conn
 
 
+def _ensure_post_candidates_bucket_column(conn):
+  """MISSION 089: MISSION 088時点で作られたpost_candidatesテーブル(bucket
+  列なし)が既に存在する環境でも安全に動く移行。列が無いときだけADD COLUMN
+  する(既存の行・他の列は一切変更しない)。CREATE TABLE IF NOT EXISTSは
+  テーブルが無い場合にしか列を追加できないため、この移行が必要になる。
+  """
+  cols = {
+      row[1]
+      for row in conn.execute("PRAGMA table_info(post_candidates)").fetchall()
+  }
+  if "bucket" not in cols:
+    conn.execute(
+        "ALTER TABLE post_candidates ADD COLUMN bucket TEXT NOT NULL"
+        f" DEFAULT '{BUCKET_DEFAULT}'"
+    )
+
+
 def init_schema():
   with _LOCK:
     conn = get_connection()
     try:
       conn.executescript(SCHEMA)
+      _ensure_post_candidates_bucket_column(conn)
       conn.commit()
     finally:
       conn.close()
+
+
+def _normalize_bucket(bucket):
+  """有効な区分('today'/'week'/'hold')ならそのまま返し、未指定・無効な値は
+  Noneを返す(呼び出し側でNoneは「変更しない」の意味として扱う)。"""
+  if bucket in BUCKET_VALUES:
+    return bucket
+  return None
 
 
 def _norm(value):
@@ -140,9 +180,17 @@ def list_daily_records(date=None):
 
 
 def upsert_post_candidate(target_date, media, slot, genre, product_name, url,
-                           intro, hashtags, manual_checked, manual_posted):
+                           intro, hashtags, manual_checked, manual_posted,
+                           bucket=None):
   """投稿候補を1件保存する(同じ対象日・媒体・枠番号ならUPDATE、なければ
-  INSERT=重複を増やさない)。"""
+  INSERT=重複を増やさない)。
+
+  MISSION 089: bucket('today'/'week'/'hold')は「今日・今週・保留」の整理
+  区分。Noneまたは無効な値を渡した場合、UPDATE時は既存のbucketをそのまま
+  維持し(例:「手動投稿を完了した」ボタンはbucketを送らないため、直前まで
+  の整理区分を消さない)、INSERT時(=初めて保存する候補)は'hold'(保留)に
+  する(既存候補は初期状態では保留として扱うという要件どおり)。
+  """
   if not _norm(target_date) or not _norm(media):
     return {"inserted": False, "updated": False, "reason": "missing_required_field"}
   key = _candidate_dedup_key(target_date, media, slot, product_name)
@@ -152,6 +200,7 @@ def upsert_post_candidate(target_date, media, slot, genre, product_name, url,
     slot_value = int(slot) if slot is not None and slot != "" else None
   except (TypeError, ValueError):
     slot_value = None
+  normalized_bucket = _normalize_bucket(bucket)
   with _LOCK:
     conn = get_connection()
     try:
@@ -162,21 +211,23 @@ def upsert_post_candidate(target_date, media, slot, genre, product_name, url,
         conn.execute(
             "UPDATE post_candidates SET genre=?, product_name=?, url=?,"
             " intro=?, hashtags=?, manual_checked=?, manual_posted=?,"
+            " bucket=COALESCE(?, bucket),"
             " updated_at=datetime('now','localtime') WHERE dedup_key=?",
             (genre or "", product_name or "", url or "", intro or "",
              hashtags_json, int(bool(manual_checked)), int(bool(manual_posted)),
-             key),
+             normalized_bucket, key),
         )
         conn.commit()
         return {"inserted": False, "updated": True}
       conn.execute(
           "INSERT INTO post_candidates"
           " (dedup_key, target_date, media, slot, genre, product_name, url,"
-          "  intro, hashtags, manual_checked, manual_posted)"
-          " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "  intro, hashtags, manual_checked, manual_posted, bucket)"
+          " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           (key, _norm(target_date), _norm(media), slot_value, genre or "",
            product_name or "", url or "", intro or "", hashtags_json,
-           int(bool(manual_checked)), int(bool(manual_posted))),
+           int(bool(manual_checked)), int(bool(manual_posted)),
+           normalized_bucket or BUCKET_DEFAULT),
       )
       conn.commit()
       return {"inserted": True, "updated": False}
@@ -239,7 +290,7 @@ def migrate_from_payload(records, candidates):
         c.get("targetDate"), c.get("media"), c.get("slot"), c.get("genre", ""),
         c.get("productName", ""), c.get("url", ""), c.get("intro", ""),
         c.get("hashtags", []), c.get("manualChecked", False),
-        c.get("manualPosted", False),
+        c.get("manualPosted", False), bucket=c.get("bucket"),
     )
     if result.get("inserted"):
       cand_inserted += 1
@@ -294,6 +345,7 @@ def register_dashboard_api(app):
           data.get("genre", ""), data.get("productName", ""), data.get("url", ""),
           data.get("intro", ""), data.get("hashtags", []),
           data.get("manualChecked", False), data.get("manualPosted", False),
+          bucket=data.get("bucket"),
       )
       return jsonify(result)
     target_date = request.args.get("targetDate")
