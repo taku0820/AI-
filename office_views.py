@@ -9,6 +9,12 @@ import os
 
 from flask import render_template_string
 
+# MISSION 091: 収益化ボード・AIオフィスの分析表示(葵)で使う、媒体ごとの
+# 実績指標の定義(REVENUE_METRIC_FIELDS)を、dashboard_db.pyの定義と
+# 二重管理にならないよう共有する。dashboard_db.py側はoffice_views.pyに
+# 依存しないため、循環importにはならない。
+import dashboard_db
+
 
 SPRITES = ("president", "ayaka", "kotoe", "aoi", "misaki", "umi", "minato", "ito")
 
@@ -81,7 +87,16 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .revenue-pipeline li:not(:last-child):after{content:"→";margin-left:8px;color:var(--sub)}
 .revenue-priorities li{margin-bottom:4px}
 .revenue-footnote{margin-top:16px;font-size:11px;color:var(--sub);text-align:center}
-@media(max-width:760px){.revenue-grid{grid-template-columns:1fr}}
+.revenue-metric-entry{margin-bottom:16px}
+.revenue-metric-fieldgroup[hidden]{display:none}
+.revenue-metric-summary{margin-bottom:16px}
+.revenue-metric-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.revenue-metric-summary-card{background:#0b1120;border:1px solid #253651;border-radius:10px;padding:10px 12px}
+.revenue-metric-summary-card h3{margin:0 0 6px;font-size:13px;color:var(--sub)}
+.revenue-metric-summary-list{list-style:none;margin:0;padding:0;font-size:12px;line-height:1.8}
+.revenue-metric-summary-list b{color:var(--ink)}
+.revenue-metric-history{margin:6px 0 0;padding-left:16px;font-size:11px;color:var(--sub);line-height:1.7}
+@media(max-width:760px){.revenue-grid,.revenue-metric-summary-grid{grid-template-columns:1fr}}
 .room-prep-section{margin-top:24px}
 .room-prep-section h2{font-size:16px;margin:0 0 10px}
 .room-prep-notice{background:#101827;border:1px solid var(--blue);color:var(--ink);padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.6;margin-bottom:12px}
@@ -369,6 +384,11 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office-demo-banner span{font-weight:400;color:#f4d98b}
 .ai-office-record-mode-badge{background:#142039;border:1px solid var(--edge);color:var(--sub);border-radius:10px;padding:8px 14px;margin-bottom:18px;font-size:12px;text-align:center}
 .ai-office-record-mode-badge.is-real{border-color:#34d399;color:var(--ink);background:#0b3d2e}
+.ai-office-analytics-report{background:#142039;border:1px solid var(--edge);border-radius:10px;padding:8px 14px;margin-bottom:18px;font-size:12px}
+.ai-office-analytics-report b{color:var(--blue);display:block;margin-bottom:2px}
+.ai-office-analytics-report p{margin:0;color:var(--sub)}
+.ai-office-analytics-report.is-real{border-color:#34d399}
+.ai-office-analytics-report.is-real p{color:var(--ink)}
 .ai-office-role-diff{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--sub);line-height:1.7}
 .ai-office-role-diff b{color:var(--ink)}
 .ai-office-section{margin:24px 0}
@@ -707,6 +727,280 @@ REVENUE_FOCUS = {
 }
 
 
+def _render_revenue_metric_entry_section():
+  """収益化ボードの「今日の実績を記録する」入口(MISSION 091)。
+
+  最初に媒体を選ぶと、その媒体に必要な入力欄だけを表示する(他媒体の
+  欄は<div hidden>のまま)。数値欄と保存ボタンを中心に置き、注意書き・
+  メモ欄は<details>で折りたたむ。保存はこのMac上のアプリ内DB
+  (/api/dashboard/metrics)への同一オリジンJSON POSTのみで、外部サービス
+  への投稿・送信・ログイン・自動取得・ブラウザ自動操作は一切行わない。
+  数値が分からない指標は空欄のまま保存でき、1つも入力が無い場合は保存
+  せず画面内に案内を表示する。
+  """
+  media_options = "".join(
+      f'<option value="{m}">{m}</option>' for m in dashboard_db.REVENUE_METRIC_MEDIA_ORDER
+  )
+
+  def _field_input(media, field):
+    key = field["key"]
+    label = field["label"]
+    input_id = f"rm-metric-{media}-{key}"
+    if key == "posted":
+      return (
+          f'<div><label for="{input_id}">{label}</label>'
+          f'<select id="{input_id}" class="revenue-metric-input" '
+          f'data-metric="{key}" data-no-diff="1">'
+          '<option value="">未選択</option>'
+          '<option value="1">あり</option>'
+          '<option value="0">なし</option>'
+          '</select></div>'
+      )
+    placeholder = "（任意）" if key == "reactions" else "実際に確認できた数字だけを入力"
+    return (
+        f'<div><label for="{input_id}">{label}</label>'
+        f'<input type="number" step="any" id="{input_id}" '
+        f'class="revenue-metric-input" data-metric="{key}" '
+        f'placeholder="{placeholder}"></div>'
+    )
+
+  field_groups = "".join(
+      f'<div class="revenue-metric-fieldgroup" data-media="{media}" hidden>'
+      '<div class="cc-decision-fields">'
+      + "".join(_field_input(media, f) for f in dashboard_db.REVENUE_METRIC_FIELDS[media])
+      + '</div></div>'
+      for media in dashboard_db.REVENUE_METRIC_MEDIA_ORDER
+  )
+
+  return (
+      '<section class="revenue-metric-entry cc-decision-box" '
+      'id="revenue-metric-entry" aria-label="今日の実績を記録する">'
+      '<h2 class="cc-section-title">今日の実績を記録する</h2>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="rm-date">日付</label>'
+      '<input type="date" id="rm-date"></div>'
+      '<div><label for="rm-media">媒体</label>'
+      f'<select id="rm-media"><option value="">選択してください</option>'
+      f'{media_options}</select></div>'
+      '</div>'
+      f'<div id="revenue-metric-fieldgroups">{field_groups}</div>'
+      '<p class="cc-decision-note" id="rm-fieldgroup-hint">媒体を選ぶと、'
+      'その媒体に必要な入力欄が表示されます。</p>'
+      '<details class="cc-work-ledger-detail">'
+      '<summary>注意書き・メモ（任意）</summary>'
+      '<p class="cc-decision-note">数字が分からない指標は空欄のままで'
+      '保存できます。利用者が実際に確認できた数字だけを入力してください。'
+      'このアプリが外部サービスから自動で数字を取得することはありません。'
+      '</p>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="rm-note">メモ（任意）</label>'
+      '<input type="text" id="rm-note" maxlength="200" '
+      'placeholder="確認した画面名など"></div>'
+      '</div>'
+      '</details>'
+      '<button type="button" class="cc-decision-add-btn" id="rm-save-btn">'
+      '今日の実績を保存する</button>'
+      '<p class="cc-decision-note" id="rm-save-result" aria-live="polite">'
+      '</p>'
+      '<script>(function(){'
+      f'var MEDIA_FIELDS={json.dumps(dashboard_db.REVENUE_METRIC_FIELDS, ensure_ascii=False)};'
+      'function todayDateStr(){'
+      'var d=new Date();'
+      'function pad(n){return n<10?"0"+n:""+n;}'
+      'return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());'
+      '}'
+      'var dateEl=document.querySelector("#rm-date");'
+      'if(dateEl&&!dateEl.value)dateEl.value=todayDateStr();'
+      'var mediaEl=document.querySelector("#rm-media");'
+      'var noteEl=document.querySelector("#rm-note");'
+      'var saveBtn=document.querySelector("#rm-save-btn");'
+      'var resultEl=document.querySelector("#rm-save-result");'
+      'var hintEl=document.querySelector("#rm-fieldgroup-hint");'
+      'var groups=document.querySelectorAll(".revenue-metric-fieldgroup");'
+      'function showGroupFor(media){'
+      'groups.forEach(function(g){g.hidden=(g.dataset.media!==media);});'
+      'if(hintEl)hintEl.hidden=Boolean(media);'
+      '}'
+      'if(mediaEl){'
+      'mediaEl.addEventListener("change",function(){'
+      'showGroupFor(mediaEl.value);'
+      'resultEl.textContent="";'
+      '});'
+      '}'
+      'function collectValues(media){'
+      'var values={};'
+      'var group=document.querySelector('
+      '\'.revenue-metric-fieldgroup[data-media="\'+media+\'"]\');'
+      'if(!group)return values;'
+      'group.querySelectorAll(".revenue-metric-input").forEach(function(el){'
+      'var v=el.value;'
+      'if(v===null||v==="")return;'
+      'values[el.dataset.metric]=v;'
+      '});'
+      'return values;'
+      '}'
+      'if(saveBtn){'
+      'saveBtn.addEventListener("click",function(){'
+      'var date=dateEl?dateEl.value:"";'
+      'var media=mediaEl?mediaEl.value:"";'
+      'if(!date||!media){'
+      'resultEl.textContent="日付と媒体を選択してください。";'
+      'return;'
+      '}'
+      'var values=collectValues(media);'
+      'if(Object.keys(values).length===0){'
+      'resultEl.textContent='
+      '"数値を1つ以上入力してください（分からない項目は空欄のままで'
+      'かまいません）。";'
+      'return;'
+      '}'
+      'saveBtn.disabled=true;'
+      'resultEl.textContent="保存しています…";'
+      'window.fetch("/api/dashboard/metrics",{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify({'
+      'date:date,media:media,values:values,'
+      'note:noteEl?noteEl.value:""'
+      '})'
+      '}).then(function(res){return res.json();}).then(function(data){'
+      'saveBtn.disabled=false;'
+      'if(data&&data.saved){'
+      'var labels=(MEDIA_FIELDS[media]||[]).filter(function(f){'
+      'return data.savedMetrics.indexOf(f.key)!==-1;'
+      '}).map(function(f){return f.label;});'
+      'resultEl.textContent=date+"の"+media+"の「"+labels.join("・")+'
+      '"」を記録しました。";'
+      '}else{'
+      'resultEl.textContent='
+      '"数値を1つ以上入力してください（分からない項目は空欄のままで'
+      'かまいません）。";'
+      '}'
+      '}).catch(function(){'
+      'saveBtn.disabled=false;'
+      'resultEl.textContent='
+      '"保存できませんでした。しばらくしてからもう一度お試しください。";'
+      '});'
+      '});'
+      '}'
+      '})();</script>'
+      '</section>'
+  )
+
+
+def _render_revenue_metric_summary_section():
+  """収益化ボードの「媒体ごとの実績記録」(MISSION 091)。
+
+  保存済みのDB実績(/api/dashboard/metrics/summary)だけを使い、最新の記録・
+  前回記録との差分・直近の履歴を表示する。初回記録や比較対象が無い指標は
+  「比較できる記録はまだありません」と正直に表示し、増減を捏造しない。
+  1件も記録の無い媒体は「未記録」と表示する(ゼロ実績として扱わない)。
+  """
+  cards = "".join(
+      f'<div class="revenue-metric-summary-card" data-media="{media}">'
+      f'<h3>{media}</h3>'
+      '<p class="revenue-metric-summary-body">確認中…</p>'
+      '</div>'
+      for media in dashboard_db.REVENUE_METRIC_MEDIA_ORDER
+  )
+  return (
+      '<section class="revenue-metric-summary cc-decision-box" '
+      'id="revenue-metric-summary" aria-label="媒体ごとの実績記録">'
+      '<h2 class="cc-section-title">媒体ごとの実績記録</h2>'
+      '<p class="cc-decision-note">ここに表示するのは、上の「今日の実績を'
+      '記録する」またはこのMac上のアプリ内データ（SQLite）に保存済みの'
+      '数値だけです。デモの売上・クリック・反応・グラフは表示しません。'
+      '記録の無い媒体は「未記録」と表示し、0件として扱いません。</p>'
+      f'<div class="revenue-metric-summary-grid" id="revenue-metric-summary-grid">'
+      f'{cards}</div>'
+      '<script>(function(){'
+      f'var MEDIA_FIELDS={json.dumps(dashboard_db.REVENUE_METRIC_FIELDS, ensure_ascii=False)};'
+      'function escapeHtml(s){'
+      'return String(s==null?"":s)'
+      '.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");'
+      '}'
+      'function formatNumber(n){'
+      'if(typeof n!=="number")return String(n);'
+      'return Number.isInteger(n)?String(n):String(Math.round(n*100)/100);'
+      '}'
+      'function formatValue(metric,value){'
+      'if(metric==="posted")return value===1?"あり":"なし";'
+      'return formatNumber(value);'
+      '}'
+      'function formatDiff(metric,diff){'
+      'if(metric==="posted")return "";'
+      'if(diff==null)return "比較できる記録はまだありません";'
+      'var sign=diff>0?"+":"";'
+      'return "前回との差分："+sign+formatNumber(diff);'
+      '}'
+      'function renderCard(media,summary){'
+      'var card=document.querySelector('
+      '\'.revenue-metric-summary-card[data-media="\'+media+\'"]\');'
+      'if(!card)return;'
+      'var body=card.querySelector(".revenue-metric-summary-body");'
+      'if(!body)return;'
+      'var fields=MEDIA_FIELDS[media]||[];'
+      'var hasAny=fields.some(function(f){'
+      'return summary&&summary[f.key]&&summary[f.key].latest;'
+      '});'
+      'if(!hasAny){'
+      'body.textContent="未記録";'
+      'return;'
+      '}'
+      'var html="<ul class=\\"revenue-metric-summary-list\\">";'
+      'fields.forEach(function(f){'
+      'var m=summary[f.key]||{};'
+      'if(!m.latest){'
+      'html+="<li><b>"+escapeHtml(f.label)+"：</b>未記録</li>";'
+      'return;'
+      '}'
+      'var valueText=formatValue(f.key,m.latest.value);'
+      'var diffText=formatDiff(f.key,m.diff);'
+      'html+="<li><b>"+escapeHtml(f.label)+"：</b>"+escapeHtml(valueText)+'
+      '"（"+escapeHtml(m.latest.date)+"記録）"+'
+      '(diffText?"　"+escapeHtml(diffText):"")+"</li>";'
+      '});'
+      'html+="</ul>";'
+      'var historyEntries=[];'
+      'fields.forEach(function(f){'
+      'var m=summary[f.key]||{};'
+      '(m.history||[]).forEach(function(h){'
+      'historyEntries.push({date:h.date,label:f.label,'
+      'value:formatValue(f.key,h.value)});'
+      '});'
+      '});'
+      'historyEntries.sort(function(a,b){'
+      'if(a.date===b.date)return 0;'
+      'return a.date<b.date?1:-1;'
+      '});'
+      'if(historyEntries.length){'
+      'html+="<details class=\\"cc-work-ledger-detail\\">"+'
+      '"<summary>直近の履歴</summary><ul class=\\"revenue-metric-history\\">";'
+      'historyEntries.slice(0,10).forEach(function(h){'
+      'html+="<li>"+escapeHtml(h.date)+"　"+escapeHtml(h.label)+"："+'
+      'escapeHtml(h.value)+"</li>";'
+      '});'
+      'html+="</ul></details>";'
+      '}'
+      'body.innerHTML=html;'
+      '}'
+      'function loadSummary(){'
+      'if(typeof window.fetch!=="function")return;'
+      'window.fetch("/api/dashboard/metrics/summary")'
+      '.then(function(res){return res.json();})'
+      '.then(function(data){'
+      'var summary=(data&&data.summary)||{};'
+      'Object.keys(summary).forEach(function(media){'
+      'renderCard(media,summary[media]);'
+      '});'
+      '}).catch(function(){});'
+      '}'
+      'loadSummary();'
+      '})();</script>'
+      '</section>'
+  )
+
+
 def _render_revenue_scene(focus):
   """収益化ボードのカード群を、REVENUE_FOCUSのデータから組み立てる。
 
@@ -725,10 +1019,14 @@ def _render_revenue_scene(focus):
   return (
       '<section class="revenue-board" aria-label="収益化ボード">'
       '<div class="revenue-notice">'
-      '<b>社内の企画たたき台です。</b>'
-      'ここに表示する内容は検討中の案であり、外部への送信・公開、'
-      '自動的な実行は一切行われません。'
+      '<b>社内の企画たたき台です（参考表示）。</b>'
+      'ここに表示する事業の目的・お客さま像・収益の柱などの説明は検討中の'
+      '案（参考表示）であり、外部への送信・公開、自動的な実行は一切行われ'
+      'ません。数値の実績は、下の「今日の実績を記録する」から保存した、'
+      'このMac上のアプリ内データ（SQLite）の記録だけを表示します。'
       '</div>'
+      + _render_revenue_metric_entry_section()
+      + _render_revenue_metric_summary_section() +
       '<div class="revenue-card revenue-focus">'
       '<span class="revenue-tag">第一優先事業</span>'
       f'<h2>{focus["business_name"]}</h2>'
@@ -7733,6 +8031,8 @@ def _render_ai_office_scene():
           # 実行キュー」「社員の状態」専用のデータ。
           "allStaffKeys": AI_OFFICE_ALL_STAFF_KEYS,
           "workStatusLabels": WORK_ITEM_STATUS_LABELS,
+          # MISSION 091: 分析ラボ(葵)の実データ化専用のデータ。
+          "metricFieldLabels": dashboard_db.REVENUE_METRIC_FIELDS,
       },
       ensure_ascii=False,
   )
@@ -7764,6 +8064,14 @@ def _render_ai_office_scene():
       # の中身を知り得ないため、初期表示は読み込み中の文言にしておく)。
       '<div class="ai-office-record-mode-badge" id="ai-office-record-mode-badge">'
       '読み込み中…（デモ表示）</div>'
+      # MISSION 091: 分析ラボ(葵)からの報告。当日に実績スナップショットが
+      # 記録されているかどうかだけをもとに、DBに保存済みの事実を短く
+      # 表示する(推測・比較・架空の分析は行わない)。サーバー側はDBの
+      # 中身を知り得ないため、初期表示は確認中の文言にしておく。
+      '<div class="ai-office-analytics-report" id="ai-office-analytics-report">'
+      '<b>分析ラボ（葵）からの報告</b>'
+      '<p id="ai-office-analytics-report-text">確認中…</p>'
+      '</div>'
       '<div class="ai-office-role-diff">'
       '<p><b>運用司令室</b>（/command-center）は、数字の確認・判断・記録を'
       '行う画面です。<b>AIオフィス</b>（このページ）は、役割・進行状況・'
@@ -7939,7 +8247,8 @@ def _render_ai_office_scene():
       'RECENT_MAX_ITEMS=DATA.recentMaxItems,'
       'DIRECTIVE_RULES=DATA.directiveRules,'
       'ALL_STAFF_KEYS=DATA.allStaffKeys,'
-      'WORK_STATUS_LABELS=DATA.workStatusLabels;'
+      'WORK_STATUS_LABELS=DATA.workStatusLabels,'
+      'METRIC_FIELD_LABELS=DATA.metricFieldLabels;'
       'function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}'
       # MISSION 080: 運用司令室の「本日の運用記録」(localStorage)を読み、
       # 今日の日付の記録だけを、対応する社員の対面報告に変換する。
@@ -8200,11 +8509,16 @@ def _render_ai_office_scene():
       # 「稼働中（実績表示）」にし、無い社員は「待機中（実績なし）」と正直に
       # 表示する(架空の稼働・実績を作らない)。社員名簿カード・フロア
       # トークン・上部ステータスストリップの3箇所をまとめて更新する。
-      'function applyStaffRealState(todayItems){'
+      # MISSION 091: 分析ラボ(葵/"analytics")だけは例外で、作業台帳の担当
+      # 割り当てではなく「当日に実績スナップショットがDBへ記録されたか」
+      # だけで稼働中/待機中を決める(要件どおり、作業台帳の割り当てとは
+      # 切り離す)。
+      'function applyStaffRealState(todayItems,metricsToday){'
       'var workingKeys={};'
       'todayItems.forEach(function(item){'
       'if(item&&item.assignee)workingKeys[item.assignee]=true;'
       '});'
+      'workingKeys.analytics=Boolean(metricsToday&&metricsToday.length);'
       'ALL_STAFF_KEYS.forEach(function(key){'
       'var working=Boolean(workingKeys[key]);'
       'var statusKey=working?"working":"waiting";'
@@ -8238,6 +8552,37 @@ def _render_ai_office_scene():
       'if(statusText)statusText.textContent=" "+label;'
       '});'
       '}'
+      # MISSION 091: 分析ラボ(葵)の報告。DBに保存済みの事実(当日に記録
+      # された、最後に保存された1件の媒体・指標)だけを短く表示する。数値
+      # そのものや、推測・比較は一切含めない。記録が無い日は、架空の分析・
+      # 成果・会話を作らず、正直に待機中の文言を出す。
+      'var analyticsReportEl=document.querySelector("#ai-office-analytics-report");'
+      'var analyticsReportTextEl=document.querySelector('
+      '"#ai-office-analytics-report-text");'
+      'function metricLabel(media,metric){'
+      'var fields=METRIC_FIELD_LABELS[media]||[];'
+      'for(var i=0;i<fields.length;i++){'
+      'if(fields[i].key===metric)return fields[i].label;'
+      '}'
+      'return metric;'
+      '}'
+      'function renderAnalyticsReport(metricsToday){'
+      'if(!analyticsReportTextEl)return;'
+      'if(!metricsToday||!metricsToday.length){'
+      'analyticsReportTextEl.textContent="本日の実績記録はまだありません'
+      '（待機中）";'
+      'if(analyticsReportEl)analyticsReportEl.classList.remove("is-real");'
+      'return;'
+      '}'
+      'var latest=metricsToday[metricsToday.length-1];'
+      'var label=metricLabel(latest.media,latest.metric);'
+      'var text=latest.media+"の"+label+"を記録しました";'
+      'if(metricsToday.length>1){'
+      'text+="（他"+(metricsToday.length-1)+"件も記録しました）";'
+      '}'
+      'analyticsReportTextEl.textContent=text;'
+      'if(analyticsReportEl)analyticsReportEl.classList.add("is-real");'
+      '}'
       # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」は、
       # このMac上のアプリ内DBを読み取り専用GETで1回取得してから、まとめて
       # 描画する。取得前・取得失敗時はDB_RECORDS_CACHEが空のままなので、
@@ -8245,10 +8590,13 @@ def _render_ai_office_scene():
       # (架空の実績を作らない)。fetchが使えない環境でも描画自体は行う。
       # MISSION 090: 作業台帳(/api/dashboard/work-items)もあわせて取得し、
       # 「本日の指示」「今日の実行キュー」「社員の状態」の実データ化に使う。
+      # MISSION 091: 実績スナップショット(/api/dashboard/metrics、当日分の
+      # み)もあわせて取得し、分析ラボ(葵)の状態・報告の実データ化に使う。
       'function initDashboardDrivenSections(){'
       'if(typeof window.fetch!=="function"){'
       'renderDirective();renderExecutionQueue();renderRecentRecords();'
-      'applyStaffRealState([]);'
+      'applyStaffRealState([],[]);'
+      'renderAnalyticsReport([]);'
       'return;'
       '}'
       'var recordsPromise=window.fetch("/api/dashboard/daily-records")'
@@ -8259,11 +8607,20 @@ def _render_ai_office_scene():
       '.then(function(res){return res.json();}).then(function(data){'
       'DB_WORK_ITEMS_CACHE=(data&&Array.isArray(data.workItems))?data.workItems:[];'
       '}).catch(function(){DB_WORK_ITEMS_CACHE=[];});'
-      'Promise.all([recordsPromise,workItemsPromise]).then(function(){'
+      'var metricsTodayPromise=window.fetch('
+      '"/api/dashboard/metrics?date="+todayDateStr())'
+      '.then(function(res){return res.json();})'
+      '.then(function(data){'
+      'return (data&&Array.isArray(data.metrics))?data.metrics.slice().reverse():[];'
+      '}).catch(function(){return [];});'
+      'Promise.all([recordsPromise,workItemsPromise,metricsTodayPromise])'
+      '.then(function(results){'
+      'var metricsToday=results[2];'
       'renderDirective();'
       'renderExecutionQueue();'
       'renderRecentRecords();'
-      'applyStaffRealState(loadTodayWorkItems());'
+      'applyStaffRealState(loadTodayWorkItems(),metricsToday);'
+      'renderAnalyticsReport(metricsToday);'
       '});'
       '}'
       'initDashboardDrivenSections();'

@@ -70,17 +70,19 @@ class DashboardDesignTestCase(unittest.TestCase):
     return re.findall(r'"(/api/[a-zA-Z0-9/_-]*)"', html)
 
   def _reset_dashboard_tables(self):
-    """MISSION 088/089/090: daily_records/post_candidates/work_itemsの行数を
-    厳密に数えるテスト用に、一時コピー(self.temp_db_path、使い捨てで本番
-    ai_company.dbには一切影響しない)の該当テーブルだけを空にする。本番DBには、
-    実際の利用で蓄積した行がすでに入っていることがあるため、件数アサーション
-    がその影響を受けないようにするための前処理。"""
+    """MISSION 088/089/090/091: daily_records/post_candidates/work_items/
+    metric_snapshotsの行数を厳密に数えるテスト用に、一時コピー
+    (self.temp_db_path、使い捨てで本番ai_company.dbには一切影響しない)の
+    該当テーブルだけを空にする。本番DBには、実際の利用で蓄積した行が
+    すでに入っていることがあるため、件数アサーションがその影響を受けない
+    ようにするための前処理。"""
     import sqlite3
     conn = sqlite3.connect(self.temp_db_path)
     try:
       conn.execute("DELETE FROM daily_records")
       conn.execute("DELETE FROM post_candidates")
       conn.execute("DELETE FROM work_items")
+      conn.execute("DELETE FROM metric_snapshots")
       conn.commit()
     finally:
       conn.close()
@@ -772,20 +774,29 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn("自動的な実行は一切行われません", html)
     self.assertIn("localhost限定", html)
 
-  def test_revenue_board_has_no_external_resources_or_scripts(self):
+  def test_revenue_board_has_no_external_resources(self):
+    # MISSION 091: 「今日の実績を記録する」「媒体ごとの実績記録」の追加に
+    # 伴い、同一オリジンの/api/dashboard/*宛てのJS・fetchは許可された(他の
+    # DB駆動画面と同じ方針)。外部URL・外部通信は引き続き一切禁止のまま。
     html = self.client.get("/revenue").get_data(as_text=True)
     self.assertNotIn("http://", html)
     self.assertNotIn("https://", html)
-    self.assertNotIn("<script", html)
-    self.assertNotIn("fetch(", html)
+    self.assertIn("<script", html)
+    self.assertIn('window.fetch("/api/dashboard/metrics', html)
     self.assertIn("prefers-reduced-motion:reduce", html)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
 
-  def test_revenue_board_is_fully_read_only_no_api_or_write_methods(self):
+  def test_revenue_board_write_action_is_local_db_only_no_form_or_auth(self):
+    # MISSION 091: 実績の保存は<form method="POST">ではなく、同一オリジンの
+    # JSON fetchのみで行う。認証トークン・外部送信は追加しない。
     html = self.client.get("/revenue").get_data(as_text=True)
-    self.assertNotIn("/api/", html)
     self.assertNotIn('method="POST"', html)
+    self.assertNotIn("<form", html)
     self.assertNotIn("Authorization", html)
     self.assertNotIn("AI_HIVE_", html)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
 
   def test_revenue_board_has_responsive_layout(self):
     html = self.client.get("/revenue").get_data(as_text=True)
@@ -3309,7 +3320,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     # 実態を反映するため、トップダッシュボード(/)と7日間計画
     # (/content-studio/weekly-plan)にだけ、正確な説明として言及するように
     # なった(このアプリ自体はThreadsへの投稿・ログイン・連携を行わない)。
-    # それ以外の画面には、引き続きThreadsへの言及がないことを確認する。
+    # MISSION 091で、/revenue(収益化ボード)にも「投稿の有無・確認できた
+    # 反応数」を利用者が手入力で記録できる媒体としてThreadsが加わった
+    # (このアプリからの投稿・ログイン・連携は引き続き行わない。利用者が
+    # 確認した事実をDBへ書き写すだけ)。それ以外の画面には、引き続き
+    # Threadsへの言及がないことを確認する。
     for path in (
         "/", "/content-studio", "/content-studio/desk-setup-post",
         "/content-studio/first-post", "/content-studio/note-first-article",
@@ -3322,6 +3337,11 @@ class DashboardDesignTestCase(unittest.TestCase):
         if path in ("/", "/content-studio/weekly-plan"):
           self.assertIn("Threads", html)
           self.assertIn("Dify", html)
+        elif path == "/revenue":
+          # MISSION 091: /revenueのThreads言及は、Difyの自動投稿ではなく、
+          # 利用者が手入力で記録する実績項目(投稿の有無・反応数)としての
+          # ものなので、Difyへの言及までは求めない。
+          self.assertIn("Threads", html)
         else:
           self.assertNotIn("Threads", html)
 
@@ -5479,7 +5499,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     # JS取得後に「稼働中（実績表示）」「待機中（実績なし）」へ置き換わる。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertGreaterEqual(html.count("確認中…"), 15)
-    self.assertIn("function applyStaffRealState(todayItems){", html)
+    self.assertIn("function applyStaffRealState(todayItems,metricsToday){", html)
     self.assertIn("（実績表示）", html)
     self.assertIn("（実績なし）", html)
 
@@ -7983,6 +8003,9 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 089: content-studioは「今日の一歩」カードがアプリ内DB
     # (/api/dashboard/candidates)を読み取り専用で参照するため、fetch(
     # 自体は許可しつつ、それ以外の外部通信が無いことを確認する。
+    # MISSION 091: /revenueも「今日の実績を記録する」「媒体ごとの実績記録」
+    # が同一オリジンの/api/dashboard/metrics*を参照するようになったため、
+    # fetch(自体は許可しつつ、それ以外の外部通信が無いことを確認する。
     for path in ("/office", "/revenue", "/content-studio"):
       with self.subTest(path=path):
         html = self.client.get(path).get_data(as_text=True)
@@ -7992,6 +8015,9 @@ class DashboardDesignTestCase(unittest.TestCase):
         if path == "/content-studio":
           for api_path in self._find_api_paths(html):
             self.assertEqual(api_path, "/api/dashboard/candidates")
+        elif path == "/revenue":
+          for api_path in self._find_api_paths(html):
+            self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
         else:
           self.assertNotIn("fetch(", html)
 
@@ -9067,7 +9093,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     # MISSION 090: 候補管理チーム3人限定のapplyCandidateTeamRealStateは、
     # 既存15名全員を対象にした汎用のapplyStaffRealStateへ置き換わった。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("function applyStaffRealState(todayItems){", html)
+    self.assertIn("function applyStaffRealState(todayItems,metricsToday){", html)
     self.assertIn("ALL_STAFF_KEYS.forEach(function(key){", html)
     self.assertNotIn("CANDIDATE_TEAM_KEYS", html)
     self.assertNotIn("applyCandidateTeamRealState", html)
@@ -9392,7 +9418,7 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_applies_real_state_to_all_15_staff(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("function applyStaffRealState(todayItems){", html)
+    self.assertIn("function applyStaffRealState(todayItems,metricsToday){", html)
     self.assertIn("ALL_STAFF_KEYS.forEach(function(key){", html)
     self.assertIn("実績表示", html)
     self.assertIn("実績なし", html)
@@ -9442,6 +9468,278 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/command-center").get_data(as_text=True)
     self.assertIn(".cc-decision-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))", html)
     self.assertIn("@media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}", html)
+
+  # --- MISSION 091: 実績スナップショットで収益化ボード・AIオフィスの分析 ---
+  # --- 表示を実データ化する ------------------------------------------------
+
+  def test_dashboard_db_schema_adds_metric_snapshots_table(self):
+    import sqlite3
+    conn = sqlite3.connect(self.temp_db_path)
+    try:
+      names = {
+          r[0]
+          for r in conn.execute(
+              "SELECT name FROM sqlite_master WHERE type='table'"
+          ).fetchall()
+      }
+    finally:
+      conn.close()
+    for existing in (
+        "work_logs", "employees", "missions", "tasks", "metrics", "reports",
+        "proposals", "decisions", "audit_logs", "daily_records",
+        "post_candidates", "work_items",
+    ):
+      self.assertIn(existing, names)
+    self.assertIn("metric_snapshots", names)
+
+  def test_dashboard_db_revenue_metric_fields_cover_required_media_and_items(self):
+    fields = dashboard_db.REVENUE_METRIC_FIELDS
+    self.assertEqual(
+        {f["key"] for f in fields["楽天ROOM"]},
+        {"product_count", "likes", "comments", "followers"},
+    )
+    self.assertEqual(
+        {f["key"] for f in fields["楽天アフィリエイト"]},
+        {"clicks", "sales", "commission", "orders"},
+    )
+    self.assertEqual(
+        {f["key"] for f in fields["Pinterest"]},
+        {"impressions", "saves", "link_clicks"},
+    )
+    self.assertEqual(
+        {f["key"] for f in fields["note"]}, {"pv", "likes", "followers"},
+    )
+    self.assertEqual(
+        {f["key"] for f in fields["Threads"]}, {"posted", "reactions"},
+    )
+
+  def test_dashboard_db_save_metric_snapshot_updates_instead_of_duplicating(self):
+    self._reset_dashboard_tables()
+    r1 = dashboard_db.save_metric_snapshot_batch(
+        "2099-01-01", "Pinterest", {"impressions": "1200", "saves": "34"},
+    )
+    self.assertTrue(r1["saved"])
+    self.assertEqual(sorted(r1["savedMetrics"]), ["impressions", "saves"])
+    rows = dashboard_db.list_metrics("2099-01-01", "Pinterest")
+    self.assertEqual(len(rows), 2)
+
+    # 同じ日・媒体・指標を再保存すると、重複を増やさず最新値へ更新される。
+    r2 = dashboard_db.save_metric_snapshot_batch(
+        "2099-01-01", "Pinterest", {"impressions": "1500"},
+    )
+    self.assertTrue(r2["saved"])
+    rows2 = dashboard_db.list_metrics("2099-01-01", "Pinterest")
+    self.assertEqual(len(rows2), 2)
+    impressions_row = [r for r in rows2 if r["metric"] == "impressions"][0]
+    self.assertEqual(impressions_row["value"], 1500.0)
+
+  def test_dashboard_db_save_metric_snapshot_skips_blank_fields(self):
+    self._reset_dashboard_tables()
+    result = dashboard_db.save_metric_snapshot_batch(
+        "2099-01-02", "Pinterest",
+        {"impressions": "800", "saves": "", "link_clicks": None},
+    )
+    self.assertTrue(result["saved"])
+    self.assertEqual(result["savedMetrics"], ["impressions"])
+    self.assertIn("saves", result["skippedMetrics"])
+    self.assertIn("link_clicks", result["skippedMetrics"])
+    rows = dashboard_db.list_metrics("2099-01-02", "Pinterest")
+    self.assertEqual(len(rows), 1)
+
+  def test_dashboard_db_save_metric_snapshot_rejects_when_nothing_entered(self):
+    self._reset_dashboard_tables()
+    result = dashboard_db.save_metric_snapshot_batch(
+        "2099-01-03", "Pinterest", {"impressions": "", "saves": None},
+    )
+    self.assertFalse(result["saved"])
+    self.assertEqual(result["reason"], "no_values")
+    self.assertEqual(len(dashboard_db.list_metrics("2099-01-03", "Pinterest")), 0)
+
+  def test_dashboard_db_save_metric_snapshot_requires_known_media(self):
+    self._reset_dashboard_tables()
+    result = dashboard_db.save_metric_snapshot_batch(
+        "2099-01-04", "謎の媒体", {"impressions": "100"},
+    )
+    self.assertFalse(result["saved"])
+    self.assertEqual(result["reason"], "unknown_media")
+
+  def test_dashboard_db_metric_summary_reports_no_comparison_on_first_record(self):
+    self._reset_dashboard_tables()
+    dashboard_db.save_metric_snapshot_batch(
+        "2099-01-05", "note", {"pv": "500"},
+    )
+    summary = dashboard_db.get_media_metric_summary("note")
+    self.assertIsNotNone(summary["pv"]["latest"])
+    self.assertEqual(summary["pv"]["latest"]["value"], 500.0)
+    self.assertIsNone(summary["pv"]["previous"])
+    self.assertIsNone(summary["pv"]["diff"])
+    # まだ一度も記録していない指標は、未記録(latest=None)のまま。
+    self.assertIsNone(summary["likes"]["latest"])
+
+  def test_dashboard_db_metric_summary_computes_diff_on_second_record(self):
+    self._reset_dashboard_tables()
+    dashboard_db.save_metric_snapshot_batch(
+        "2099-01-05", "note", {"pv": "500"},
+    )
+    dashboard_db.save_metric_snapshot_batch(
+        "2099-01-06", "note", {"pv": "650"},
+    )
+    summary = dashboard_db.get_media_metric_summary("note")
+    self.assertEqual(summary["pv"]["latest"]["value"], 650.0)
+    self.assertEqual(summary["pv"]["previous"]["value"], 500.0)
+    self.assertEqual(summary["pv"]["diff"], 150.0)
+
+  def test_dashboard_db_metric_summary_unrecorded_media_has_no_latest_anywhere(self):
+    # DBに記録が無い媒体は、全指標がlatest=Noneになる(呼び出し側で「未記録」
+    # と判定できる。ゼロ実績として扱わない)。
+    self._reset_dashboard_tables()
+    summary = dashboard_db.get_media_metric_summary("楽天ROOM")
+    for metric_key, entry in summary.items():
+      self.assertIsNone(entry["latest"], metric_key)
+
+  def test_dashboard_api_metrics_post_and_get_round_trip(self):
+    self._reset_dashboard_tables()
+    res = self.client.post(
+        "/api/dashboard/metrics",
+        json={"date": "2099-01-07", "media": "Threads",
+              "values": {"posted": "1", "reactions": "3"}},
+    )
+    self.assertEqual(res.status_code, 200)
+    self.assertTrue(res.get_json()["saved"])
+    res2 = self.client.get("/api/dashboard/metrics?date=2099-01-07&media=Threads")
+    data = res2.get_json()
+    self.assertEqual(len(data["metrics"]), 2)
+
+  def test_dashboard_api_metrics_requires_no_authentication(self):
+    res = self.client.get("/api/dashboard/metrics")
+    self.assertEqual(res.status_code, 200)
+    res2 = self.client.post("/api/dashboard/metrics", json={})
+    self.assertEqual(res2.status_code, 200)
+    self.assertFalse(res2.get_json()["saved"])
+
+  def test_dashboard_api_metrics_summary_endpoint(self):
+    self._reset_dashboard_tables()
+    dashboard_db.save_metric_snapshot_batch(
+        "2099-01-08", "楽天ROOM", {"product_count": "12"},
+    )
+    res = self.client.get("/api/dashboard/metrics/summary")
+    self.assertEqual(res.status_code, 200)
+    data = res.get_json()["summary"]
+    self.assertEqual(data["楽天ROOM"]["product_count"]["latest"]["value"], 12.0)
+    self.assertIsNone(data["Pinterest"]["impressions"]["latest"])
+    res2 = self.client.get("/api/dashboard/metrics/summary?media=楽天ROOM")
+    data2 = res2.get_json()["summary"]
+    self.assertIn("楽天ROOM", data2)
+    self.assertNotIn("Pinterest", data2)
+
+  def test_revenue_board_has_metric_entry_section_with_collapsed_details(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('id="revenue-metric-entry"', html)
+    self.assertIn("今日の実績を記録する", html)
+    self.assertIn('id="rm-date"', html)
+    self.assertIn('id="rm-media"', html)
+    self.assertIn('id="rm-save-btn"', html)
+    # 媒体ごとの入力欄グループは、最初は折りたたまれて(hidden)いる。
+    self.assertIn('class="revenue-metric-fieldgroup" data-media="楽天ROOM" hidden', html)
+    self.assertIn('class="revenue-metric-fieldgroup" data-media="Pinterest" hidden', html)
+    # 注意書き・メモは<details>で折りたたむ。
+    self.assertIn('<details class="cc-work-ledger-detail">', html)
+    self.assertIn('id="rm-note"', html)
+
+  def test_revenue_board_entry_section_lists_all_required_media_fields(self):
+    import office_views
+    html = self.client.get("/revenue").get_data(as_text=True)
+    for media, fields in office_views.dashboard_db.REVENUE_METRIC_FIELDS.items():
+      group = html.split(f'data-media="{media}" hidden>', 1)[1].split(
+          "</div></div>", 1
+      )[0]
+      for field in fields:
+        self.assertIn(f'data-metric="{field["key"]}"', group)
+
+  def test_revenue_board_metric_summary_section_shows_unrecorded_honestly(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('id="revenue-metric-summary"', html)
+    self.assertIn("媒体ごとの実績記録", html)
+    self.assertIn("未記録", html)
+    self.assertIn("比較できる記録はまだありません", html)
+    self.assertIn("0件として扱いません", html)
+    for media in ("楽天ROOM", "楽天アフィリエイト", "Pinterest", "note", "Threads"):
+      self.assertIn(
+          f'<div class="revenue-metric-summary-card" data-media="{media}">', html,
+      )
+    self.assertIn('window.fetch("/api/dashboard/metrics/summary")', html)
+
+  def test_revenue_board_notice_marks_static_content_as_reference_display(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn("社内の企画たたき台です（参考表示）", html)
+    self.assertIn("説明は検討中の案（参考表示）", html)
+    self.assertIn("デモの売上・クリック・反応・グラフは表示しません", html)
+
+  def test_revenue_board_save_action_posts_values_and_shows_confirmation(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn('window.fetch("/api/dashboard/metrics",{', html)
+    self.assertIn('method:"POST"', html)
+    self.assertIn("を記録しました。", html)
+    self.assertIn("数値を1つ以上入力してください", html)
+
+  def test_revenue_board_no_horizontal_scroll_css_present(self):
+    html = self.client.get("/revenue").get_data(as_text=True)
+    self.assertIn(
+        "@media(max-width:760px){.revenue-grid,.revenue-metric-summary-grid"
+        "{grid-template-columns:1fr}}",
+        html,
+    )
+
+  def test_ai_office_analytics_report_panel_present(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-analytics-report"', html)
+    self.assertIn('id="ai-office-analytics-report-text"', html)
+    self.assertIn("分析ラボ（葵）からの報告", html)
+    self.assertIn("function renderAnalyticsReport(metricsToday){", html)
+
+  def test_ai_office_analytics_status_depends_only_on_today_metrics(self):
+    # MISSION 091: 葵の稼働中/待機中は、作業台帳(work_items)の担当割り当て
+    # とは切り離し、当日の実績スナップショットの有無だけで決める。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function applyStaffRealState(todayItems,metricsToday){", html)
+    self.assertIn('workingKeys.analytics=Boolean(metricsToday&&metricsToday.length);', html)
+    self.assertIn('window.fetch("/api/dashboard/metrics?date="+todayDateStr())', html)
+
+  def test_ai_office_analytics_report_does_not_fabricate_numbers_or_comparisons(self):
+    # 「Pinterestの表示数を記録しました」のように、数値そのものや比較・
+    # 推測を含めない短い事実の報告文を組み立てていることを確認する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('var text=latest.media+"の"+label+"を記録しました";', html)
+    self.assertIn(
+        '"本日の実績記録はまだありません（待機中）"', html,
+    )
+
+  def test_ai_office_keeps_mission_090_work_ledger_features(self):
+    # MISSION 091でも、作業台帳(work_items)駆動の指示・実行キューは
+    # 既存どおり機能する(分析ラボだけが例外的にmetricsToday優先になる)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function pickDirective(){", html)
+    self.assertIn("function renderExecutionQueue(){", html)
+    self.assertIn("var items=loadTodayWorkItems();", html)
+    res = self.client.get("/command-center")
+    self.assertEqual(res.status_code, 200)
+    self.assertIn('id="cc-work-ledger"', res.get_data(as_text=True))
+
+  def test_mission_091_no_new_external_communication_anywhere(self):
+    for path in (
+        "/ai-office", "/revenue", "/content-studio",
+        "/content-studio/room-daily-candidates", "/command-center",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for api_path in self._find_api_paths(html):
+          self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+        self.assertNotIn("XMLHttpRequest", html)
+        self.assertNotIn("WebSocket", html)
+        self.assertNotIn("Authorization", html)
+        self.assertNotIn("api_key", html)
+        self.assertNotIn("access_token", html)
+        self.assertNotIn("<form", html)
 
 
 if __name__ == "__main__":

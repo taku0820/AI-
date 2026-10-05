@@ -21,6 +21,14 @@ MISSION 090: 媒体を問わない共通の「作業台帳」(work_items)を追�
 work_itemsへ作成しない)。作業の完了(status='done')は、利用者が明示的に
 完了操作をした場合のみ保存し、外部投稿の有無を推測・自動判定しない。
 
+MISSION 091: 収益化ボード・AIオフィスの分析表示(葵)を実績数値で動かす
+ための「実績スナップショット」(metric_snapshots)を追加する。日付・媒体・
+指標の組み合わせごとに、利用者が手入力した数値を1件ずつ保存する(同じ
+日・媒体・指標の再保存は、重複を増やさず最新の値へ安全に更新する)。
+数値が空欄の指標は保存自体をスキップし、1件も値が無い場合は保存しない。
+外部サービスからの自動取得・スクレイピング・ログイン・投稿・送信・
+ブラウザ自動操作は一切行わない。
+
 安全方針:
 - 既存のai_company.db・work_logsテーブル・hive_db.pyの7テーブルには
   一切手を加えない(CREATE TABLE IF NOT EXISTSで新規テーブルのみ追加)。
@@ -89,6 +97,18 @@ CREATE TABLE IF NOT EXISTS work_items (
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     completed_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS metric_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dedup_key TEXT NOT NULL UNIQUE,
+    date TEXT NOT NULL,
+    media TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    value REAL NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
 """
 
 # MISSION 089: 候補の整理区分。「今日」「今週」「保留」の3つだけを許可し、
@@ -115,6 +135,42 @@ WORK_ITEM_MEDIA_ASSIGNEE = {
     "楽天ROOM": "room",
 }
 WORK_ITEM_FALLBACK_ASSIGNEE = "room"
+
+# MISSION 091: 実績スナップショット(metric_snapshots)で入力を受け付ける、
+# 媒体ごとの指標一覧(キー・表示ラベル)。キーはそのままmetric列の値になる。
+# office_views.py(収益化ボード・AIオフィスの分析表示)もこの定義を参照し、
+# 入力フォーム・ラベル表示が二重管理にならないようにする。「投稿の有無」
+# (Threads)は1(あり)/0(なし)の数値として保存する。
+REVENUE_METRIC_FIELDS = {
+    "楽天ROOM": [
+        {"key": "product_count", "label": "商品数"},
+        {"key": "likes", "label": "いいね数"},
+        {"key": "comments", "label": "コメント数"},
+        {"key": "followers", "label": "フォロワー数"},
+    ],
+    "楽天アフィリエイト": [
+        {"key": "clicks", "label": "クリック数"},
+        {"key": "sales", "label": "売上"},
+        {"key": "commission", "label": "成果報酬"},
+        {"key": "orders", "label": "注文数"},
+    ],
+    "Pinterest": [
+        {"key": "impressions", "label": "表示数"},
+        {"key": "saves", "label": "保存数"},
+        {"key": "link_clicks", "label": "リンククリック数"},
+    ],
+    "note": [
+        {"key": "pv", "label": "PV"},
+        {"key": "likes", "label": "スキ"},
+        {"key": "followers", "label": "フォロワー数"},
+    ],
+    "Threads": [
+        {"key": "posted", "label": "投稿の有無"},
+        {"key": "reactions", "label": "確認できた反応数"},
+    ],
+}
+REVENUE_METRIC_MEDIA_ORDER = ["楽天ROOM", "楽天アフィリエイト", "Pinterest", "note", "Threads"]
+REVENUE_METRIC_HISTORY_LIMIT = 5
 
 # sqlite3接続はスレッドごとに作り直す(Flask開発サーバーはリクエストごとに
 # 別スレッドで処理されうるため、1つのconnectionを使い回さない)。書き込みの
@@ -504,6 +560,134 @@ def list_work_items(status=None):
       conn.close()
 
 
+def _metric_dedup_key(date, media, metric):
+  return "|".join([_norm(date), _norm(media), _norm(metric)])
+
+
+def save_metric_snapshot_batch(date, media, values, note=""):
+  """実績スナップショットを、指定した媒体・日付についてまとめて保存する
+  (MISSION 091)。
+
+  valuesは{metric_key: 値}の辞書。REVENUE_METRIC_FIELDSに無いキーは無視する。
+  値が空欄(None・空文字)や数値に変換できない指標は保存をスキップする
+  (「数字が分からない項目は空欄のまま保存できる」という要件)。1つも有効な
+  値が無い場合は何も保存しない(「何も入力されていない場合は保存しない」
+  という要件)。
+
+  同じ日・媒体・指標の組み合わせがすでに存在する場合は、重複作成せず
+  最新の値へUPDATEする(dedup_key="date|media|metric")。
+  """
+  if not _norm(date) or not _norm(media):
+    return {"saved": False, "reason": "missing_required_field"}
+  fields = REVENUE_METRIC_FIELDS.get(media)
+  if not fields:
+    return {"saved": False, "reason": "unknown_media"}
+  valid_keys = {f["key"] for f in fields}
+  saved_metrics = []
+  skipped_metrics = []
+  with _LOCK:
+    conn = get_connection()
+    try:
+      for metric_key, raw_value in (values or {}).items():
+        if metric_key not in valid_keys:
+          continue
+        if raw_value is None or raw_value == "":
+          skipped_metrics.append(metric_key)
+          continue
+        try:
+          value = float(raw_value)
+        except (TypeError, ValueError):
+          skipped_metrics.append(metric_key)
+          continue
+        key = _metric_dedup_key(date, media, metric_key)
+        existing = conn.execute(
+            "SELECT id FROM metric_snapshots WHERE dedup_key=?", (key,)
+        ).fetchone()
+        if existing:
+          conn.execute(
+              "UPDATE metric_snapshots SET value=?, note=?,"
+              " updated_at=datetime('now','localtime') WHERE dedup_key=?",
+              (value, note or "", key),
+          )
+        else:
+          conn.execute(
+              "INSERT INTO metric_snapshots"
+              " (dedup_key, date, media, metric, value, note)"
+              " VALUES (?, ?, ?, ?, ?, ?)",
+              (key, _norm(date), _norm(media), metric_key, value, note or ""),
+          )
+        saved_metrics.append(metric_key)
+      conn.commit()
+    finally:
+      conn.close()
+  if not saved_metrics:
+    return {"saved": False, "reason": "no_values", "skippedMetrics": skipped_metrics}
+  return {
+      "saved": True, "date": _norm(date), "media": _norm(media),
+      "savedMetrics": saved_metrics, "skippedMetrics": skipped_metrics,
+  }
+
+
+def list_metrics(date=None, media=None):
+  """実績スナップショットの一覧を返す(新しい順)。date/mediaで絞り込める。"""
+  with _LOCK:
+    conn = get_connection()
+    try:
+      clauses = []
+      params = []
+      if date:
+        clauses.append("date=?")
+        params.append(date)
+      if media:
+        clauses.append("media=?")
+        params.append(media)
+      where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+      rows = conn.execute(
+          f"SELECT * FROM metric_snapshots{where}"
+          " ORDER BY date DESC, id DESC",
+          params,
+      ).fetchall()
+      return [dict(r) for r in rows]
+    finally:
+      conn.close()
+
+
+def get_media_metric_summary(media):
+  """指定媒体の各指標について、最新記録・前回記録との差分・直近履歴
+  (最大REVENUE_METRIC_HISTORY_LIMIT件)をまとめて返す(MISSION 091)。
+
+  媒体自体に1件も記録が無い場合はNoneではなく、全指標がlatest=Noneの
+  辞書を返す(呼び出し側で「未記録」と判定できるようにするため)。比較対象
+  (前回記録)が無い指標はdiff=Noneとし、呼び出し側で「比較できる記録は
+  まだありません」と正直に表示できるようにする(増減を捏造しない)。
+  """
+  fields = REVENUE_METRIC_FIELDS.get(media, [])
+  with _LOCK:
+    conn = get_connection()
+    try:
+      result = {}
+      for field in fields:
+        metric_key = field["key"]
+        rows = conn.execute(
+            "SELECT * FROM metric_snapshots WHERE media=? AND metric=?"
+            " ORDER BY date DESC, id DESC LIMIT ?",
+            (media, metric_key, REVENUE_METRIC_HISTORY_LIMIT),
+        ).fetchall()
+        rows = [dict(r) for r in rows]
+        latest = rows[0] if rows else None
+        previous = rows[1] if len(rows) > 1 else None
+        diff = None
+        if latest is not None and previous is not None:
+          diff = latest["value"] - previous["value"]
+        result[metric_key] = {
+            "label": field["label"], "latest": latest, "previous": previous,
+            "diff": diff, "history": rows,
+        }
+      return result
+    finally:
+      conn.close()
+
+
 def migrate_from_payload(records, candidates):
   """localStorageから読み取った記録・候補をまとめて保存する(移行操作)。
 
@@ -618,3 +802,30 @@ def register_dashboard_api(app):
       return jsonify(result)
     status = request.args.get("status")
     return jsonify({"workItems": list_work_items(status)})
+
+  # MISSION 091: 実績スナップショット。POSTはvaluesの辞書をまとめて保存
+  # する(1つも有効な値が無い場合はsaved:falseを返し、呼び出し側(JS)で
+  # 画面内の案内表示に使う)。
+  @app.route("/api/dashboard/metrics", methods=["GET", "POST"])
+  def dashboard_metrics():
+    if request.method == "POST":
+      data = request.get_json(silent=True) or {}
+      result = save_metric_snapshot_batch(
+          data.get("date"), data.get("media"), data.get("values", {}),
+          data.get("note", ""),
+      )
+      return jsonify(result)
+    date = request.args.get("date")
+    media = request.args.get("media")
+    return jsonify({"metrics": list_metrics(date, media)})
+
+  @app.route("/api/dashboard/metrics/summary")
+  def dashboard_metrics_summary():
+    media = request.args.get("media")
+    if media:
+      return jsonify({"summary": {media: get_media_metric_summary(media)}})
+    return jsonify({
+        "summary": {
+            m: get_media_metric_summary(m) for m in REVENUE_METRIC_MEDIA_ORDER
+        },
+    })
