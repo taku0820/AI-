@@ -70,16 +70,17 @@ class DashboardDesignTestCase(unittest.TestCase):
     return re.findall(r'"(/api/[a-zA-Z0-9/_-]*)"', html)
 
   def _reset_dashboard_tables(self):
-    """MISSION 088/089: daily_records/post_candidatesの行数を厳密に数える
-    テスト用に、一時コピー(self.temp_db_path、使い捨てで本番ai_company.db
-    には一切影響しない)の該当2テーブルだけを空にする。本番DBには、実際の
-    利用で蓄積した行がすでに入っていることがあるため、件数アサーションが
-    その影響を受けないようにするための前処理。"""
+    """MISSION 088/089/090: daily_records/post_candidates/work_itemsの行数を
+    厳密に数えるテスト用に、一時コピー(self.temp_db_path、使い捨てで本番
+    ai_company.dbには一切影響しない)の該当テーブルだけを空にする。本番DBには、
+    実際の利用で蓄積した行がすでに入っていることがあるため、件数アサーション
+    がその影響を受けないようにするための前処理。"""
     import sqlite3
     conn = sqlite3.connect(self.temp_db_path)
     try:
       conn.execute("DELETE FROM daily_records")
       conn.execute("DELETE FROM post_candidates")
+      conn.execute("DELETE FROM work_items")
       conn.commit()
     finally:
       conn.close()
@@ -5388,10 +5389,14 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertIn(">AIオフィス<", html)
 
   def test_ai_office_demo_banner_and_role_diff_present(self):
+    # MISSION 090: 「本日の指示」「今日の実行キュー」「社員の状態」が
+    # 作業台帳(DB)に基づく実績表示になったため、バナー文言は「実データ
+    # 未接続」の一律表記から、実績表示/参考表示が混在する旨の表記へ更新
+    # された。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn("実績表示と参考表示が混在しています", html)
     self.assertIn(
-        "AI社員が実際に自動稼働しているわけではありません。", html
+        "AI社員が実際に自動稼働しているものではありません。", html
     )
     self.assertIn(
         "運用司令室</b>（/command-center）は、数字の確認・判断・記録を行う"
@@ -5468,20 +5473,22 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertNotIn("自動で", d["role_summary"])
 
   def test_ai_office_desk_status_badges_show_demo_labels(self):
-    import office_views
+    # MISSION 090: 社員の状態(稼働中/待機中)は作業台帳(DB)に基づく実績表示へ
+    # 切り替わったため、サーバー側はもう架空の初期状態(working/pending/
+    # demo_done等)を決め打ちしない。初期表示はニュートラルな「確認中…」で、
+    # JS取得後に「稼働中（実績表示）」「待機中（実績なし）」へ置き換わる。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    valid_statuses = set(office_views.AI_OFFICE_STATUS_LABELS)
-    for d in office_views.AI_OFFICE_DEPARTMENTS:
-      self.assertIn(d["demo_status"], valid_statuses)
-      label = office_views.AI_OFFICE_STATUS_LABELS[d["demo_status"]]
-      self.assertIn(f"{label}（デモ表示）", html)
+    self.assertGreaterEqual(html.count("確認中…"), 15)
+    self.assertIn("function applyStaffRealState(todayItems){", html)
+    self.assertIn("（実績表示）", html)
+    self.assertIn("（実績なし）", html)
 
   def test_ai_office_today_tasks_tagged_as_demo(self):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertEqual(len(office_views.AI_OFFICE_TODAY_TASKS), 4)
-    task_section = html.split("今日のタスク（デモ）", 1)[1].split(
-        "動いている仕事と結果（デモ）", 1
+    task_section = html.split("今日のタスク（参考表示）", 1)[1].split(
+        "動いている仕事と結果（参考表示）", 1
     )[0]
     for t in office_views.AI_OFFICE_TODAY_TASKS:
       self.assertIn(t["text"], task_section)
@@ -5499,11 +5506,11 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_chat_is_static_demo_no_external_api(self):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("AIとのチャット窓口（デモ）", html)
+    self.assertIn("AIとのチャット窓口（参考表示）", html)
     for m in office_views.AI_OFFICE_CHAT_DEMO_MESSAGES:
       self.assertIn(m["text"], html)
     self.assertIn(
-        "この窓口は現在デモの会話表示のみで、次の段階で接続を予定しています。",
+        "この窓口は現在、参考表示の会話例のみで、次の段階で接続を予定しています。",
         html,
     )
     self.assertIn(
@@ -5519,7 +5526,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
     self.assertEqual(html.count('class="ai-office-freshness-card"'), 5)
     # 5枚のカード分 + 注記文中の1回 = 6回。
-    self.assertEqual(html.count("未接続・デモ"), 6)
+    self.assertEqual(html.count("未接続・参考表示"), 6)
     self.assertIn(
         "実際の取得日時は表示していません（未実装）。", html
     )
@@ -5550,7 +5557,7 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertTrue(entry.startswith("デモ："))
       self.assertIn(entry, html)
     self.assertIn(
-        "これはデモの表示であり、実際のAI作業ログではありません。", html
+        "これは演出用の参考表示であり、実際のAI作業ログではありません。", html
     )
 
   def test_ai_office_reads_but_never_writes_local_storage(self):
@@ -5568,13 +5575,14 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_no_external_calls_or_credentials(self):
     import re
     html = self.client.get("/ai-office").get_data(as_text=True)
-    # MISSION 088: アプリ内DBへの読み取り専用GETは許可する。
+    # MISSION 088/090: アプリ内DBへの読み取り専用GETは許可する。
     self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
+    self.assertIn('window.fetch("/api/dashboard/work-items")', html)
     self.assertNotIn("XMLHttpRequest", html)
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn('method="POST"', html)
     self.assertNotIn("<script src", html)
@@ -5636,17 +5644,17 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_ai_office_floormap_each_chip_shows_department_and_status(self):
+    # MISSION 090: 社員の状態は作業台帳(DB)に基づく実績表示へ切り替わり、
+    # サーバー側は架空の初期状態(demo_status)を決め打ちしなくなった。
+    # 各チップの初期表示はニュートラルな「確認中…」になる。
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for d in office_views.AI_OFFICE_DEPARTMENTS:
       chip = html.split(f'data-department="{d["key"]}">', 1)[1]
       chip = chip.split('</li>', 1)[0]
       self.assertIn(d["desk_label"], chip)
-      status_label = office_views.AI_OFFICE_STATUS_LABELS[d["demo_status"]]
-      self.assertIn(f"{status_label}（デモ）", chip)
-      self.assertIn(
-          f'ai-office-char-avatar-{d["demo_status"]}', chip
-      )
+      self.assertIn("確認中…", chip)
+      self.assertIn("ai-office-char-avatar-waiting", chip)
       self.assertIn(d["symbol"], chip)
 
   def test_ai_office_status_labels_include_four_states(self):
@@ -5771,34 +5779,39 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('toggleBtn.addEventListener("click"', html)
 
   def test_ai_office_floormap_disclaims_demo_status_clearly(self):
+    # MISSION 090: 稼働中/待機中の色分けは作業台帳(DB)に基づく実績表示に
+    # なったため、キャプションは「すべてデモの表示」という一律の表現から、
+    # 色分け=実績表示・動き/会話=参考表示を区別する表現へ更新された。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn(
-        "しているものではなく、すべてデモの表示です。",
+        "キャラクターの移動・会話・報告アニメーション自体は、実際にAIが"
+        "自動稼働しているものではなく、演出用の参考表示（デモ）です。",
         html,
     )
     self.assertIn(
-        "稼働中・移動中はシアン、確認待ちは黄色、待機中は"
-        "控えめな青、デモ完了は緑で状態を示しますが",
+        "稼働中はシアン、待機中は控えめな青で名前札の色を示しますが、"
+        "この色分けは作業台帳（DB）に基づく実績表示です。",
         html,
     )
 
   def test_ai_office_existing_seven_parts_preserved_below_floormap(self):
     # 既存の7パーツの見出し・リンク・注意書きが引き続き存在することを確認する
-    # (回帰確認)。
+    # (回帰確認)。MISSION 090で見出し中の「（デモ）」は「（参考表示）」へ
+    # 更新された(中身・リンク自体は維持)。
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for heading in (
-        "社員名簿（15人・状態一覧）", "今日のタスク（デモ）",
-        "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
-        "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
+        "社員名簿（15人・状態一覧）", "今日のタスク（参考表示）",
+        "動いている仕事と結果（参考表示）", "AIとのチャット窓口（参考表示）",
+        "情報源の鮮度モニター（参考表示）", "成果物一覧", "活動フィード（参考表示）",
     ):
       self.assertIn(heading, html)
     self.assertEqual(
         html.count(office_views.AI_OFFICE_SCOPE_STATEMENT),
         len(office_views.AI_OFFICE_DEPARTMENTS) + len(office_views.AI_OFFICE_EXTENDED_STAFF),
     )
-    self.assertIn("この窓口は現在デモの会話表示のみで", html)
-    self.assertIn("未接続・デモ", html)
+    self.assertIn("この窓口は現在、参考表示の会話例のみで", html)
+    self.assertIn("未接続・参考表示", html)
     for d in office_views.AI_OFFICE_DELIVERABLES:
       self.assertIn(d["label"], html)
     for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
@@ -5806,7 +5819,7 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_top_notice_still_states_demo_and_no_external_actions(self):
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn("実績表示と参考表示が混在しています", html)
     self.assertIn(
         "このページには、投稿・公開・送信・ログイン・削除を行うボタンは"
         "一切ありません。すべての実行判断は利用者本人が行います。",
@@ -5838,7 +5851,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
 
   def test_ai_office_floormap_mobile_media_query_stacks_status_strip(self):
@@ -6008,7 +6021,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -6020,18 +6033,19 @@ class DashboardDesignTestCase(unittest.TestCase):
 
   def test_ai_office_demo_animation_does_not_change_existing_seven_parts(self):
     # 既存の7パーツの見出し・注意書きが引き続き存在することを確認する
-    # (回帰確認)。
+    # (回帰確認)。MISSION 090で見出し中の「（デモ）」は「（参考表示）」へ
+    # 更新された。
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for heading in (
-        "社員名簿（15人・状態一覧）", "今日のタスク（デモ）",
-        "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
-        "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
+        "社員名簿（15人・状態一覧）", "今日のタスク（参考表示）",
+        "動いている仕事と結果（参考表示）", "AIとのチャット窓口（参考表示）",
+        "情報源の鮮度モニター（参考表示）", "成果物一覧", "活動フィード（参考表示）",
     ):
       self.assertIn(heading, html)
     for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
       self.assertIn(entry, html)
-    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn("実績表示と参考表示が混在しています", html)
 
   def test_ai_office_demo_animation_does_not_change_other_pages(self):
     for path, title in (
@@ -6281,7 +6295,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -6296,16 +6310,16 @@ class DashboardDesignTestCase(unittest.TestCase):
   def test_ai_office_demo_still_preserves_top_notice_and_seven_parts(self):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn("実績表示と参考表示が混在しています", html)
     self.assertIn(
         "このページには、投稿・公開・送信・ログイン・削除を行うボタンは"
         "一切ありません。すべての実行判断は利用者本人が行います。",
         html,
     )
     for heading in (
-        "社員名簿（15人・状態一覧）", "今日のタスク（デモ）",
-        "動いている仕事と結果（デモ）", "AIとのチャット窓口（デモ）",
-        "情報源の鮮度モニター（デモ）", "成果物一覧", "活動フィード（デモ）",
+        "社員名簿（15人・状態一覧）", "今日のタスク（参考表示）",
+        "動いている仕事と結果（参考表示）", "AIとのチャット窓口（参考表示）",
+        "情報源の鮮度モニター（参考表示）", "成果物一覧", "活動フィード（参考表示）",
     ):
       self.assertIn(heading, html)
     for entry in office_views.AI_OFFICE_ACTIVITY_FEED:
@@ -6633,7 +6647,10 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIsNotNone(m)
     classes = m.group(1).split()
     self.assertIn("ai-office-floormap-token", classes)
-    self.assertIn("ai-office-floormap-token-working", classes)
+    # MISSION 090: 社員の状態は作業台帳(DB)に基づく実績表示へ切り替わり、
+    # サーバー側の初期状態は常にニュートラルな"waiting"になる(JS取得後に
+    # 実データへ置き換わる)。
+    self.assertIn("ai-office-floormap-token-waiting", classes)
 
   def test_ai_office_floormap_token_is_roughly_three_times_larger_than_old_icon(self):
     # 旧デザイン(44×33px)に対し、2〜3倍以上の視認性を目安に拡大した。
@@ -6929,7 +6946,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -7113,7 +7130,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -7306,7 +7323,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -7470,7 +7487,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -7564,7 +7581,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     for api_path in self._find_api_paths(html):
       self.assertIn(
           api_path,
-          ("/api/dashboard/daily-records", "/api/dashboard/candidates"),
+          ("/api/dashboard/daily-records", "/api/dashboard/work-items"),
       )
     self.assertNotIn("https://", html)
     self.assertNotIn("http://", html)
@@ -8168,23 +8185,24 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(record_type, office_views.AI_OFFICE_QUEUE_NEXT_ACTION_BY_TYPE)
 
   def test_ai_office_queue_script_reads_records_read_only(self):
-    # MISSION 088: 実行キューはアプリ内DB(loadTodayRecordsDb、同一
-    # オリジンの読み取り専用GET)を参照するようになった。対面報告
-    # (buildRealRecordQueue)は引き続きlocalStorage(loadTodayRecords)の
-    # ままで、どちらも書き込みは一切行わない。
+    # MISSION 090: 実行キューは作業台帳(work_items、同一オリジンの読み取り
+    # 専用GET)を参照するようになった。対面報告(buildRealRecordQueue)は
+    # 引き続きlocalStorage(loadTodayRecords)のままで、どちらも書き込みは
+    # 一切行わない。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function queueOwnerForRecord(rec){", html)
     self.assertIn("function renderExecutionQueue(){", html)
-    self.assertIn("function loadTodayRecordsDb(){", html)
-    self.assertIn("var records=loadTodayRecordsDb();", html)
+    self.assertIn("function loadTodayWorkItems(){", html)
+    self.assertIn("var items=loadTodayWorkItems();", html)
     self.assertIn("initDashboardDrivenSections();", html)
     self.assertIn("loadTodayRecords()", html)
-    # 記録が0件のときは、空メッセージ<li>を書き換えずに残す。
-    self.assertIn("if(records.length===0)return;", html)
+    # 作業が0件のときは、空メッセージ<li>を書き換えずに残す。
+    self.assertIn("if(items.length===0)return;", html)
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("localStorage.clear(", html)
     self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
+    self.assertIn('window.fetch("/api/dashboard/work-items")', html)
     for forbidden in ("XMLHttpRequest", "<form", "Authorization", "api_key"):
       self.assertNotIn(forbidden, html)
 
@@ -8205,7 +8223,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('id="ai-office-report-banner"', html)
     self.assertIn("function buildRealRecordQueue(){", html)
     self.assertIn("<h2>社員名簿（15人・状態一覧）</h2>", html)
-    self.assertIn("デモ表示・実データ未接続", html)
+    self.assertIn("実績表示と参考表示が混在しています", html)
 
   def test_mission_084_does_not_change_office_ceo_office_or_break_room(self):
     for path, title in (
@@ -8369,14 +8387,16 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertNotIn("成功しました", posted_rule["task"])
 
   def test_ai_office_directive_script_picks_in_priority_order_and_is_read_only(self):
+    # MISSION 090: 「本日の指示」は、作業台帳(work_items)で「今日」の
+    # 未完了作業のうち優先度が最も高い先頭1件を選ぶだけのロジックに
+    # 置き換わった(運用記録の下書き/投稿済み/承認待ちの優先順位チェーンは
+    # 廃止)。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function pickDirective(){", html)
     self.assertIn("function renderDirective(){", html)
     self.assertIn("renderDirective();", html)
-    self.assertIn('if(today.some(function(r){return r.type==="下書き";}))', html)
-    self.assertIn('if(today.some(function(r){return r.type==="投稿済み";}))', html)
-    self.assertIn('if(today.some(function(r){return r.type==="承認待ち";}))', html)
-    self.assertIn("var hasPast=loadAllRecords().some(", html)
+    self.assertIn("var items=loadTodayWorkItems();", html)
+    self.assertIn("今日の未完了作業はありません", html)
     self.assertNotIn("localStorage.setItem(", html)
     self.assertNotIn("localStorage.removeItem(", html)
     self.assertNotIn("localStorage.clear(", html)
@@ -8738,16 +8758,18 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertEqual(data2["records"]["skipped"], 2)
 
   def test_ai_office_directive_queue_recent_read_from_db_not_local_storage_only(self):
-    # MISSION 088: 本日の指示・実行キュー・直近の実績は、アプリ内DBを
+    # MISSION 088/090: 直近の実績はアプリ内DB(daily_records)を、本日の
+    # 指示・実行キュー・社員の状態は作業台帳(work_items)を、それぞれ
     # 読み取り専用GETで参照する(buildRealRecordQueue=対面報告は従来どおり
     # localStorageのまま)。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function initDashboardDrivenSections(){", html)
     self.assertIn('window.fetch("/api/dashboard/daily-records")', html)
+    self.assertIn('window.fetch("/api/dashboard/work-items")', html)
     self.assertIn("var DB_RECORDS_CACHE=[];", html)
-    self.assertIn("function loadTodayRecordsDb(){", html)
-    self.assertIn("var records=loadTodayRecordsDb();", html)
-    self.assertIn("var today=loadTodayRecordsDb();", html)
+    self.assertIn("var DB_WORK_ITEMS_CACHE=[];", html)
+    self.assertIn("function loadTodayWorkItems(){", html)
+    self.assertIn("var items=loadTodayWorkItems();", html)
 
   def test_command_center_data_storage_section_is_present_and_plain_language(self):
     import office_views
@@ -8818,10 +8840,11 @@ class DashboardDesignTestCase(unittest.TestCase):
     self._reset_dashboard_tables()
     self.assertEqual(len(dashboard_db.list_daily_records()), 0)
     self.assertEqual(len(dashboard_db.list_post_candidates()), 0)
+    self.assertEqual(len(dashboard_db.list_work_items()), 0)
     ai_office_html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn(office_views.AI_OFFICE_QUEUE_EMPTY_MESSAGE, ai_office_html)
     self.assertIn(office_views.AI_OFFICE_RECENT_EMPTY_MESSAGE, ai_office_html)
-    self.assertIn("デモ表示・実データ未接続", ai_office_html)
+    self.assertIn("実績表示と参考表示が混在しています", ai_office_html)
 
   # --- MISSION 089: 楽天ROOM候補を「今日・今週・保留」に整理する ----------
 
@@ -9010,36 +9033,44 @@ class DashboardDesignTestCase(unittest.TestCase):
     )
 
   def test_ai_office_directive_includes_room_candidate_today_case(self):
-    import office_views
+    # MISSION 090: 楽天ROOM候補専用の個別チェック(todayRoomCandidate)は
+    # 廃止され、「今日」に設定した候補はdashboard_db.sync_candidate_work_
+    # itemsにより作業台帳(work_items)へ連携されたうえで、pickDirective()の
+    # 汎用ロジック(作業台帳の「今日」未完了作業の先頭1件)から指示に出る。
+    self._reset_dashboard_tables()
+    dashboard_db.upsert_post_candidate(
+        "2099-01-06", "楽天ROOM", 0, "ジャンルF", "商品F",
+        "https://item.rakuten.co.jp/f/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="today",
+    )
+    res = self.client.get("/api/dashboard/work-items")
+    items = res.get_json()["workItems"]
+    today_items = [w for w in items if w["status"] == "today"]
+    self.assertEqual(len(today_items), 1)
+    self.assertEqual(today_items[0]["media"], "楽天ROOM")
+    self.assertEqual(today_items[0]["task_name"], "商品F")
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("function todayRoomCandidate(){", html)
-    self.assertIn("楽天ROOM候補を確認し、手動で投稿する", html)
-    self.assertIn("本日「今日」に設定した楽天ROOM候補があります", html)
-    # 既存5ルールの優先順位・内容自体は変更していない。
-    self.assertEqual(len(office_views.AI_OFFICE_DIRECTIVE_RULES), 5)
+    self.assertIn("function pickDirective(){", html)
+    self.assertIn("var items=loadTodayWorkItems();", html)
 
   def test_ai_office_execution_queue_includes_room_candidate_item(self):
+    # MISSION 090: 実行キューは作業台帳(work_items)だけを参照する汎用
+    # ロジックになり、楽天ROOM候補専用の個別リンク文言は廃止された
+    # (すべて運用司令室の作業台帳からリンクする)。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("function buildQueueItem(", html)
-    self.assertIn("var roomCandidate=todayRoomCandidate();", html)
-    self.assertIn("投稿企画工場へ移動する", html)
-    self.assertIn('"/content-studio/room-daily-candidates"', html)
+    self.assertIn("var items=loadTodayWorkItems();", html)
+    self.assertIn("運用司令室へ移動する", html)
+    self.assertIn('"/command-center"', html)
 
   def test_ai_office_candidate_team_real_state_only_when_today_bucket_exists(self):
+    # MISSION 090: 候補管理チーム3人限定のapplyCandidateTeamRealStateは、
+    # 既存15名全員を対象にした汎用のapplyStaffRealStateへ置き換わった。
     html = self.client.get("/ai-office").get_data(as_text=True)
-    self.assertIn("function applyCandidateTeamRealState(hasTodayCandidate){", html)
-    self.assertIn("if(!hasTodayCandidate)return;", html)
-    self.assertIn(
-        'var CANDIDATE_TEAM_KEYS=["tsumugi","nagi","hina"];', html
-    )
-    self.assertIn(
-        'var hasTodayCandidate=loadActiveRoomCandidates().some(function(c){',
-        html,
-    )
-    # 投稿済み(manual_posted)の候補は対象から除外される。
-    self.assertIn(
-        'return c&&c.media==="楽天ROOM"&&!c.manual_posted;', html
-    )
+    self.assertIn("function applyStaffRealState(todayItems){", html)
+    self.assertIn("ALL_STAFF_KEYS.forEach(function(key){", html)
+    self.assertNotIn("CANDIDATE_TEAM_KEYS", html)
+    self.assertNotIn("applyCandidateTeamRealState", html)
 
   def test_ai_office_candidate_management_staff_present_in_roster(self):
     import office_views
@@ -9110,6 +9141,307 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn(".rc-bucket-chip{flex:1 1 140px", html)
     self.assertIn(".room-candidate-bucket-buttons{display:flex;gap:6px;flex-wrap:wrap}", html)
     self.assertIn("prefers-reduced-motion:reduce", html)
+
+  # --- MISSION 090: 全媒体共通の作業台帳とAIオフィスの実データ化 ----------
+
+  def test_dashboard_db_schema_adds_work_items_table(self):
+    import sqlite3
+    conn = sqlite3.connect(self.temp_db_path)
+    try:
+      names = {
+          r[0]
+          for r in conn.execute(
+              "SELECT name FROM sqlite_master WHERE type='table'"
+          ).fetchall()
+      }
+    finally:
+      conn.close()
+    # 既存テーブルは維持したまま、新規にwork_itemsだけが追加される。
+    for existing in (
+        "work_logs", "employees", "missions", "tasks", "metrics", "reports",
+        "proposals", "decisions", "audit_logs", "daily_records", "post_candidates",
+    ):
+      self.assertIn(existing, names)
+    self.assertIn("work_items", names)
+
+  def test_dashboard_db_insert_work_item_dedups_same_day_entries(self):
+    self._reset_dashboard_tables()
+    r1 = dashboard_db.insert_work_item("Pinterest", "新作Pin画像を作る", "pinterest", "today")
+    self.assertTrue(r1["inserted"])
+    r2 = dashboard_db.insert_work_item("Pinterest", "新作Pin画像を作る", "pinterest", "today")
+    self.assertFalse(r2["inserted"])
+    self.assertEqual(len(dashboard_db.list_work_items()), 1)
+    # 内容が違えば別の作業として保存される。
+    r3 = dashboard_db.insert_work_item("Pinterest", "別の作業", "pinterest", "today")
+    self.assertTrue(r3["inserted"])
+    self.assertEqual(len(dashboard_db.list_work_items()), 2)
+
+  def test_dashboard_db_insert_work_item_rejects_missing_required_fields(self):
+    self._reset_dashboard_tables()
+    r = dashboard_db.insert_work_item("", "作業名", "pinterest", "today")
+    self.assertFalse(r["inserted"])
+    self.assertEqual(len(dashboard_db.list_work_items()), 0)
+
+  def test_dashboard_db_insert_work_item_cannot_create_done_directly(self):
+    # MISSION 090: 完了は明示的な完了操作(complete_work_item)でしか保存
+    # しない。手動追加でstatus="done"を送っても無視し、デフォルト('today')
+    # にフォールバックする。
+    self._reset_dashboard_tables()
+    r = dashboard_db.insert_work_item("note", "記事下書き", "note", "done")
+    self.assertTrue(r["inserted"])
+    rows = dashboard_db.list_work_items()
+    self.assertEqual(len(rows), 1)
+    self.assertEqual(rows[0]["status"], "today")
+    self.assertIsNone(rows[0]["completed_at"])
+
+  def test_dashboard_db_complete_work_item_sets_done_and_completed_at(self):
+    self._reset_dashboard_tables()
+    dashboard_db.insert_work_item("note", "記事下書き", "note", "today")
+    item_id = dashboard_db.list_work_items()[0]["id"]
+    result = dashboard_db.complete_work_item(item_id)
+    self.assertTrue(result["updated"])
+    rows = dashboard_db.list_work_items()
+    self.assertEqual(rows[0]["status"], "done")
+    self.assertIsNotNone(rows[0]["completed_at"])
+    # 2回目は「すでに完了済み」として扱い、completed_atを上書きしない。
+    result2 = dashboard_db.complete_work_item(item_id)
+    self.assertTrue(result2.get("already_done"))
+
+  def test_dashboard_db_complete_work_item_rejects_unknown_id(self):
+    self._reset_dashboard_tables()
+    result = dashboard_db.complete_work_item(999999)
+    self.assertFalse(result["updated"])
+
+  def test_dashboard_db_sync_links_today_week_candidates_without_duplicating(self):
+    # MISSION 090: 「今日・今週」の未完了ROOM候補だけがwork_itemsへ連携され、
+    # post_candidates側は一切変更されない(件数・内容ともに不変)。
+    self._reset_dashboard_tables()
+    dashboard_db.upsert_post_candidate(
+        "2099-01-01", "楽天ROOM", 0, "ジャンルA", "商品A",
+        "https://item.rakuten.co.jp/a/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="today",
+    )
+    dashboard_db.upsert_post_candidate(
+        "2099-01-02", "楽天ROOM", 1, "ジャンルB", "商品B",
+        "https://item.rakuten.co.jp/b/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="week",
+    )
+    candidates_before = dashboard_db.list_post_candidates()
+    self.assertEqual(len(candidates_before), 2)
+
+    dashboard_db.sync_candidate_work_items()
+    items = dashboard_db.list_work_items()
+    self.assertEqual(len(items), 2)
+    statuses = sorted(item["status"] for item in items)
+    self.assertEqual(statuses, ["today", "week"])
+    for item in items:
+      self.assertEqual(item["source"], "candidate")
+      self.assertEqual(item["assignee"], "room")
+      self.assertIsNotNone(item["candidate_id"])
+
+    # post_candidates側は連携によって変更されない。
+    candidates_after = dashboard_db.list_post_candidates()
+    self.assertEqual(len(candidates_after), 2)
+    self.assertEqual(
+        sorted(c["product_name"] for c in candidates_after),
+        sorted(c["product_name"] for c in candidates_before),
+    )
+
+    # 連携は冪等(同期を繰り返しても重複作成しない)。
+    dashboard_db.sync_candidate_work_items()
+    dashboard_db.sync_candidate_work_items()
+    self.assertEqual(len(dashboard_db.list_work_items()), 2)
+
+  def test_dashboard_db_sync_does_not_materialize_hold_candidates(self):
+    # MISSION 090: 保留(hold)候補は、一度もtoday/weekになっていない限り
+    # work_itemsを作らない(「保留候補を勝手に作業化しない」の要件)。
+    self._reset_dashboard_tables()
+    dashboard_db.upsert_post_candidate(
+        "2099-01-03", "楽天ROOM", 2, "ジャンルC", "商品C",
+        "https://item.rakuten.co.jp/c/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="hold",
+    )
+    dashboard_db.sync_candidate_work_items()
+    self.assertEqual(len(dashboard_db.list_work_items()), 0)
+
+  def test_dashboard_db_sync_reverts_to_hold_when_candidate_bucket_changes_back(self):
+    # MISSION 090: 一度today/weekで連携された作業台帳行は、候補が保留へ
+    # 戻された場合statusが'hold'に追従し、今日/今週の一覧から外れる
+    # (行自体は削除されない)。
+    self._reset_dashboard_tables()
+    dashboard_db.upsert_post_candidate(
+        "2099-01-04", "楽天ROOM", 3, "ジャンルD", "商品D",
+        "https://item.rakuten.co.jp/d/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="today",
+    )
+    dashboard_db.sync_candidate_work_items()
+    self.assertEqual(dashboard_db.list_work_items()[0]["status"], "today")
+
+    dashboard_db.upsert_post_candidate(
+        "2099-01-04", "楽天ROOM", 3, "ジャンルD", "商品D",
+        "https://item.rakuten.co.jp/d/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="hold",
+    )
+    dashboard_db.sync_candidate_work_items()
+    items = dashboard_db.list_work_items()
+    self.assertEqual(len(items), 1)
+    self.assertEqual(items[0]["status"], "hold")
+
+  def test_dashboard_db_sync_marks_done_only_on_explicit_manual_posted(self):
+    # MISSION 090: 候補がmanual_posted(利用者の明示的な完了操作)になった
+    # ときだけ、連携済みの作業台帳行もdoneになる(外部投稿の有無を推測しない、
+    # あくまで候補側に記録済みの明示操作を反映するだけ)。
+    self._reset_dashboard_tables()
+    dashboard_db.upsert_post_candidate(
+        "2099-01-05", "楽天ROOM", 4, "ジャンルE", "商品E",
+        "https://item.rakuten.co.jp/e/", "紹介文", ["#楽天ROOM"], True, False,
+        bucket="today",
+    )
+    dashboard_db.sync_candidate_work_items()
+    self.assertEqual(dashboard_db.list_work_items()[0]["status"], "today")
+
+    dashboard_db.upsert_post_candidate(
+        "2099-01-05", "楽天ROOM", 4, "ジャンルE", "商品E",
+        "https://item.rakuten.co.jp/e/", "紹介文", ["#楽天ROOM"], True, True,
+    )
+    dashboard_db.sync_candidate_work_items()
+    items = dashboard_db.list_work_items()
+    self.assertEqual(items[0]["status"], "done")
+    self.assertIsNotNone(items[0]["completed_at"])
+
+  def test_dashboard_api_work_items_post_insert_and_complete(self):
+    self._reset_dashboard_tables()
+    res = self.client.post(
+        "/api/dashboard/work-items",
+        json={"media": "note", "taskName": "テスト作業", "assignee": "note",
+              "status": "today"},
+    )
+    self.assertEqual(res.status_code, 200)
+    self.assertTrue(res.get_json()["inserted"])
+
+    res2 = self.client.get("/api/dashboard/work-items")
+    data = res2.get_json()
+    self.assertEqual(len(data["workItems"]), 1)
+    item = data["workItems"][0]
+    self.assertEqual(item["task_name"], "テスト作業")
+    self.assertEqual(item["status"], "today")
+
+    res3 = self.client.post("/api/dashboard/work-items", json={"id": item["id"]})
+    self.assertEqual(res3.status_code, 200)
+    self.assertTrue(res3.get_json()["updated"])
+
+    res4 = self.client.get("/api/dashboard/work-items?status=done")
+    data4 = res4.get_json()
+    self.assertEqual(len(data4["workItems"]), 1)
+    self.assertEqual(data4["workItems"][0]["status"], "done")
+
+  def test_dashboard_api_work_items_requires_no_authentication(self):
+    res = self.client.get("/api/dashboard/work-items")
+    self.assertEqual(res.status_code, 200)
+    res2 = self.client.post("/api/dashboard/work-items", json={})
+    self.assertEqual(res2.status_code, 200)
+    self.assertFalse(res2.get_json()["inserted"])
+
+  def test_command_center_has_work_ledger_section_with_collapsed_details(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('id="cc-work-ledger"', html)
+    self.assertIn('id="wl-media"', html)
+    self.assertIn('id="wl-task-name"', html)
+    self.assertIn('id="wl-assignee"', html)
+    self.assertIn('id="wl-status"', html)
+    # 最初に表示する項目は媒体・作業名・担当社員・状態のみに絞り、詳細項目
+    # (優先度など)は<details>で折りたたむ。
+    self.assertIn('<details class="cc-work-ledger-detail">', html)
+    self.assertIn('id="wl-priority"', html)
+    priority_pos = html.index('id="wl-priority"')
+    details_pos = html.index('<details class="cc-work-ledger-detail">')
+    self.assertGreater(priority_pos, details_pos)
+    self.assertIn('window.fetch("/api/dashboard/work-items")', html)
+
+  def test_command_center_work_ledger_status_options_exclude_done(self):
+    # MISSION 090: 完了は専用の操作でのみ保存する。追加フォームの状態選択肢
+    # には「完了」を含めない(今日・今週・保留の3つだけ)。
+    html = self.client.get("/command-center").get_data(as_text=True)
+    status_block = html.split('id="wl-status"', 1)[1].split("</select>", 1)[0]
+    self.assertIn('value="today"', status_block)
+    self.assertIn('value="week"', status_block)
+    self.assertIn('value="hold"', status_block)
+    self.assertNotIn('value="done"', status_block)
+
+  def test_command_center_work_ledger_assignee_options_cover_all_15_staff(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    assignee_block = html.split('id="wl-assignee"', 1)[1].split("</select>", 1)[0]
+    option_count = assignee_block.count("<option value=")
+    # 「選択してください」の1件 + 社員15人分。
+    self.assertEqual(option_count, 16)
+
+  def test_ai_office_directive_is_sourced_from_work_items_ledger(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function pickDirective(){", html)
+    self.assertIn("loadTodayWorkItems()", html)
+    self.assertIn("今日の未完了作業はありません", html)
+    self.assertIn('window.fetch("/api/dashboard/work-items")', html)
+
+  def test_ai_office_execution_queue_is_sourced_from_work_items_ledger(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function renderExecutionQueue(){", html)
+    queue_fn = html.split("function renderExecutionQueue(){", 1)[1].split(
+        "function loadAllRecords(){", 1
+    )[0]
+    self.assertIn("loadTodayWorkItems()", queue_fn)
+
+  def test_ai_office_applies_real_state_to_all_15_staff(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function applyStaffRealState(todayItems){", html)
+    self.assertIn("ALL_STAFF_KEYS.forEach(function(key){", html)
+    self.assertIn("実績表示", html)
+    self.assertIn("実績なし", html)
+    # MISSION 089の3人限定の切り替え関数は完全に置き換えられている。
+    self.assertNotIn("applyCandidateTeamRealState", html)
+    self.assertNotIn("CANDIDATE_TEAM_KEYS", html)
+
+  def test_ai_office_initial_staff_badges_are_neutral_not_demo_labelled(self):
+    # MISSION 090: サーバー側は作業台帳の中身を知り得ないため、社員カードの
+    # 初期表示は「デモ表示」と決め打ちせず、ニュートラルな「確認中」にして
+    # おき、JS取得後に実データへ置き換える。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("確認中…", html)
+
+  def test_ai_office_demo_banner_distinguishes_real_and_reference_display(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("実績表示と参考表示が混在しています", html)
+    self.assertIn("参考表示", html)
+
+  def test_ai_office_keeps_existing_daily_record_and_candidate_features(self):
+    # MISSION 090でも、既存の運用記録・直近の実績・投稿候補の機能自体は
+    # 維持する(対面報告のbuildRealRecordQueue、直近の実績のrenderRecentRecords、
+    # 投稿候補ページ自体の存在)。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn("function buildRealRecordQueue(){", html)
+    self.assertIn("function renderRecentRecords(){", html)
+    res = self.client.get("/content-studio/room-daily-candidates")
+    self.assertEqual(res.status_code, 200)
+
+  def test_mission_090_no_new_external_communication_anywhere(self):
+    for path in (
+        "/ai-office", "/content-studio", "/content-studio/room-daily-candidates",
+        "/command-center",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for api_path in self._find_api_paths(html):
+          self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+        self.assertNotIn("XMLHttpRequest", html)
+        self.assertNotIn("WebSocket", html)
+        self.assertNotIn("Authorization", html)
+        self.assertNotIn("api_key", html)
+        self.assertNotIn("access_token", html)
+        self.assertNotIn("<form", html)
+
+  def test_mission_090_command_center_no_horizontal_scroll_css_present(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn(".cc-decision-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))", html)
+    self.assertIn("@media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}", html)
 
 
 if __name__ == "__main__":

@@ -12,9 +12,18 @@ CREATE TABLE IF NOT EXISTS(新規DB用)とは別に、既存テーブルへは
 ALTER TABLE ADD COLUMN(列がまだ無い場合のみ)で移行する。既存の行は
 一切削除・上書きせず、bucket列だけが'hold'(保留)で追加される。
 
+MISSION 090: 媒体を問わない共通の「作業台帳」(work_items)を追加する。
+運用司令室から手動で追加した作業と、既存の楽天ROOM投稿候補のうち
+「今日・今週」に割り当て済みの未完了候補を安全に連携したものの両方を、
+1つのテーブルにまとめる。既存のpost_candidatesの行は一切削除・重複作成
+せず、連携はcandidate_id列を介した参照+dedup_key("candidate:<id>")に
+よる冪等なUPSERTで行う(保留候補は一度も今日/今週になっていない限り
+work_itemsへ作成しない)。作業の完了(status='done')は、利用者が明示的に
+完了操作をした場合のみ保存し、外部投稿の有無を推測・自動判定しない。
+
 安全方針:
 - 既存のai_company.db・work_logsテーブル・hive_db.pyの7テーブルには
-  一切手を加えない(CREATE TABLE IF NOT EXISTSで新規2テーブルのみ追加)。
+  一切手を加えない(CREATE TABLE IF NOT EXISTSで新規テーブルのみ追加)。
 - ここで追加するAPI(/api/dashboard/*)は、このアプリ自身の画面(同一
   オリジン)から呼び出される前提のローカル専用JSONエンドポイントであり、
   外部サービスへの通信・ログイン・認証トークンの発行は一切行わない
@@ -65,6 +74,21 @@ CREATE TABLE IF NOT EXISTS post_candidates (
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+
+CREATE TABLE IF NOT EXISTS work_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dedup_key TEXT NOT NULL UNIQUE,
+    media TEXT NOT NULL,
+    task_name TEXT NOT NULL,
+    assignee TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'today',
+    priority INTEGER NOT NULL DEFAULT 5,
+    candidate_id INTEGER,
+    source TEXT NOT NULL DEFAULT 'manual',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    completed_at TEXT
+);
 """
 
 # MISSION 089: 候補の整理区分。「今日」「今週」「保留」の3つだけを許可し、
@@ -72,6 +96,25 @@ CREATE TABLE IF NOT EXISTS post_candidates (
 # 時は'hold'にする)。
 BUCKET_VALUES = ("today", "week", "hold")
 BUCKET_DEFAULT = "hold"
+
+# MISSION 090: 作業台帳(work_items)の状態。'done'(完了)は、利用者が明示的に
+# 完了操作をした場合にだけcomplete_work_item()経由で設定する。手動追加
+# (insert_work_item)・候補連携(sync_candidate_work_items)では'done'を直接
+# 指定させない(WORK_STATUS_EDITABLE_VALUESのみ受け付ける)ことで、「完了は
+# 明示操作時だけDBに保存する」という要件を守る。
+WORK_STATUS_VALUES = ("today", "week", "hold", "done")
+WORK_STATUS_EDITABLE_VALUES = ("today", "week", "hold")
+WORK_STATUS_DEFAULT = "today"
+WORK_PRIORITY_DEFAULT = 5
+
+# MISSION 090: 楽天ROOM候補を作業台帳へ連携する際の、媒体→担当社員キーの
+# 対応(AIオフィスの部署担当と一致させる)。
+WORK_ITEM_MEDIA_ASSIGNEE = {
+    "Pinterest": "pinterest",
+    "note": "note",
+    "楽天ROOM": "room",
+}
+WORK_ITEM_FALLBACK_ASSIGNEE = "room"
 
 # sqlite3接続はスレッドごとに作り直す(Flask開発サーバーはリクエストごとに
 # 別スレッドで処理されうるため、1つのconnectionを使い回さない)。書き込みの
@@ -118,6 +161,16 @@ def _normalize_bucket(bucket):
   Noneを返す(呼び出し側でNoneは「変更しない」の意味として扱う)。"""
   if bucket in BUCKET_VALUES:
     return bucket
+  return None
+
+
+def _normalize_work_status(status):
+  """作業台帳の状態として手動追加・候補連携で受け付けてよい値
+  ('today'/'week'/'hold')ならそのまま返す。'done'や無効な値はNoneを返し、
+  呼び出し側でデフォルト値に差し替えさせる('done'への変更は
+  complete_work_item()経由の明示操作だけに限定するため)。"""
+  if status in WORK_STATUS_EDITABLE_VALUES:
+    return status
   return None
 
 
@@ -261,6 +314,196 @@ def list_post_candidates(target_date=None):
       conn.close()
 
 
+def _work_item_dedup_key(media, task_name, assignee, created_date):
+  # 手動追加は「同じ日に同じ媒体・作業名・担当」を二重送信(ボタン連打等)
+  # しても1件にまとめる。日付をキーに含めるため、別の日であれば同じ内容を
+  # 新規に追加できる。
+  return "|".join([_norm(media), _norm(task_name), _norm(assignee), created_date])
+
+
+def _work_item_candidate_dedup_key(candidate_id):
+  return f"candidate:{candidate_id}"
+
+
+def insert_work_item(media, task_name, assignee, status, priority=None):
+  """運用司令室から、利用者が手動で作業台帳へ1件追加する(重複はスキップ)。
+
+  statusは'today'/'week'/'hold'のみ受け付ける('done'は
+  complete_work_item()の明示操作でしか設定しない)。
+  """
+  if not _norm(media) or not _norm(task_name) or not _norm(assignee):
+    return {"inserted": False, "reason": "missing_required_field"}
+  normalized_status = _normalize_work_status(status) or WORK_STATUS_DEFAULT
+  try:
+    priority_value = (
+        int(priority) if priority is not None and priority != "" else WORK_PRIORITY_DEFAULT
+    )
+  except (TypeError, ValueError):
+    priority_value = WORK_PRIORITY_DEFAULT
+  with _LOCK:
+    conn = get_connection()
+    try:
+      today = conn.execute("SELECT date('now','localtime') AS d").fetchone()["d"]
+      key = _work_item_dedup_key(media, task_name, assignee, today)
+      cur = conn.execute(
+          "INSERT OR IGNORE INTO work_items"
+          " (dedup_key, media, task_name, assignee, status, priority, source)"
+          " VALUES (?, ?, ?, ?, ?, ?, 'manual')",
+          (key, _norm(media), _norm(task_name), _norm(assignee), normalized_status,
+           priority_value),
+      )
+      conn.commit()
+      return {"inserted": cur.rowcount > 0}
+    finally:
+      conn.close()
+
+
+def complete_work_item(item_id):
+  """利用者が明示的に「完了」にした作業だけ、statusを'done'にし
+  completed_atを記録する。外部へ実際に投稿したかどうかの推測・自動判定は
+  一切行わない(ここに来るのは利用者がボタンを押した場合のみ)。
+  """
+  try:
+    item_id_int = int(item_id)
+  except (TypeError, ValueError):
+    return {"updated": False, "reason": "invalid_id"}
+  with _LOCK:
+    conn = get_connection()
+    try:
+      row = conn.execute(
+          "SELECT id, status FROM work_items WHERE id=?", (item_id_int,)
+      ).fetchone()
+      if not row:
+        return {"updated": False, "reason": "not_found"}
+      if row["status"] == "done":
+        return {"updated": True, "already_done": True}
+      conn.execute(
+          "UPDATE work_items SET status='done',"
+          " completed_at=datetime('now','localtime'),"
+          " updated_at=datetime('now','localtime') WHERE id=?",
+          (item_id_int,),
+      )
+      conn.commit()
+      return {"updated": True}
+    finally:
+      conn.close()
+
+
+def sync_candidate_work_items():
+  """既存の楽天ROOM投稿候補のうち、現在「今日・今週」に割り当て済みの候補
+  だけを、重複作成せずに作業台帳(work_items)へ安全に連携する(MISSION 090)。
+
+  - 候補自体(post_candidates)は一切削除・上書き・重複作成しない。
+  - 連携の可否は、候補の「現在のbucket」が'today'/'week'かどうかだけで
+    判定する(「保留候補を勝手に作業化しない」という要件を守るため、
+    manual_postedの値に関わらず、bucketが'hold'の候補は新規にも更新にも
+    work_itemsを作らない)。
+  - 連携済みの行はcandidate_idとdedup_key("candidate:<id>")で紐付け、
+    候補側のbucket/manual_postedが変わるたびに冪等にUPDATEするだけ
+    (INSERTは候補が初めてtoday/weekになった時の1回だけ)。
+  - 連携済みの候補がbucket='hold'に戻された場合、work_items側もstatus=
+    'hold'に追従させる(today/weekの一覧には出なくなるが、行自体は削除
+    しない)。
+  - bucketがtoday/weekのまま、候補がmanual_posted(利用者が明示的に完了に
+    した)になったときだけ、連携済みの行をstatus='done'にする(外部投稿の
+    有無を推測しない。あくまで候補側に記録済みの、利用者自身の明示操作を
+    反映するだけ)。
+  """
+  with _LOCK:
+    conn = get_connection()
+    try:
+      candidates = conn.execute(
+          "SELECT id, media, genre, product_name, bucket, manual_posted"
+          " FROM post_candidates WHERE media='楽天ROOM'"
+      ).fetchall()
+      for c in candidates:
+        bucket = c["bucket"] or BUCKET_DEFAULT
+        manual_posted = bool(c["manual_posted"])
+        key = _work_item_candidate_dedup_key(c["id"])
+        existing = conn.execute(
+            "SELECT id, status FROM work_items WHERE dedup_key=?", (key,)
+        ).fetchone()
+        if bucket not in ("today", "week"):
+          # 保留は作業台帳化しない。すでに連携済みの行があれば保留へ
+          # 追従させ(today/weekの一覧から外れる)、新規作成はしない。
+          if existing and existing["status"] != "hold":
+            conn.execute(
+                "UPDATE work_items SET status='hold',"
+                " updated_at=datetime('now','localtime') WHERE id=?",
+                (existing["id"],),
+            )
+          continue
+        target_status = "done" if manual_posted else bucket
+        task_name = c["product_name"] or c["genre"] or "（商品名未入力）"
+        assignee = WORK_ITEM_MEDIA_ASSIGNEE.get(c["media"], WORK_ITEM_FALLBACK_ASSIGNEE)
+        if not existing:
+          if target_status == "done":
+            conn.execute(
+                "INSERT INTO work_items"
+                " (dedup_key, media, task_name, assignee, status, priority,"
+                "  candidate_id, source, completed_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, 'candidate', datetime('now','localtime'))",
+                (key, c["media"], task_name, assignee, target_status,
+                 WORK_PRIORITY_DEFAULT, c["id"]),
+            )
+          else:
+            conn.execute(
+                "INSERT INTO work_items"
+                " (dedup_key, media, task_name, assignee, status, priority,"
+                "  candidate_id, source)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, 'candidate')",
+                (key, c["media"], task_name, assignee, target_status,
+                 WORK_PRIORITY_DEFAULT, c["id"]),
+            )
+          continue
+        if existing["status"] == target_status:
+          conn.execute(
+              "UPDATE work_items SET task_name=?,"
+              " updated_at=datetime('now','localtime') WHERE id=?",
+              (task_name, existing["id"]),
+          )
+        elif target_status == "done":
+          conn.execute(
+              "UPDATE work_items SET status='done', task_name=?,"
+              " completed_at=datetime('now','localtime'),"
+              " updated_at=datetime('now','localtime') WHERE id=?",
+              (task_name, existing["id"]),
+          )
+        else:
+          conn.execute(
+              "UPDATE work_items SET status=?, task_name=?,"
+              " updated_at=datetime('now','localtime') WHERE id=?",
+              (target_status, task_name, existing["id"]),
+          )
+      conn.commit()
+    finally:
+      conn.close()
+
+
+def list_work_items(status=None):
+  """作業台帳の一覧を返す(候補連携の同期を先に行ってから読む)。"""
+  sync_candidate_work_items()
+  with _LOCK:
+    conn = get_connection()
+    try:
+      if status:
+        rows = conn.execute(
+            "SELECT * FROM work_items WHERE status=?"
+            " ORDER BY priority ASC, id ASC",
+            (status,),
+        ).fetchall()
+      else:
+        rows = conn.execute(
+            "SELECT * FROM work_items ORDER BY"
+            " CASE status WHEN 'today' THEN 0 WHEN 'week' THEN 1"
+            " WHEN 'hold' THEN 2 ELSE 3 END,"
+            " priority ASC, id ASC"
+        ).fetchall()
+      return [dict(r) for r in rows]
+    finally:
+      conn.close()
+
+
 def migrate_from_payload(records, candidates):
   """localStorageから読み取った記録・候補をまとめて保存する(移行操作)。
 
@@ -356,3 +599,22 @@ def register_dashboard_api(app):
     data = request.get_json(silent=True) or {}
     result = migrate_from_payload(data.get("records", []), data.get("candidates", []))
     return jsonify(result)
+
+  # MISSION 090: 全媒体共通の作業台帳。POSTは、idを含む場合は「完了」操作
+  # (complete_work_item)、含まない場合は手動での新規追加(insert_work_item)
+  # として扱う(2つの操作だけを1エンドポイントにまとめる、既存のcandidates
+  # エンドポイントと同じ考え方)。
+  @app.route("/api/dashboard/work-items", methods=["GET", "POST"])
+  def dashboard_work_items():
+    if request.method == "POST":
+      data = request.get_json(silent=True) or {}
+      if data.get("id"):
+        result = complete_work_item(data.get("id"))
+      else:
+        result = insert_work_item(
+            data.get("media"), data.get("taskName"), data.get("assignee"),
+            data.get("status"), data.get("priority"),
+        )
+      return jsonify(result)
+    status = request.args.get("status")
+    return jsonify({"workItems": list_work_items(status)})

@@ -351,6 +351,12 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cc-decision-log-empty{color:var(--sub);font-size:12px;margin:0}
 .cc-decision-log-entry{background:#0b1120;border:1px solid #253651;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12px;line-height:1.7}
 .cc-decision-log-entry b{color:var(--blue);display:inline-block;min-width:5.5em}
+.cc-work-ledger-detail{margin:0 0 10px;font-size:12px;color:var(--sub)}
+.cc-work-ledger-detail summary{cursor:pointer;color:var(--blue);font-size:12px;margin-bottom:8px}
+.cc-work-ledger-item{position:relative}
+.wl-complete-btn{margin-top:8px;background:#142039;color:var(--ink);border:1px solid var(--green);border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit}
+.wl-complete-btn:hover,.wl-complete-btn:focus-visible{background:#123022}
+.wl-complete-btn:disabled{opacity:.6;cursor:default}
 @media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}
 .ai-office{max-width:1160px;margin:0 auto;--cyan:#22d3ee}
 .ai-office-directive-card{background:linear-gradient(135deg,#16233c,#0f1a2c);border:1px solid var(--blue);border-radius:16px;padding:18px 20px;margin-bottom:14px}
@@ -5700,6 +5706,181 @@ DATA_STORAGE_LOCAL_NOTE = (
 )
 
 
+def _render_work_ledger_section():
+  """運用司令室の「作業台帳」セクション(MISSION 090)。
+
+  Pinterest・note・楽天ROOMなど媒体を問わず、利用者が手動で作業を追加できる
+  画面。保存先はこのMac上のアプリ内データ(SQLite、/api/dashboard/
+  work-items)のみで、外部サービスへの投稿・送信・ログイン・自動ブラウザ
+  操作は一切行わない。最初に表示する項目は媒体・作業名・担当社員・状態の
+  4つだけに絞り、優先度などの詳細項目は<details>で折りたたむ。作業の完了は、
+  利用者が明示的に「完了にする」を押した場合だけDBに保存する(外部投稿の
+  有無を推測・自動判定しない)。
+
+  既存の楽天ROOM投稿候補(post_candidates)のうち「今日・今週」に割り当て
+  済みの未完了候補は、ここで新規に作り直すのではなく、サーバー側
+  (dashboard_db.sync_candidate_work_items)で自動的に連携され、この一覧にも
+  表示される(出どころ「候補連携」の行は、ここでは削除も完了操作もできる)。
+  """
+  staff_options = "".join(
+      f'<option value="{key}">{AI_OFFICE_STAFF_BY_KEY[key]["name"]}</option>'
+      for key in AI_OFFICE_ALL_STAFF_KEYS
+  )
+  media_options = "".join(
+      f'<option value="{m}">{m}</option>'
+      for m in COMMAND_CENTER_DAILY_RECORD_MEDIA_OPTIONS
+  )
+  return (
+      '<section class="cc-work-ledger" aria-label="作業台帳" '
+      'id="cc-work-ledger">'
+      '<h2 class="cc-section-title">作業台帳</h2>'
+      '<p class="cc-decision-note">媒体を問わず、今日・今週やろうとしている'
+      '作業をここに記録できます。保存先はこのMac上のアプリ内データ'
+      '（SQLite）だけで、外部サービスへの投稿・送信・ログイン・自動操作は'
+      '一切行いません。作業の完了は、実際に完了したときに「完了にする」を'
+      '押した場合だけ記録されます（自動では完了になりません）。楽天ROOM'
+      'の投稿候補で「今日・今週」に設定した未完了候補は、自動的にこの'
+      '一覧にも連携されます。</p>'
+      '<div class="cc-decision-box">'
+      '<div class="cc-decision-fields">'
+      '<div><label for="wl-media">媒体</label>'
+      f'<select id="wl-media"><option value="">選択してください</option>'
+      f'{media_options}</select></div>'
+      '<div><label for="wl-task-name">作業名</label>'
+      '<input type="text" id="wl-task-name" maxlength="200" '
+      'placeholder="例：新商品のPin画像を作る"></div>'
+      '</div>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="wl-assignee">担当社員</label>'
+      f'<select id="wl-assignee"><option value="">選択してください</option>'
+      f'{staff_options}</select></div>'
+      '<div><label for="wl-status">状態</label>'
+      '<select id="wl-status">'
+      '<option value="today">今日</option>'
+      '<option value="week">今週</option>'
+      '<option value="hold">保留</option>'
+      '</select></div>'
+      '</div>'
+      '<details class="cc-work-ledger-detail">'
+      '<summary>詳細項目（任意）</summary>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="wl-priority">優先度（数字が小さいほど優先・1〜9）'
+      '</label>'
+      '<input type="number" id="wl-priority" min="1" max="9" step="1" '
+      'placeholder="5"></div>'
+      '</div>'
+      '</details>'
+      '<button type="button" class="cc-decision-add-btn" id="wl-add-btn">'
+      'この作業を作業台帳に追加する</button>'
+      '<p class="cc-decision-note" id="wl-add-result" aria-live="polite">'
+      '</p>'
+      '<div class="cc-decision-log-list" id="cc-work-ledger-list">'
+      '<p class="cc-decision-log-empty" id="cc-work-ledger-empty">まだ'
+      '作業台帳に登録された作業はありません。</p>'
+      '</div>'
+      '</div>'
+      '<script>(function(){'
+      f'var STAFF_NAMES={json.dumps({k: AI_OFFICE_STAFF_BY_KEY[k]["name"] for k in AI_OFFICE_ALL_STAFF_KEYS}, ensure_ascii=False)};'
+      f'var STATUS_LABELS={json.dumps(WORK_ITEM_STATUS_LABELS, ensure_ascii=False)};'
+      'var mediaEl=document.querySelector("#wl-media");'
+      'var taskNameEl=document.querySelector("#wl-task-name");'
+      'var assigneeEl=document.querySelector("#wl-assignee");'
+      'var statusEl=document.querySelector("#wl-status");'
+      'var priorityEl=document.querySelector("#wl-priority");'
+      'var addBtn=document.querySelector("#wl-add-btn");'
+      'var resultEl=document.querySelector("#wl-add-result");'
+      'var listEl=document.querySelector("#cc-work-ledger-list");'
+      'var emptyEl=document.querySelector("#cc-work-ledger-empty");'
+      'function escapeHtml(s){'
+      'return String(s==null?"":s)'
+      '.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");'
+      '}'
+      'function renderList(items){'
+      'listEl.querySelectorAll(".cc-work-ledger-item").forEach(function(el){el.remove();});'
+      'if(!items||items.length===0){'
+      'emptyEl.hidden=false;'
+      'return;'
+      '}'
+      'emptyEl.hidden=true;'
+      'items.forEach(function(item){'
+      'var div=document.createElement("div");'
+      'div.className="cc-decision-log-entry cc-work-ledger-item";'
+      'var ownerName=STAFF_NAMES[item.assignee]||item.assignee;'
+      'var statusLabel=STATUS_LABELS[item.status]||item.status;'
+      'var html="<div><b>媒体：</b>"+escapeHtml(item.media)+"</div>"+'
+      '"<div><b>作業名：</b>"+escapeHtml(item.task_name)+"</div>"+'
+      '"<div><b>担当社員：</b>"+escapeHtml(ownerName)+"</div>"+'
+      '"<div><b>状態：</b>"+escapeHtml(statusLabel)+"</div>";'
+      'div.innerHTML=html;'
+      'if(item.status!=="done"){'
+      'var btn=document.createElement("button");'
+      'btn.type="button";'
+      'btn.className="wl-complete-btn";'
+      'btn.textContent="完了にする";'
+      'btn.addEventListener("click",function(){'
+      'btn.disabled=true;'
+      'window.fetch("/api/dashboard/work-items",{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify({id:item.id})'
+      '}).then(function(){return loadList();}).catch(function(){'
+      'btn.disabled=false;'
+      '});'
+      '});'
+      'div.appendChild(btn);'
+      '}'
+      'listEl.appendChild(div);'
+      '});'
+      '}'
+      'function loadList(){'
+      'if(typeof window.fetch!=="function")return Promise.resolve();'
+      'return window.fetch("/api/dashboard/work-items")'
+      '.then(function(res){return res.json();})'
+      '.then(function(data){'
+      'renderList((data&&data.workItems)||[]);'
+      '}).catch(function(){});'
+      '}'
+      'if(addBtn){'
+      'addBtn.addEventListener("click",function(){'
+      'var payload={'
+      'media:mediaEl.value,'
+      'taskName:taskNameEl.value,'
+      'assignee:assigneeEl.value,'
+      'status:statusEl.value,'
+      'priority:priorityEl.value'
+      '};'
+      'if(!payload.media||!payload.taskName||!payload.assignee){'
+      'resultEl.textContent="媒体・作業名・担当社員は必須です。";'
+      'return;'
+      '}'
+      'addBtn.disabled=true;'
+      'resultEl.textContent="保存しています…";'
+      'window.fetch("/api/dashboard/work-items",{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify(payload)'
+      '}).then(function(res){return res.json();}).then(function(data){'
+      'if(data&&data.inserted){'
+      'resultEl.textContent="作業台帳に追加しました。";'
+      'taskNameEl.value="";'
+      '}else{'
+      'resultEl.textContent="同じ内容がすでに本日分として登録済みです。";'
+      '}'
+      'addBtn.disabled=false;'
+      'return loadList();'
+      '}).catch(function(){'
+      'resultEl.textContent='
+      '"保存できませんでした。しばらくしてからもう一度お試しください。";'
+      'addBtn.disabled=false;'
+      '});'
+      '});'
+      '}'
+      'loadList();'
+      '})();</script>'
+      '</section>'
+  )
+
+
 def _render_data_storage_section():
   """運用司令室の「データ保存」セクションのHTML+JSを返す。
 
@@ -6203,6 +6384,7 @@ def _render_command_center_scene():
       'renderRecordLog();'
       '})();'
       '</script>'
+      + _render_work_ledger_section()
       + _render_data_storage_section() +
       '</section>'
   )
@@ -6485,6 +6667,15 @@ AI_OFFICE_STAFF_BY_KEY.update({
     s["key"]: {"name": s["name"], "sprite": s["sprite"], "idle_type": s["idle_type"]}
     for s in AI_OFFICE_EXTENDED_STAFF
 })
+
+# MISSION 090: 作業台帳の担当選択・AIオフィスの全15人状態反映で、常に
+# 同じ並び順(部署5人→拡張10人)を共有するための一覧。
+AI_OFFICE_ALL_STAFF_KEYS = [d["key"] for d in AI_OFFICE_DEPARTMENTS] + [
+    s["key"] for s in AI_OFFICE_EXTENDED_STAFF
+]
+
+# MISSION 090: 作業台帳(work_items)のstatus値→日本語ラベル。
+WORK_ITEM_STATUS_LABELS = {"today": "今日", "week": "今週", "hold": "保留", "done": "完了"}
 
 # 12人分のidleアニメーションの周期をずらすための通し番号(表示順に意味は
 # ない)。_render_ai_office_scene内のidle_index_by_keyと同じ考え方を、
@@ -7253,9 +7444,12 @@ def _render_ai_office_scene():
   def _sprite_avatar_style_attr(person):
     return f'background-position:{_ai_office_sprite_position(person["sprite"])}'
 
+  # MISSION 090: 社員の状態(稼働中/待機中)は、作業台帳(work_items)に基づく
+  # 実績表示へ切り替える。サーバー側はDBの中身を知り得ないため、初期表示は
+  # 「確認中…」のニュートラルな状態にしておき、JS側のapplyStaffRealState()
+  # が取得直後に実データへ書き換える(架空の稼働中/待機中を決め打ちしない)。
   def _status_strip_chip(dept):
-    status_key = dept["demo_status"]
-    status_label = AI_OFFICE_STATUS_LABELS[status_key]
+    status_key = "waiting"
     return (
         f'<li class="ai-office-strip-chip" data-department="{dept["key"]}">'
         '<span class="ai-office-char-avatar ai-office-sprite-avatar '
@@ -7265,7 +7459,7 @@ def _render_ai_office_scene():
         '<span class="ai-office-strip-info">'
         f'<b>{dept["desk_label"]}（{dept["staff_name"]}）</b>'
         f'<span class="ai-office-status-badge ai-office-status-{status_key}" '
-        f'data-suffix="デモ">{status_label}（デモ）</span>'
+        f'data-suffix="確認中">確認中…</span>'
         '</span>'
         '</li>'
     )
@@ -7273,8 +7467,7 @@ def _render_ai_office_scene():
   status_strip = "".join(_status_strip_chip(d) for d in AI_OFFICE_DEPARTMENTS)
 
   def _desk_card(dept):
-    status_key = dept["demo_status"]
-    status_label = AI_OFFICE_STATUS_LABELS[status_key]
+    status_key = "waiting"
     return (
         f'<div class="ai-office-desk" data-department="{dept["key"]}">'
         '<div class="ai-office-desk-symbol ai-office-sprite-avatar" '
@@ -7285,13 +7478,12 @@ def _render_ai_office_scene():
         f'<p class="ai-office-desk-summary">{dept["role_summary"]}</p>'
         f'<p class="ai-office-desk-scope">{AI_OFFICE_SCOPE_STATEMENT}</p>'
         f'<span class="ai-office-status-badge ai-office-status-{status_key}" '
-        f'data-suffix="デモ表示">{status_label}（デモ表示）</span>'
+        f'data-suffix="確認中">確認中…</span>'
         '</div>'
     )
 
   def _extended_desk_card(staff):
     status_key = "waiting"
-    status_label = AI_OFFICE_STATUS_LABELS[status_key]
     return (
         f'<div class="ai-office-desk" data-department="{staff["key"]}">'
         '<div class="ai-office-desk-symbol ai-office-sprite-avatar" '
@@ -7302,7 +7494,7 @@ def _render_ai_office_scene():
         f'<p class="ai-office-desk-summary">{staff["role_summary"]}</p>'
         f'<p class="ai-office-desk-scope">{AI_OFFICE_SCOPE_STATEMENT}</p>'
         f'<span class="ai-office-status-badge ai-office-status-{status_key}" '
-        f'data-suffix="デモ表示">{status_label}（デモ表示）</span>'
+        f'data-suffix="確認中">確認中…</span>'
         '</div>'
     )
 
@@ -7349,7 +7541,6 @@ def _render_ai_office_scene():
     # 人物ごとに個別)を使う。scaleX(-1)による向き反転はclip-path適用後の
     # 座標系にもそのまま効くため、反転時も輪郭がずれない。
     dept_attr = f' data-department="{department_key}"' if department_key else ""
-    status_label = AI_OFFICE_STATUS_LABELS[status_key]
     idle_type = idle_type_by_key[key]
     idle_class = AI_OFFICE_IDLE_ANIMATION_BY_TYPE[idle_type]
     clip_path = _ai_office_clip_path_for(key)
@@ -7373,15 +7564,19 @@ def _render_ai_office_scene():
         f'<span class="ai-office-nameplate-phase" '
         f'id="ai-office-nameplate-phase-{key}"></span>'
         f'<span class="sr-only" id="ai-office-nameplate-status-{key}"> '
-        f'{status_label}（デモ）</span>'
+        '確認中…</span>'
         '</span>'
         '</span>'
     )
 
+  # MISSION 090: フロアトークンの初期状態も、desk_card等と同じくニュートラル
+  # な「確認中」にしておき、作業台帳のデータ取得後にJS側で実データへ切り替え
+  # る(demo_statusは、サーバー側で架空の稼働中/待機中を決め打ちしないよう、
+  # ここでは使わない)。
   floor_tokens = "".join(
       _floor_token(
           d["key"], d["staff_name"], d["sprite"], all_positions[d["key"]],
-          d["demo_status"], department_key=d["key"],
+          "waiting", department_key=d["key"],
       )
       for d in AI_OFFICE_DEPARTMENTS
   ) + "".join(
@@ -7487,7 +7682,7 @@ def _render_ai_office_scene():
 
   freshness_cards = "".join(
       f'<div class="ai-office-freshness-card"><b>{ch}</b>'
-      '<span class="ai-office-freshness-status">未接続・デモ</span></div>'
+      '<span class="ai-office-freshness-status">未接続・参考表示</span></div>'
       for ch in AI_OFFICE_SOURCE_CHANNELS
   )
 
@@ -7534,6 +7729,10 @@ def _render_ai_office_scene():
           "recentMaxItems": AI_OFFICE_RECENT_MAX_ITEMS,
           # MISSION 086: 「柴犬社長からの本日の指示」専用のデータ。
           "directiveRules": AI_OFFICE_DIRECTIVE_RULES,
+          # MISSION 090: 作業台帳(work_items)に基づく「本日の指示」「今日の
+          # 実行キュー」「社員の状態」専用のデータ。
+          "allStaffKeys": AI_OFFICE_ALL_STAFF_KEYS,
+          "workStatusLabels": WORK_ITEM_STATUS_LABELS,
       },
       ensure_ascii=False,
   )
@@ -7552,10 +7751,13 @@ def _render_ai_office_scene():
       '<a class="ai-office-directive-button" id="ai-office-directive-button" '
       'href="/command-center">運用司令室を開く</a>'
       '</div>'
-      '<div class="ai-office-demo-banner">デモ表示・実データ未接続'
-      '<span>この画面の数値・状態・チャット・活動フィードはすべて、あらかじめ'
-      '用意したデモデータです。AI社員が実際に自動稼働しているわけではあり'
-      'ません。</span></div>'
+      '<div class="ai-office-demo-banner">実績表示と参考表示が混在しています'
+      '<span>「本日の指示」「今日の実行キュー」「社員の状態（稼働中/待機中）」'
+      'は、運用司令室の作業台帳（このMac上のSQLite DB）に基づく実績表示です。'
+      'それ以外のチャット・タスク一覧・活動フィード・フロアマップ上の'
+      '動き/会話/報告アニメーションは、あらかじめ用意した参考表示（デモ）'
+      'であり、AI社員が実際に自動稼働しているものではありません。'
+      '</span></div>'
       # MISSION 080: 「デモ表示」か「実績表示」かを画面上で明確に判別できる
       # ようにするバッジ。実際の値はJS側で、運用司令室のlocalStorageに本日
       # 付の運用記録があるかどうかを見て書き換える(サーバー側はlocalStorage
@@ -7577,12 +7779,14 @@ def _render_ai_office_scene():
       # 「消す」のではなく次の対面報告が始まるまで内容を保持する。
       '<div class="ai-office-report-banner" id="ai-office-report-banner" '
       'aria-live="polite">対面報告中の社員はまだいません（デモ）</div>'
-      '<p class="ai-office-floormap-caption"><b>オフィスフロアマップ（デモ表示）</b><br>'
-      'AIオフィスの全体像を1枚のイラストで表したデモ画像の上に、立体的な'
-      'ゲームキャラクター風の社員15人本人を表示し、作業・移動・報告・交流の'
-      '様子をデモアニメーションで示しています。稼働中・移動中はシアン、'
-      '確認待ちは黄色、待機中は控えめな青、デモ完了は緑で状態を示しますが、'
-      'いずれも実際にAIが動作しているものではなく、すべてデモの表示です。</p>'
+      '<p class="ai-office-floormap-caption"><b>オフィスフロアマップ（実績表示'
+      '＋参考表示）</b><br>'
+      'AIオフィスの全体像を1枚のイラストの上に、立体的なゲームキャラクター'
+      '風の社員15人本人を重ねて表示しています。稼働中はシアン、待機中は'
+      '控えめな青で名前札の色を示しますが、この色分けは作業台帳（DB）に'
+      '基づく実績表示です。一方、キャラクターの移動・会話・報告アニメー'
+      'ション自体は、実際にAIが自動稼働しているものではなく、演出用の'
+      '参考表示（デモ）です。</p>'
       '<div class="ai-office-floormap-image-wrap">'
       '<div class="ai-office-floormap-stage">'
       f'<img class="ai-office-floormap-image" '
@@ -7666,33 +7870,34 @@ def _render_ai_office_scene():
       '<div class="ai-office-section">'
       '<h2>社員名簿（15人・状態一覧）</h2>'
       '<p class="ai-office-floormap-hint">柴犬社長を含む15人の役割・配置・'
-      '状態をまとめた一覧です（すべてデモ表示）。</p>'
+      '状態をまとめた一覧です。状態（稼働中/待機中）は作業台帳（DB）に基づく'
+      '実績表示、役割・配置の説明文はご案内用の参考表示です。</p>'
       f'<div class="ai-office-floor"><div class="ai-office-floor-grid">{desk_cards}</div></div>'
       '</div>'
 
       '<div class="ai-office-section">'
-      '<h2>今日のタスク（デモ）</h2>'
+      '<h2>今日のタスク（参考表示）</h2>'
       f'<ul class="ai-office-task-list">{task_items}</ul>'
       '</div>'
 
       '<div class="ai-office-section">'
-      '<h2>動いている仕事と結果（デモ）</h2>'
+      '<h2>動いている仕事と結果（参考表示）</h2>'
       f'<ul class="ai-office-work-list">{work_items}</ul>'
       '</div>'
 
       '<div class="ai-office-section">'
-      '<h2>AIとのチャット窓口（デモ）</h2>'
+      '<h2>AIとのチャット窓口（参考表示）</h2>'
       f'<div class="ai-office-chat-demo"><div class="log">{chat_bubbles}</div>'
-      '<p class="ai-office-chat-note">この窓口は現在デモの会話表示のみで、'
+      '<p class="ai-office-chat-note">この窓口は現在、参考表示の会話例のみで、'
       '次の段階で接続を予定しています。外部AI APIへの送信や自動応答は'
       '行っていません。</p></div>'
       '</div>'
 
       '<div class="ai-office-section">'
-      '<h2>情報源の鮮度モニター（デモ）</h2>'
+      '<h2>情報源の鮮度モニター（参考表示）</h2>'
       f'<div class="ai-office-freshness-grid">{freshness_cards}</div>'
       '<p class="ai-office-freshness-note">実際の取得日時は表示していません'
-      '（未実装）。すべて「未接続・デモ」の表示です。</p>'
+      '（未実装）。すべて「未接続・参考表示」の表示です。</p>'
       '</div>'
 
       '<div class="ai-office-section">'
@@ -7701,11 +7906,11 @@ def _render_ai_office_scene():
       '</div>'
 
       '<div class="ai-office-section">'
-      '<h2>活動フィード（デモ）</h2>'
+      '<h2>活動フィード（参考表示）</h2>'
       f'<ul class="ai-office-activity-feed" id="ai-office-activity-feed-list">'
       f'{activity_items}</ul>'
-      '<p class="ai-office-chat-note">これはデモの表示であり、実際のAI'
-      '作業ログではありません。</p>'
+      '<p class="ai-office-chat-note">これは演出用の参考表示であり、実際の'
+      'AI作業ログではありません。</p>'
       '</div>'
 
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の'
@@ -7732,7 +7937,9 @@ def _render_ai_office_scene():
       'QUEUE_DEFAULT_NEXT_ACTION=DATA.queueDefaultNextAction,'
       'RECENT_LABEL_BY_TYPE=DATA.recentLabelByType,'
       'RECENT_MAX_ITEMS=DATA.recentMaxItems,'
-      'DIRECTIVE_RULES=DATA.directiveRules;'
+      'DIRECTIVE_RULES=DATA.directiveRules,'
+      'ALL_STAFF_KEYS=DATA.allStaffKeys,'
+      'WORK_STATUS_LABELS=DATA.workStatusLabels;'
       'function shortName(key){return SHORT_NAMES[key]||STAFF_NAMES[key];}'
       # MISSION 080: 運用司令室の「本日の運用記録」(localStorage)を読み、
       # 今日の日付の記録だけを、対応する社員の対面報告に変換する。
@@ -7743,33 +7950,31 @@ def _render_ai_office_scene():
       'function pad(n){return n<10?"0"+n:""+n;}'
       'return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());'
       '}'
-      # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」の
-      # 3つだけは、ブラウザごとのlocalStorageではなく、このMac上のアプリ内
-      # DB(同一オリジンの/api/dashboard/daily-records、読み取り専用で
-      # GETするだけ)を参照する。対面報告(buildRealRecordQueue)・対面
-      # アニメーションは、このミッションの対象外であり、既存どおり
-      # localStorage(loadTodayRecords)を使い続ける。
+      # MISSION 088: 「直近の実績」は、ブラウザごとのlocalStorageではなく、
+      # このMac上のアプリ内DB(同一オリジンの/api/dashboard/daily-records、
+      # 読み取り専用でGETするだけ)を参照する。対面報告(buildRealRecordQueue)
+      # ・対面アニメーションは、このミッションの対象外であり、既存どおり
+      # localStorage(loadTodayRecords)を使い続ける。MISSION 090で「本日の
+      # 指示」「今日の実行キュー」は作業台帳(work_items)側へ移ったため、
+      # ここではDB_RECORDS_CACHEだけを保持する。
       'var DB_RECORDS_CACHE=[];'
-      'function loadTodayRecordsDb(){'
-      'var today=todayDateStr();'
-      'return DB_RECORDS_CACHE.filter(function(r){return r&&r.date===today&&'
-      'r.content&&String(r.content).trim();});'
-      '}'
-      # MISSION 089: 楽天ROOM候補の「今日・今週・保留」区分も、このMac上の
-      # アプリ内DB(/api/dashboard/candidates、読み取り専用GET)を参照する。
-      # manual_posted(投稿完了済み)の候補は、整理対象から除外する(完了済み
-      # 候補は「今日の指示」「実行キュー」に出さない)。
-      'var DB_CANDIDATES_CACHE=[];'
-      'function loadActiveRoomCandidates(){'
-      'return DB_CANDIDATES_CACHE.filter(function(c){'
-      'return c&&c.media==="楽天ROOM"&&!c.manual_posted;'
+      # MISSION 090: 「本日の指示」「今日の実行キュー」「社員の状態」は、
+      # 媒体共通の作業台帳(work_items、/api/dashboard/work-items、読み取り
+      # 専用GET)を参照する。楽天ROOM候補の「今日・今週」連携は、サーバー側
+      # (dashboard_db.sync_candidate_work_items)ですでにwork_itemsへ反映
+      # 済みのため、ここでpost_candidatesを個別に読む必要はない。
+      'var DB_WORK_ITEMS_CACHE=[];'
+      'function loadTodayWorkItems(){'
+      'var items=DB_WORK_ITEMS_CACHE.filter(function(w){'
+      'return w&&w.status==="today";'
       '});'
-      '}'
-      'function todayRoomCandidate(){'
-      'var list=loadActiveRoomCandidates().filter(function(c){'
-      'return c.bucket==="today";'
+      'items.sort(function(a,b){'
+      'var pa=(typeof a.priority==="number")?a.priority:5;'
+      'var pb=(typeof b.priority==="number")?b.priority:5;'
+      'if(pa!==pb)return pa-pb;'
+      'return (a.id||0)-(b.id||0);'
       '});'
-      'return list.length?list[0]:null;'
+      'return items;'
       '}'
       'function loadTodayRecords(){'
       'var raw=null;'
@@ -7867,35 +8072,25 @@ def _render_ai_office_scene():
       'li.append(mediaEl,contentEl,metaEl,nextEl,linkEl);'
       'return li;'
       '}'
+      # MISSION 090: 「今日の実行キュー」は、作業台帳(work_items)の「今日」
+      # 未完了作業だけを一覧表示する(優先度の高い順)。運用記録由来の項目は
+      # 混ぜない(運用記録の実績は「直近の実績」「対面報告」側で引き続き
+      # 扱う)。
       'function renderExecutionQueue(){'
       'var listEl=document.querySelector("#ai-office-queue-list");'
       'if(!listEl)return;'
-      'var records=loadTodayRecordsDb();'
-      'var roomCandidate=todayRoomCandidate();'
-      # 記録も楽天ROOM候補も無い場合は、既存の空メッセージ<li>をそのまま
-      # 残す(実在しない作業を作らない)。
-      'if(records.length===0&&!roomCandidate)return;'
+      'var items=loadTodayWorkItems();'
+      # 作業が無い場合は、既存の空メッセージ<li>をそのまま残す(実在しない
+      # 作業を作らない)。
+      'if(items.length===0)return;'
       'listEl.innerHTML="";'
-      # MISSION 089: 「今日」に設定した楽天ROOM候補(未完了)があれば、
-      # 運用記録より先に1件だけ実行キューへ加える。投稿準備席(陽菜)が
-      # 担当する最終確認として表示する。
-      'if(roomCandidate){'
-      'var candidateContent=roomCandidate.product_name||roomCandidate.genre||'
-      '"（商品名未入力）";'
+      'items.forEach(function(item){'
+      'var ownerName=STAFF_NAMES[item.assignee]||item.assignee;'
       'listEl.appendChild(buildQueueItem('
-      '"楽天ROOM",candidateContent,STAFF_NAMES.hina||"陽菜","手動投稿待ち",'
-      '"楽天ROOM候補を確認し、手動で投稿してください。",'
-      '"/content-studio/room-daily-candidates","投稿企画工場へ移動する"'
-      '));'
-      '}'
-      'records.forEach(function(rec){'
-      'var owner=queueOwnerForRecord(rec);'
-      'var ownerName=STAFF_NAMES[owner]||owner;'
-      'var status=QUEUE_STATUS_BY_TYPE[rec.type]||QUEUE_DEFAULT_STATUS;'
-      'var nextAction=QUEUE_NEXT_ACTION_BY_TYPE[rec.type]||QUEUE_DEFAULT_NEXT_ACTION;'
-      'var content=(rec.content||rec.metric||"").toString();'
-      'listEl.appendChild(buildQueueItem('
-      'rec.media,content,ownerName,status,nextAction,'
+      'item.media,item.task_name,ownerName,'
+      'WORK_STATUS_LABELS[item.status]||item.status,'
+      '"完了したら運用司令室の「作業台帳」で「完了にする」を押して'
+      'ください。",'
       '"/command-center","運用司令室へ移動する"'
       '));'
       '});'
@@ -7906,9 +8101,9 @@ def _render_ai_office_scene():
       # MISSION 085: 「直近の実績」。当日より前の記録だけを対象にし、
       # 新しい順(日付の文字列比較。YYYY-MM-DD形式は辞書順=時系列順に
       # なるため単純比較で足りる)に並べて最大5件だけ表示する。今日の
-      # 実行キュー(loadTodayRecordsDb)とは対象期間が異なるため、当日分は
-      # 混ざらない。MISSION 088でDB_RECORDS_CACHE(アプリ内DB由来)を
-      # 参照するようになった。
+      # 実行キュー(MISSION 090からは作業台帳work_items由来)とは対象期間が
+      # 異なるため、当日分は混ざらない。MISSION 088でDB_RECORDS_CACHE
+      # (アプリ内DB由来)を参照するようになった。
       'function loadAllRecords(){'
       'return DB_RECORDS_CACHE.filter(function(r){return r&&r.date&&'
       'r.content&&String(r.content).trim();});'
@@ -7967,33 +8162,29 @@ def _render_ai_office_scene():
       'listEl.appendChild(li);'
       '});'
       '}'
-      # MISSION 086: 「柴犬社長からの本日の指示」。常に1件だけを選び、
-      # 行動ボタンも1つだけにする。優先順位は上から
-      # 楽天ROOM候補(今日に設定・未完了)→下書き→投稿済み→承認待ち→
-      # (過去の記録はあるが本日の記録なし)→(記録が1件もない)の順。
-      # MISSION 089: 「今日」に設定した楽天ROOM候補は、最も具体的で
-      # すぐ動ける指示のため最優先にする。投稿済み・完了済みの候補は
-      # todayRoomCandidate()がmanual_postedを除外しているため指示に出ない。
+      # MISSION 090: 「柴犬社長からの本日の指示」は、作業台帳(work_items)で
+      # 「今日」の未完了作業のうち、優先度が最も高い(priorityの数字が最小の)
+      # 先頭1件をそのまま指示として表示する。該当作業が1件もない場合は、
+      # 実在しない指示を作らず、その旨を正直に表示する。
       'function pickDirective(){'
-      'var roomCandidate=todayRoomCandidate();'
-      'if(roomCandidate){'
+      'var items=loadTodayWorkItems();'
+      'if(items.length===0){'
       'return {'
-      'task:"楽天ROOM候補を確認し、手動で投稿する",'
-      'reason:"本日「今日」に設定した楽天ROOM候補があります",'
-      'href:"/content-studio",'
-      'label:"投稿企画工場を開く"'
+      'task:"今日の未完了作業はありません",'
+      'reason:"運用司令室の「作業台帳」で、今日やる作業を追加できます。",'
+      'href:"/command-center",'
+      'label:"運用司令室を開く"'
       '};'
       '}'
-      'var today=loadTodayRecordsDb();'
-      'if(today.some(function(r){return r.type==="下書き";}))'
-      'return DIRECTIVE_RULES[0];'
-      'if(today.some(function(r){return r.type==="投稿済み";}))'
-      'return DIRECTIVE_RULES[1];'
-      'if(today.some(function(r){return r.type==="承認待ち";}))'
-      'return DIRECTIVE_RULES[2];'
-      'var hasPast=loadAllRecords().some(function(r){return r.date<todayDateStr();});'
-      'if(hasPast)return DIRECTIVE_RULES[3];'
-      'return DIRECTIVE_RULES[4];'
+      'var top=items[0];'
+      'var ownerName=STAFF_NAMES[top.assignee]||top.assignee;'
+      'return {'
+      'task:top.task_name,'
+      'reason:"作業台帳で「今日」に割り当てられた、優先度が最も高い未完了'
+      '作業です（媒体："+top.media+"／担当："+ownerName+"）",'
+      'href:"/command-center",'
+      'label:"運用司令室を開く"'
+      '};'
       '}'
       'function renderDirective(){'
       'var d=pickDirective();'
@@ -8004,34 +8195,47 @@ def _render_ai_office_scene():
       'if(reasonEl)reasonEl.textContent=d.reason;'
       'if(btnEl){btnEl.href=d.href;btnEl.textContent=d.label;}'
       '}'
-      # MISSION 089: 候補管理チーム(紬・凪・陽菜)は、楽天ROOM候補のうち
-      # 「今日」に設定した未完了候補が実際にある時だけ、社員名簿・
-      # フロアトークンを実績表示(稼働中)に切り替える。候補が無ければ、
-      # 通常の待機表示のまま(サーバー側の初期描画がすでに待機表示)なので、
-      # false時は何もしない(架空の実績を作らない)。
-      'var CANDIDATE_TEAM_KEYS=["tsumugi","nagi","hina"];'
-      'function applyCandidateTeamRealState(hasTodayCandidate){'
-      'if(!hasTodayCandidate)return;'
-      'CANDIDATE_TEAM_KEYS.forEach(function(key){'
-      'var deskEl=document.querySelector(\'.ai-office-desk[data-department="\'+key+\'"]\');'
-      'var badge=deskEl?deskEl.querySelector(".ai-office-status-badge"):null;'
-      'if(badge){'
-      'badge.classList.remove("ai-office-status-waiting");'
-      'badge.classList.add("ai-office-status-working");'
-      'badge.textContent=(STATUS_LABELS.working||"稼働中")+"（実績表示）";'
-      '}'
+      # MISSION 090: 既存15名全員の状態を、作業台帳(work_items)の「今日」の
+      # 未完了作業の担当(assignee)から決める。担当する作業がある社員だけ
+      # 「稼働中（実績表示）」にし、無い社員は「待機中（実績なし）」と正直に
+      # 表示する(架空の稼働・実績を作らない)。社員名簿カード・フロア
+      # トークン・上部ステータスストリップの3箇所をまとめて更新する。
+      'function applyStaffRealState(todayItems){'
+      'var workingKeys={};'
+      'todayItems.forEach(function(item){'
+      'if(item&&item.assignee)workingKeys[item.assignee]=true;'
+      '});'
+      'ALL_STAFF_KEYS.forEach(function(key){'
+      'var working=Boolean(workingKeys[key]);'
+      'var statusKey=working?"working":"waiting";'
+      'var label=(STATUS_LABELS[statusKey]||(working?"稼働中":"待機中"))+'
+      '(working?"（実績表示）":"（実績なし）");'
+      'document.querySelectorAll('
+      '\'.ai-office-desk[data-department="\'+key+\'"] .ai-office-status-badge,\''
+      '+\'.ai-office-strip-chip[data-department="\'+key+\'"] .ai-office-status-badge\''
+      ').forEach(function(badge){'
+      'badge.classList.remove("ai-office-status-working","ai-office-status-waiting",'
+      '"ai-office-status-pending","ai-office-status-demo_done");'
+      'badge.classList.add("ai-office-status-"+statusKey);'
+      'badge.textContent=label;'
+      'badge.dataset.suffix=working?"実績表示":"実績なし";'
+      '});'
       'var token=document.querySelector("#ai-office-token-"+key);'
       'if(token){'
-      'token.classList.remove("ai-office-floormap-token-waiting");'
-      'token.classList.add("ai-office-floormap-token-working");'
+      'token.classList.remove("ai-office-floormap-token-working",'
+      '"ai-office-floormap-token-waiting","ai-office-floormap-token-pending",'
+      '"ai-office-floormap-token-demo_done");'
+      'token.classList.add("ai-office-floormap-token-"+statusKey);'
       '}'
       'var dot=document.querySelector("#ai-office-nameplate-dot-"+key);'
       'if(dot){'
-      'dot.classList.remove("ai-office-nameplate-dot-waiting");'
-      'dot.classList.add("ai-office-nameplate-dot-working");'
+      'dot.classList.remove("ai-office-nameplate-dot-working",'
+      '"ai-office-nameplate-dot-waiting","ai-office-nameplate-dot-pending",'
+      '"ai-office-nameplate-dot-demo_done");'
+      'dot.classList.add("ai-office-nameplate-dot-"+statusKey);'
       '}'
       'var statusText=document.querySelector("#ai-office-nameplate-status-"+key);'
-      'if(statusText)statusText.textContent=" "+(STATUS_LABELS.working||"稼働中")+"（実績表示）";'
+      'if(statusText)statusText.textContent=" "+label;'
       '});'
       '}'
       # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」は、
@@ -8039,29 +8243,27 @@ def _render_ai_office_scene():
       # 描画する。取得前・取得失敗時はDB_RECORDS_CACHEが空のままなので、
       # 既存の「記録がまだありません」という空状態表示に安全に収まる
       # (架空の実績を作らない)。fetchが使えない環境でも描画自体は行う。
-      # MISSION 089: 楽天ROOM候補(/api/dashboard/candidates)もあわせて
-      # 取得し、候補管理チームの実績表示切り替えに使う。
+      # MISSION 090: 作業台帳(/api/dashboard/work-items)もあわせて取得し、
+      # 「本日の指示」「今日の実行キュー」「社員の状態」の実データ化に使う。
       'function initDashboardDrivenSections(){'
       'if(typeof window.fetch!=="function"){'
       'renderDirective();renderExecutionQueue();renderRecentRecords();'
+      'applyStaffRealState([]);'
       'return;'
       '}'
       'var recordsPromise=window.fetch("/api/dashboard/daily-records")'
       '.then(function(res){return res.json();}).then(function(data){'
       'DB_RECORDS_CACHE=(data&&Array.isArray(data.records))?data.records:[];'
       '}).catch(function(){DB_RECORDS_CACHE=[];});'
-      'var candidatesPromise=window.fetch("/api/dashboard/candidates")'
+      'var workItemsPromise=window.fetch("/api/dashboard/work-items")'
       '.then(function(res){return res.json();}).then(function(data){'
-      'DB_CANDIDATES_CACHE=(data&&Array.isArray(data.candidates))?data.candidates:[];'
-      '}).catch(function(){DB_CANDIDATES_CACHE=[];});'
-      'Promise.all([recordsPromise,candidatesPromise]).then(function(){'
+      'DB_WORK_ITEMS_CACHE=(data&&Array.isArray(data.workItems))?data.workItems:[];'
+      '}).catch(function(){DB_WORK_ITEMS_CACHE=[];});'
+      'Promise.all([recordsPromise,workItemsPromise]).then(function(){'
       'renderDirective();'
       'renderExecutionQueue();'
       'renderRecentRecords();'
-      'var hasTodayCandidate=loadActiveRoomCandidates().some(function(c){'
-      'return c.bucket==="today";'
-      '});'
-      'applyCandidateTeamRealState(hasTodayCandidate);'
+      'applyStaffRealState(loadTodayWorkItems());'
       '});'
       '}'
       'initDashboardDrivenSections();'
