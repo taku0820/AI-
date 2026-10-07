@@ -399,6 +399,25 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .ai-office-section{margin:24px 0}
 .ai-office-section h2{font-size:15px;margin:0 0 10px;color:var(--ink);border-left:4px solid var(--cyan);padding-left:10px}
 .ai-office-section:first-of-type h2{margin-top:0}
+.ai-office-section-tag{display:block;width:fit-content;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:6px}
+.ai-office-section-tag-real{color:#34d399;background:#0b3d2e}
+.ai-office-section-tag-reference{color:#fbbf24;background:#3d3106}
+.ai-office-section-real h2{border-left-color:var(--green)}
+.ai-office-section-reference h2{border-left-color:#fbbf24}
+.ai-office-nav-links{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 28px}
+.ai-office-nav-link{background:#142039;color:var(--ink);border:1px solid var(--blue);border-radius:9px;padding:9px 16px;font-size:12px;text-decoration:none;font-weight:700;white-space:nowrap}
+.ai-office-nav-link:hover,.ai-office-nav-link:focus-visible{background:#1b2d4b;border-color:var(--cyan)}
+.ai-office-today-metrics-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.ai-office-today-metrics-item{background:#0b1120;border:1px solid #253651;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--ink)}
+.ai-office-reference-collapse{margin:28px 0;border:1px solid var(--edge);border-radius:16px;padding:16px 18px;background:var(--panel)}
+.ai-office-reference-collapse>summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--blue);list-style:none}
+.ai-office-reference-collapse>summary::-webkit-details-marker{display:none}
+.ai-office-reference-collapse>summary::marker{content:""}
+.ai-office-reference-collapse>summary:after{content:"▾";margin-left:6px;font-size:11px}
+.ai-office-reference-collapse[open]>summary:after{content:"▴"}
+.ai-office-reference-collapse>summary:hover,.ai-office-reference-collapse>summary:focus-visible{color:var(--cyan)}
+.ai-office-reference-intro{margin:12px 0 20px;font-size:12px;color:var(--sub);line-height:1.6}
+.ai-office-reference-collapse .ai-office-floormap{margin-top:0}
 .ai-office-floor{position:relative;padding:18px;border-radius:20px;border:1px solid var(--edge);background:linear-gradient(160deg,#0d1626 0%,#0a121f 65%),repeating-linear-gradient(115deg,#16233b 0 2px,transparent 2px 46px)}
 .ai-office-floor-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
 .ai-office-desk{background:linear-gradient(180deg,#101a2f,#0c1524);border:1px solid var(--edge);border-top:3px solid var(--cyan);border-radius:14px;padding:14px 16px}
@@ -8339,27 +8358,18 @@ def _render_ai_office_scene():
       '<a class="ai-office-directive-button" id="ai-office-directive-button" '
       'href="/command-center">運用司令室を開く</a>'
       '</div>'
+      # MISSION 094: AIオフィスを「毎日開いてすぐ行動できる運用画面」に
+      # 整理する。最初に見える範囲は、本日の指示→今日の実行キュー→本日の
+      # 実績数値・分析ラボの事実報告→担当社員の状態の順に固定し、フロア
+      # マップ・会話・活動フィードなどの参考表示は下の折りたたみへまとめる。
       '<div class="ai-office-demo-banner">実績表示と参考表示が混在しています'
-      '<span>「本日の指示」「今日の実行キュー」「社員の状態（稼働中/待機中）」'
-      'は、運用司令室の作業台帳（このMac上のSQLite DB）に基づく実績表示です。'
-      'それ以外のチャット・タスク一覧・活動フィード・フロアマップ上の'
-      '動き/会話/報告アニメーションは、あらかじめ用意した参考表示（デモ）'
-      'であり、AI社員が実際に自動稼働しているものではありません。'
+      '<span>「本日の指示」「今日の実行キュー」「本日の実績数値」「担当社員'
+      'の状態」「直近の実績」は、運用司令室・収益化ボードに保存したこの'
+      'Mac上のSQLite DBに基づく実績表示です。下の「オフィスの参考表示」に'
+      'まとめたチャット・タスク一覧・活動フィード・フロアマップ上の動き/'
+      '会話/報告アニメーションは、あらかじめ用意した参考表示（デモ）で'
+      'あり、AI社員が実際に自動稼働しているものではありません。'
       '</span></div>'
-      # MISSION 080: 「デモ表示」か「実績表示」かを画面上で明確に判別できる
-      # ようにするバッジ。実際の値はJS側で、運用司令室のlocalStorageに本日
-      # 付の運用記録があるかどうかを見て書き換える(サーバー側はlocalStorage
-      # の中身を知り得ないため、初期表示は読み込み中の文言にしておく)。
-      '<div class="ai-office-record-mode-badge" id="ai-office-record-mode-badge">'
-      '読み込み中…（デモ表示）</div>'
-      # MISSION 091: 分析ラボ(葵)からの報告。当日に実績スナップショットが
-      # 記録されているかどうかだけをもとに、DBに保存済みの事実を短く
-      # 表示する(推測・比較・架空の分析は行わない)。サーバー側はDBの
-      # 中身を知り得ないため、初期表示は確認中の文言にしておく。
-      '<div class="ai-office-analytics-report" id="ai-office-analytics-report">'
-      '<b>分析ラボ（葵）からの報告</b>'
-      '<p id="ai-office-analytics-report-text">確認中…</p>'
-      '</div>'
       '<div class="ai-office-role-diff">'
       '<p><b>運用司令室</b>（/command-center）は、数字の確認・判断・記録を'
       '行う画面です。<b>AIオフィス</b>（このページ）は、役割・進行状況・'
@@ -8367,6 +8377,114 @@ def _render_ai_office_scene():
       '<p>このページには、投稿・公開・送信・ログイン・削除を行うボタンは'
       '一切ありません。すべての実行判断は利用者本人が行います。</p>'
       '</div>'
+
+      # MISSION 084: 運用司令室の本日の運用記録を、読み取り専用で
+      # 「次に何をすればよいか」の実行キューとして表示する。記録がない
+      # 場合は、実在しない作業を作らず、その旨を明記した空メッセージの
+      # ままにする(JS側でrecords.length===0のときは書き換えない)。
+      # MISSION 094: 初期表示で最初に見える4項目の2番目として、ここへ移動。
+      '<div class="ai-office-section ai-office-section-real">'
+      '<span class="ai-office-section-tag ai-office-section-tag-real">'
+      '実績表示</span>'
+      '<h2>今日の実行キュー</h2>'
+      '<p class="ai-office-floormap-hint">運用司令室（'
+      '<a href="/command-center">/command-center</a>'
+      '）に入力した本日の運用記録を、次に行うべきことの一覧として表示'
+      'します。ここから外部サービスへの投稿・送信・ログイン・承認は'
+      '一切行いません。</p>'
+      '<ul class="ai-office-queue-list" id="ai-office-queue-list">'
+      '<li class="ai-office-queue-empty" id="ai-office-queue-empty">'
+      f'{AI_OFFICE_QUEUE_EMPTY_MESSAGE}</li>'
+      '</ul>'
+      '</div>'
+
+      # MISSION 094: 初期表示で最初に見える4項目の3番目。収益化ボードに
+      # 保存した当日分の実績スナップショットを、推測・比較を加えずそのまま
+      # 一覧表示する。分析ラボ(葵)からの短い事実報告もあわせてここに置く
+      # (MISSION 091で追加した要素をこの位置へ移動)。
+      '<div class="ai-office-section ai-office-section-real" '
+      'id="ai-office-today-metrics-section">'
+      '<span class="ai-office-section-tag ai-office-section-tag-real">'
+      '実績表示</span>'
+      '<h2>本日の実績数値</h2>'
+      '<p class="ai-office-floormap-hint">収益化ボード（'
+      '<a href="/revenue">/revenue</a>'
+      '）に保存した、本日分の実績数値だけを表示します。前回との比較・'
+      '履歴は収益化ボードでご確認ください。</p>'
+      '<ul class="ai-office-today-metrics-list" id="ai-office-today-metrics-list">'
+      '<li class="ai-office-queue-empty" id="ai-office-today-metrics-empty">'
+      '本日の実績記録はまだありません。<a href="/revenue">収益化ボード</a>'
+      'から記録できます。</li>'
+      '</ul>'
+      '<div class="ai-office-analytics-report" id="ai-office-analytics-report">'
+      '<b>分析ラボ（葵）からの報告</b>'
+      '<p id="ai-office-analytics-report-text">確認中…</p>'
+      '</div>'
+      '</div>'
+
+      # MISSION 094: 初期表示で最初に見える4項目の4番目(旧「社員名簿」)。
+      '<div class="ai-office-section ai-office-section-real">'
+      '<span class="ai-office-section-tag ai-office-section-tag-real">'
+      '実績表示</span>'
+      '<h2>担当社員の状態（15人・状態一覧）</h2>'
+      '<p class="ai-office-floormap-hint">柴犬社長を含む15人の役割・配置・'
+      '状態をまとめた一覧です。状態（稼働中/待機中）は作業台帳（DB）に基づく'
+      '実績表示、役割・配置の説明文はご案内用の参考表示です。</p>'
+      f'<div class="ai-office-floor"><div class="ai-office-floor-grid">{desk_cards}</div></div>'
+      '</div>'
+
+      # MISSION 094: 運用司令室・収益化ボード・投稿企画工場への導線を、
+      # 初期表示の4項目のすぐ下にまとめて置く。
+      '<div class="ai-office-nav-links" aria-label="関連画面への移動">'
+      '<a class="ai-office-nav-link" href="/command-center">'
+      '運用司令室を開く</a>'
+      '<a class="ai-office-nav-link" href="/revenue">収益化ボードを開く</a>'
+      '<a class="ai-office-nav-link" href="/content-studio">'
+      '投稿企画工場を開く</a>'
+      '</div>'
+
+      # MISSION 085: 当日より前の運用記録を、新しい順で最大5件、読み取り
+      # 専用で表示する。今日の実行キューとは対象期間を分け、当日分は
+      # 混ぜない(JS側でtodayDateStrより前のdateだけを対象にする)。記録が
+      # ない場合は、実在しない実績を作らず、空メッセージのままにする。
+      '<div class="ai-office-section ai-office-section-real">'
+      '<span class="ai-office-section-tag ai-office-section-tag-real">'
+      '実績表示</span>'
+      '<h2>直近の実績</h2>'
+      '<p class="ai-office-floormap-hint">運用司令室に記録した、本日より'
+      '前の運用記録を新しい順で最大5件表示します。今日の実行キューには'
+      '含めません。ここから外部サービスへの投稿・送信・ログイン・承認は'
+      '一切行いません。</p>'
+      '<ul class="ai-office-recent-list" id="ai-office-recent-list">'
+      '<li class="ai-office-queue-empty" id="ai-office-recent-empty">'
+      f'{AI_OFFICE_RECENT_EMPTY_MESSAGE}</li>'
+      '</ul>'
+      '</div>'
+
+      '<div class="ai-office-section">'
+      '<h2>成果物一覧</h2>'
+      f'<ul class="ai-office-deliverables-list">{deliverable_items}</ul>'
+      '</div>'
+
+      # MISSION 094: フロアマップ・会話・アニメーション・活動フィードなど、
+      # DBに基づかない演出用の参考表示を1つの折りたたみへまとめる。初期
+      # 状態では閉じておき、画面を情報過多にしない。開いた場合も、冒頭の
+      # 案内文で「実際の自動稼働・自動会話ではない」ことを明示する。
+      '<details class="ai-office-reference-collapse" '
+      'id="ai-office-reference-collapse">'
+      '<summary>オフィスの参考表示を開く（フロアマップ・会話・活動フィード'
+      'など）</summary>'
+      '<p class="ai-office-reference-intro">ここから下は、実際にAIが自動で'
+      '稼働・会話しているものではなく、演出用の参考表示です。外部サービス'
+      'への投稿・送信・ログイン・操作は一切行いません。</p>'
+      # MISSION 080: 「デモ表示」か「実績表示」かを画面上で明確に判別できる
+      # ようにするバッジ。実際の値はJS側で、運用司令室のlocalStorageに本日
+      # 付の運用記録があるかどうかを見て書き換える(サーバー側はlocalStorage
+      # の中身を知り得ないため、初期表示は読み込み中の文言にしておく)。
+      # MISSION 094: 対面報告アニメーション(フロアマップ)の実績/デモ切替
+      # バッジのため、フロアマップと同じ参考表示の折りたたみへ移動。
+      '<div class="ai-office-record-mode-badge" id="ai-office-record-mode-badge">'
+      '読み込み中…（デモ表示）</div>'
 
       '<div class="ai-office-floormap" aria-label="オフィスフロアマップ（デモ表示）">'
       # MISSION 077: フロアマップ最上部に、対面報告中の報告者・受け手・
@@ -8428,60 +8546,24 @@ def _render_ai_office_scene():
       '<p class="ai-office-floormap-speech-note">会話はすべてデモ用のデータ'
       'であり、実際のAI稼働ログではありません。</p>'
       f'<ul class="ai-office-floormap-status-strip">{status_strip}</ul>'
-      '</div>'
 
-      # MISSION 084: 運用司令室の本日の運用記録を、読み取り専用で
-      # 「次に何をすればよいか」の実行キューとして表示する。記録がない
-      # 場合は、実在しない作業を作らず、その旨を明記した空メッセージの
-      # ままにする(JS側でrecords.length===0のときは書き換えない)。
-      '<div class="ai-office-section">'
-      '<h2>今日の実行キュー</h2>'
-      '<p class="ai-office-floormap-hint">運用司令室（'
-      '<a href="/command-center">/command-center</a>'
-      '）に入力した本日の運用記録を、次に行うべきことの一覧として表示'
-      'します。ここから外部サービスへの投稿・送信・ログイン・承認は'
-      '一切行いません。</p>'
-      '<ul class="ai-office-queue-list" id="ai-office-queue-list">'
-      '<li class="ai-office-queue-empty" id="ai-office-queue-empty">'
-      f'{AI_OFFICE_QUEUE_EMPTY_MESSAGE}</li>'
-      '</ul>'
-      '</div>'
-
-      # MISSION 085: 当日より前の運用記録を、新しい順で最大5件、読み取り
-      # 専用で表示する。今日の実行キューとは対象期間を分け、当日分は
-      # 混ぜない(JS側でtodayDateStrより前のdateだけを対象にする)。記録が
-      # ない場合は、実在しない実績を作らず、空メッセージのままにする。
-      '<div class="ai-office-section">'
-      '<h2>直近の実績</h2>'
-      '<p class="ai-office-floormap-hint">運用司令室に記録した、本日より'
-      '前の運用記録を新しい順で最大5件表示します。今日の実行キューには'
-      '含めません。ここから外部サービスへの投稿・送信・ログイン・承認は'
-      '一切行いません。</p>'
-      '<ul class="ai-office-recent-list" id="ai-office-recent-list">'
-      '<li class="ai-office-queue-empty" id="ai-office-recent-empty">'
-      f'{AI_OFFICE_RECENT_EMPTY_MESSAGE}</li>'
-      '</ul>'
-      '</div>'
-
-      '<div class="ai-office-section">'
-      '<h2>社員名簿（15人・状態一覧）</h2>'
-      '<p class="ai-office-floormap-hint">柴犬社長を含む15人の役割・配置・'
-      '状態をまとめた一覧です。状態（稼働中/待機中）は作業台帳（DB）に基づく'
-      '実績表示、役割・配置の説明文はご案内用の参考表示です。</p>'
-      f'<div class="ai-office-floor"><div class="ai-office-floor-grid">{desk_cards}</div></div>'
-      '</div>'
-
-      '<div class="ai-office-section">'
+      '<div class="ai-office-section ai-office-section-reference">'
+      '<span class="ai-office-section-tag ai-office-section-tag-reference">'
+      '参考表示</span>'
       '<h2>今日のタスク（参考表示）</h2>'
       f'<ul class="ai-office-task-list">{task_items}</ul>'
       '</div>'
 
-      '<div class="ai-office-section">'
+      '<div class="ai-office-section ai-office-section-reference">'
+      '<span class="ai-office-section-tag ai-office-section-tag-reference">'
+      '参考表示</span>'
       '<h2>動いている仕事と結果（参考表示）</h2>'
       f'<ul class="ai-office-work-list">{work_items}</ul>'
       '</div>'
 
-      '<div class="ai-office-section">'
+      '<div class="ai-office-section ai-office-section-reference">'
+      '<span class="ai-office-section-tag ai-office-section-tag-reference">'
+      '参考表示</span>'
       '<h2>AIとのチャット窓口（参考表示）</h2>'
       f'<div class="ai-office-chat-demo"><div class="log">{chat_bubbles}</div>'
       '<p class="ai-office-chat-note">この窓口は現在、参考表示の会話例のみで、'
@@ -8489,25 +8571,25 @@ def _render_ai_office_scene():
       '行っていません。</p></div>'
       '</div>'
 
-      '<div class="ai-office-section">'
+      '<div class="ai-office-section ai-office-section-reference">'
+      '<span class="ai-office-section-tag ai-office-section-tag-reference">'
+      '参考表示</span>'
       '<h2>情報源の鮮度モニター（参考表示）</h2>'
       f'<div class="ai-office-freshness-grid">{freshness_cards}</div>'
       '<p class="ai-office-freshness-note">実際の取得日時は表示していません'
       '（未実装）。すべて「未接続・参考表示」の表示です。</p>'
       '</div>'
 
-      '<div class="ai-office-section">'
-      '<h2>成果物一覧</h2>'
-      f'<ul class="ai-office-deliverables-list">{deliverable_items}</ul>'
-      '</div>'
-
-      '<div class="ai-office-section">'
+      '<div class="ai-office-section ai-office-section-reference">'
+      '<span class="ai-office-section-tag ai-office-section-tag-reference">'
+      '参考表示</span>'
       '<h2>活動フィード（参考表示）</h2>'
       f'<ul class="ai-office-activity-feed" id="ai-office-activity-feed-list">'
       f'{activity_items}</ul>'
       '<p class="ai-office-chat-note">これは演出用の参考表示であり、実際の'
       'AI作業ログではありません。</p>'
       '</div>'
+      '</details>'
 
       '<p class="fp-footnote">この画面はlocalhost限定で表示される社内検討用の'
       'デモ画面です。楽天ROOM・楽天アフィリエイト・note・Pinterest・Threads'
@@ -8871,6 +8953,32 @@ def _render_ai_office_scene():
       'analyticsReportTextEl.textContent=text;'
       'if(analyticsReportEl)analyticsReportEl.classList.add("is-real");'
       '}'
+      # MISSION 094: 「本日の実績数値」。DBに保存済みの当日分の実績
+      # スナップショットだけを、媒体・指標・数値の形でそのまま一覧表示する
+      # (推測・比較は行わない。比較・差分は収益化ボード側の役割)。
+      'var todayMetricsListEl=document.querySelector('
+      '"#ai-office-today-metrics-list");'
+      'function formatMetricValue(metric,value){'
+      'if(metric==="posted")return value===1?"あり":"なし";'
+      'if(typeof value!=="number")return String(value);'
+      'return Number.isInteger(value)?String(value):'
+      'String(Math.round(value*100)/100);'
+      '}'
+      'function renderTodayMetrics(metricsToday){'
+      'if(!todayMetricsListEl)return;'
+      # 記録が無い場合は、既存の空メッセージ<li>をそのまま残す(架空の
+      # 数値を作らない)。
+      'if(!metricsToday||!metricsToday.length)return;'
+      'todayMetricsListEl.innerHTML="";'
+      'metricsToday.forEach(function(m){'
+      'var li=document.createElement("li");'
+      'li.className="ai-office-today-metrics-item";'
+      'var label=metricLabel(m.media,m.metric);'
+      'var valueText=formatMetricValue(m.metric,m.value);'
+      'li.textContent=m.media+"・"+label+"："+valueText;'
+      'todayMetricsListEl.appendChild(li);'
+      '});'
+      '}'
       # MISSION 088: 「本日の指示」「今日の実行キュー」「直近の実績」は、
       # このMac上のアプリ内DBを読み取り専用GETで1回取得してから、まとめて
       # 描画する。取得前・取得失敗時はDB_RECORDS_CACHEが空のままなので、
@@ -8885,6 +8993,7 @@ def _render_ai_office_scene():
       'renderDirective();renderExecutionQueue();renderRecentRecords();'
       'applyStaffRealState([],[]);'
       'renderAnalyticsReport([]);'
+      'renderTodayMetrics([]);'
       'return;'
       '}'
       'var recordsPromise=window.fetch("/api/dashboard/daily-records")'
@@ -8909,6 +9018,7 @@ def _render_ai_office_scene():
       'renderRecentRecords();'
       'applyStaffRealState(loadTodayWorkItems(),metricsToday);'
       'renderAnalyticsReport(metricsToday);'
+      'renderTodayMetrics(metricsToday);'
       '});'
       '}'
       'initDashboardDrivenSections();'
@@ -10041,9 +10151,10 @@ def register_office_views(app):
     scene = _render_ai_office_scene()
     return _page(
         "aioffice", "AIオフィス",
-        "資料室と担当チームの役割・進行状況・活動をデモ表示で見える化する"
-        "画面です。実データ接続・外部サービスへのアクセス・ログイン・投稿・"
-        "送信・削除は一切行っていません。",
+        "本日の指示・実行キュー・実績数値・担当社員の状態をこのMac上のDBの"
+        "記録から確認できる画面です。フロアマップなどの参考表示は折りたたんで"
+        "あります。外部サービスへのアクセス・ログイン・投稿・送信・削除は"
+        "一切行っていません。",
         scene,
         role_hint="今日の実績・社員の報告を見る",
     )

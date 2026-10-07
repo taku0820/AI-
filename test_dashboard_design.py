@@ -5662,25 +5662,35 @@ class DashboardDesignTestCase(unittest.TestCase):
       self.assertIn(f'data-department="{d["key"]}"', html)
       self.assertIn(d["desk_label"], html)
 
-  def test_ai_office_floormap_image_appears_before_status_section(self):
+  def test_ai_office_status_section_appears_before_floormap(self):
+    # MISSION 094: 最初に見える4項目(指示→キュー→実績数値→社員の状態)を
+    # 優先するため、フロアマップは参考表示の折りたたみへ移動し、
+    # 「担当社員の状態」セクションより後ろに来るようになった(以前の
+    # 「フロアマップが先」という順序は意図的に反転させた)。
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertLess(
+        html.index("担当社員の状態（15人・状態一覧）"),
         html.index("オフィスフロアマップ（デモ表示）"),
-        html.index("社員名簿（15人・状態一覧）"),
     )
     self.assertLess(
-        html.index('class="ai-office-floormap-image"'),
         html.index('class="ai-office-desk"'),
+        html.index('class="ai-office-floormap-image"'),
     )
 
   def test_ai_office_floormap_each_chip_shows_department_and_status(self):
     # MISSION 090: 社員の状態は作業台帳(DB)に基づく実績表示へ切り替わり、
     # サーバー側は架空の初期状態(demo_status)を決め打ちしなくなった。
     # 各チップの初期表示はニュートラルな「確認中…」になる。
+    # MISSION 094: 「担当社員の状態」(ai-office-desk、<div>)が、ステータス
+    # ストリップ(ai-office-strip-chip、<li>)より前に来る順序へ変わったため、
+    # data-department="..."の最初の出現(今はdesk card側)と混同しないよう、
+    # strip-chip自体のマーカーを含めて分割する。
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for d in office_views.AI_OFFICE_DEPARTMENTS:
-      chip = html.split(f'data-department="{d["key"]}">', 1)[1]
+      chip = html.split(
+          f'<li class="ai-office-strip-chip" data-department="{d["key"]}">', 1
+      )[1]
       chip = chip.split('</li>', 1)[0]
       self.assertIn(d["desk_label"], chip)
       self.assertIn("確認中…", chip)
@@ -5831,7 +5841,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for heading in (
-        "社員名簿（15人・状態一覧）", "今日のタスク（参考表示）",
+        "担当社員の状態（15人・状態一覧）", "今日のタスク（参考表示）",
         "動いている仕事と結果（参考表示）", "AIとのチャット窓口（参考表示）",
         "情報源の鮮度モニター（参考表示）", "成果物一覧", "活動フィード（参考表示）",
     ):
@@ -6068,7 +6078,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     for heading in (
-        "社員名簿（15人・状態一覧）", "今日のタスク（参考表示）",
+        "担当社員の状態（15人・状態一覧）", "今日のタスク（参考表示）",
         "動いている仕事と結果（参考表示）", "AIとのチャット窓口（参考表示）",
         "情報源の鮮度モニター（参考表示）", "成果物一覧", "活動フィード（参考表示）",
     ):
@@ -6347,7 +6357,7 @@ class DashboardDesignTestCase(unittest.TestCase):
         html,
     )
     for heading in (
-        "社員名簿（15人・状態一覧）", "今日のタスク（参考表示）",
+        "担当社員の状態（15人・状態一覧）", "今日のタスク（参考表示）",
         "動いている仕事と結果（参考表示）", "AIとのチャット窓口（参考表示）",
         "情報源の鮮度モニター（参考表示）", "成果物一覧", "活動フィード（参考表示）",
     ):
@@ -8258,7 +8268,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn('id="ai-office-record-mode-badge"', html)
     self.assertIn('id="ai-office-report-banner"', html)
     self.assertIn("function buildRealRecordQueue(){", html)
-    self.assertIn("<h2>社員名簿（15人・状態一覧）</h2>", html)
+    self.assertIn("<h2>担当社員の状態（15人・状態一覧）</h2>", html)
     self.assertIn("実績表示と参考表示が混在しています", html)
 
   def test_mission_084_does_not_change_office_ceo_office_or_break_room(self):
@@ -8287,18 +8297,20 @@ class DashboardDesignTestCase(unittest.TestCase):
   # --- MISSION 085: AIオフィスに「直近の実績」を追加する -------------------
 
   def test_ai_office_recent_records_section_is_present_after_the_queue(self):
+    # MISSION 094: 初期表示で最初に見える4項目(指示→キュー→実績数値→
+    # 社員の状態)を優先するため、「直近の実績」は4項目の後ろ(ナビゲーション
+    # 導線の次)へ移動した。「今日の実行キュー」より後ろである点は維持。
     import office_views
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn("<h2>直近の実績</h2>", html)
     self.assertIn('id="ai-office-recent-list"', html)
     self.assertIn('id="ai-office-recent-empty"', html)
     self.assertIn(office_views.AI_OFFICE_RECENT_EMPTY_MESSAGE, html)
-    # 「今日の実行キュー」セクションの直後に続いていることを確認する。
     queue_idx = html.index("<h2>今日の実行キュー</h2>")
+    roster_idx = html.index("<h2>担当社員の状態（15人・状態一覧）</h2>")
     recent_idx = html.index("<h2>直近の実績</h2>")
-    roster_idx = html.index("<h2>社員名簿（15人・状態一覧）</h2>")
-    self.assertLess(queue_idx, recent_idx)
-    self.assertLess(recent_idx, roster_idx)
+    self.assertLess(queue_idx, roster_idx)
+    self.assertLess(roster_idx, recent_idx)
 
   def test_ai_office_recent_records_labels_avoid_overclaiming_external_execution(self):
     import office_views
@@ -8441,7 +8453,7 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/ai-office").get_data(as_text=True)
     self.assertIn('id="ai-office-record-mode-badge"', html)
     self.assertIn('id="ai-office-report-banner"', html)
-    self.assertIn("<h2>社員名簿（15人・状態一覧）</h2>", html)
+    self.assertIn("<h2>担当社員の状態（15人・状態一覧）</h2>", html)
     self.assertIn("<h2>今日の実行キュー</h2>", html)
     self.assertIn("<h2>直近の実績</h2>", html)
 
@@ -10274,6 +10286,235 @@ class DashboardDesignTestCase(unittest.TestCase):
     self.assertIn(".cc-restore-box{margin-top:16px}", html)
     self.assertIn(
         "@media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}",
+        html,
+    )
+
+  # --- MISSION 094: AIオフィスを運用画面として整理する ----------------------
+
+  def test_ai_office_first_four_sections_appear_in_required_order(self):
+    # 要件どおり、本日の指示→今日の実行キュー→本日の実績数値・分析ラボの
+    # 事実報告→担当社員の状態、の順で現れることを確認する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    directive_idx = html.index('id="ai-office-directive-card"')
+    queue_idx = html.index("<h2>今日の実行キュー</h2>")
+    metrics_idx = html.index('id="ai-office-today-metrics-section"')
+    analytics_idx = html.index('id="ai-office-analytics-report"')
+    roster_idx = html.index("<h2>担当社員の状態（15人・状態一覧）</h2>")
+    self.assertLess(directive_idx, queue_idx)
+    self.assertLess(queue_idx, metrics_idx)
+    self.assertLess(metrics_idx, analytics_idx)
+    self.assertLess(analytics_idx, roster_idx)
+
+  def test_ai_office_today_metrics_section_present_with_honest_empty_state(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-today-metrics-section"', html)
+    self.assertIn("本日の実績数値", html)
+    self.assertIn('id="ai-office-today-metrics-list"', html)
+    self.assertIn('id="ai-office-today-metrics-empty"', html)
+    # DBに記録が無い場合、ゼロや架空の数値を作らず、次に開く画面(収益化
+    # ボード)への案内を出す。
+    self.assertIn(
+        '本日の実績記録はまだありません。<a href="/revenue">収益化ボード'
+        '</a>から記録できます。',
+        html,
+    )
+    self.assertIn("function renderTodayMetrics(metricsToday){", html)
+    self.assertIn('window.fetch("/api/dashboard/metrics?date="+todayDateStr())', html)
+
+  def test_ai_office_today_metrics_js_does_not_fabricate_or_compare(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    queue_fn = html.split("function renderTodayMetrics(metricsToday){", 1)[1].split(
+        "function initDashboardDrivenSections(){", 1
+    )[0]
+    # 記録が無い場合、既存の空メッセージ<li>を書き換えずにそのまま残す
+    # (架空の数値を作らない)。
+    self.assertIn("if(!metricsToday||!metricsToday.length)return;", queue_fn)
+    # 差分・比較・推測を行う語を含まない(比較は収益化ボード側の役割)。
+    self.assertNotIn("diff", queue_fn)
+    self.assertNotIn("比較", queue_fn)
+
+  def test_ai_office_nav_links_to_command_center_revenue_and_content_studio(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('class="ai-office-nav-links"', html)
+    self.assertIn(
+        '<a class="ai-office-nav-link" href="/command-center">'
+        '運用司令室を開く</a>',
+        html,
+    )
+    self.assertIn(
+        '<a class="ai-office-nav-link" href="/revenue">収益化ボードを開く</a>',
+        html,
+    )
+    self.assertIn(
+        '<a class="ai-office-nav-link" href="/content-studio">'
+        '投稿企画工場を開く</a>',
+        html,
+    )
+    for path in ("/command-center", "/revenue", "/content-studio"):
+      res = self.client.get(path)
+      self.assertEqual(res.status_code, 200)
+
+  def test_ai_office_reference_section_is_collapsed_by_default(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        '<details class="ai-office-reference-collapse" '
+        'id="ai-office-reference-collapse">',
+        html,
+    )
+    # <details>にopen属性が付いていない(初期状態で閉じている)ことを確認。
+    details_tag = html.split('id="ai-office-reference-collapse">', 1)[0].split(
+        "<details", 1
+    )[1]
+    self.assertNotIn(" open", details_tag)
+    self.assertIn(
+        "オフィスの参考表示を開く（フロアマップ・会話・活動フィード"
+        "など）",
+        html,
+    )
+
+  def test_ai_office_reference_section_explains_it_is_not_live(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    section = html.split('id="ai-office-reference-collapse">', 1)[1].split(
+        "</details>", 1
+    )[0]
+    self.assertIn(
+        "実際にAIが自動で稼働・会話しているものではなく、演出用の参考表示"
+        "です。",
+        section,
+    )
+    self.assertIn("外部サービスへの投稿・送信・ログイン・操作は一切行いません。", section)
+
+  def test_ai_office_reference_section_contains_all_moved_reference_parts(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    section = html.split('id="ai-office-reference-collapse">', 1)[1].split(
+        "</details>", 1
+    )[0]
+    self.assertIn('id="ai-office-record-mode-badge"', section)
+    self.assertIn('class="ai-office-floormap"', section)
+    self.assertIn('id="ai-office-anim-toggle"', section)
+    self.assertIn('class="ai-office-floormap-status-strip"', section)
+    self.assertIn("今日のタスク（参考表示）", section)
+    self.assertIn("動いている仕事と結果（参考表示）", section)
+    self.assertIn("AIとのチャット窓口（参考表示）", section)
+    self.assertIn("情報源の鮮度モニター（参考表示）", section)
+    self.assertIn("活動フィード（参考表示）", section)
+    # 「担当社員の状態」「今日の実行キュー」「本日の実績数値」「直近の実績」
+    # 「成果物一覧」は参考表示の折りたたみの外(実データ領域)にあるため、
+    # 折りたたみの中には含まれない。
+    self.assertNotIn("担当社員の状態（15人・状態一覧）", section)
+    self.assertNotIn("<h2>今日の実行キュー</h2>", section)
+    self.assertNotIn("<h2>直近の実績</h2>", section)
+
+  def test_ai_office_animation_toggle_and_reduced_motion_preserved(self):
+    # 既存のアニメーション停止操作とprefers-reduced-motion対応は、
+    # 参考表示の折りたたみへ移動しても維持されていることを確認する。
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        '<button type="button" class="ai-office-anim-toggle" '
+        'id="ai-office-anim-toggle">アニメーションを停止</button>',
+        html,
+    )
+    self.assertIn("prefers-reduced-motion:reduce", html)
+    self.assertIn('var toggleBtn=document.querySelector("#ai-office-anim-toggle");', html)
+
+  def test_ai_office_real_and_reference_sections_have_consistent_tags(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        '<span class="ai-office-section-tag ai-office-section-tag-real">'
+        '実績表示</span>',
+        html,
+    )
+    self.assertIn(
+        '<span class="ai-office-section-tag ai-office-section-tag-reference">'
+        '参考表示</span>',
+        html,
+    )
+    # 色分けの一貫性(CSSクラス)を確認する。
+    self.assertIn(".ai-office-section-tag-real{color:#34d399;background:#0b3d2e}", html)
+    self.assertIn(
+        ".ai-office-section-tag-reference{color:#fbbf24;background:#3d3106}", html,
+    )
+    self.assertIn(".ai-office-section-real h2{border-left-color:var(--green)}", html)
+    self.assertIn(".ai-office-section-reference h2{border-left-color:#fbbf24}", html)
+    # 実績表示タグの数(今日の実行キュー・本日の実績数値・担当社員の状態・
+    # 直近の実績の4箇所)。
+    self.assertEqual(
+        html.count(
+            '<span class="ai-office-section-tag ai-office-section-tag-real">'
+            '実績表示</span>'
+        ),
+        4,
+    )
+    # 参考表示タグの数(今日のタスク・動いている仕事と結果・チャット窓口・
+    # 情報源の鮮度モニター・活動フィードの5箇所)。
+    self.assertEqual(
+        html.count(
+            '<span class="ai-office-section-tag '
+            'ai-office-section-tag-reference">参考表示</span>'
+        ),
+        5,
+    )
+
+  def test_ai_office_new_sections_do_not_add_external_communication(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    for api_path in self._find_api_paths(html):
+      self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+    self.assertNotIn("XMLHttpRequest", html)
+    self.assertNotIn("WebSocket", html)
+    self.assertNotIn("Authorization", html)
+    self.assertNotIn("<form", html)
+
+  def test_ai_office_lead_text_reflects_real_data_focus(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        "本日の指示・実行キュー・実績数値・担当社員の状態をこのMac上のDB"
+        "の記録から確認できる画面です。",
+        html,
+    )
+    self.assertIn(
+        "外部サービスへのアクセス・ログイン・投稿・送信・削除は一切行って"
+        "いません。",
+        html,
+    )
+
+  def test_ai_office_no_new_image_assets_or_keyframes_added(self):
+    # 新しい画像素材・アニメーションを追加していないことを確認する
+    # (既存のAI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATHとAI_OFFICE_
+    # TEAM_SPRITES関連の画像パスのみが使われている)。
+    import office_views
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    img_srcs = re.findall(r'<img[^>]*src="([^"]*)"', html)
+    for src in img_srcs:
+      self.assertIn(
+          src,
+          [f"/static/{office_views.AI_OFFICE_FLOOR_MAP_EMPTY_IMAGE_RELATIVE_PATH}"],
+      )
+
+  def test_ai_office_today_metrics_integrates_with_real_db_data(self):
+    self._reset_dashboard_tables()
+    dashboard_db.save_metric_snapshot_batch(
+        dashboard_db.datetime.date.today().isoformat(), "Pinterest",
+        {"impressions": "500"},
+    )
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn('id="ai-office-today-metrics-section"', html)
+    # DB取得はJS側で行うため、サーバー側のHTML自体は引き続き「確認中…」の
+    # プレースホルダのままでよい(架空の数値をサーバー側で決め打ちしない)。
+    res = self.client.get(
+        "/api/dashboard/metrics?date=" + dashboard_db.datetime.date.today().isoformat()
+    )
+    data = res.get_json()
+    self.assertEqual(len(data["metrics"]), 1)
+    self.assertEqual(data["metrics"][0]["media"], "Pinterest")
+
+  def test_mission_094_no_horizontal_scroll_css_present(self):
+    html = self.client.get("/ai-office").get_data(as_text=True)
+    self.assertIn(
+        ".ai-office-nav-links{display:flex;gap:10px;flex-wrap:wrap", html,
+    )
+    self.assertIn(
+        ".ai-office-today-metrics-list{list-style:none;margin:0 0 12px;"
+        "padding:0;display:grid;gap:6px}",
         html,
     )
 
