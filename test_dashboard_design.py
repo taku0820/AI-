@@ -9952,20 +9952,21 @@ class DashboardDesignTestCase(unittest.TestCase):
     html = self.client.get("/command-center").get_data(as_text=True)
     self.assertIn('"まだバックアップはありません"', html)
 
-  def test_command_center_data_protection_does_not_include_restore_feature(self):
-    # 既存DBを上書きする復元機能(ボタン・API呼び出し)は、誤操作の影響が
-    # 大きいため今回は追加しない(要件どおり)。詳細欄の注意書きで「復元は
-    # 無い」と明示する文はこの時点では存在してよいため、ボタン・fetch呼び
-    # 出しの不在だけを確認する(「復元」という語自体の不在は確認しない)。
+  def test_command_center_data_protection_restore_feature_is_minimal_and_safe(self):
+    # MISSION 092時点では復元機能は対象外だったが、MISSION 093で
+    # 「バックアップから復元」を安全に追加した(確認文言必須、PUT/DELETE
+    # のような曖昧な操作は使わず、/api/dashboard/backups/restoreへの
+    # POST1本に限定する)。ボタンは「今すぐバックアップを作成」と
+    # 「このバックアップから復元する」の2つだけ。
     html = self.client.get("/command-center").get_data(as_text=True)
     section = html.split('id="cc-data-protection"', 1)[1].split(
         "</section>", 1
     )[0]
-    self.assertNotIn("restore", section)
     self.assertNotIn('method:"PUT"', section)
     self.assertNotIn('method:"DELETE"', section)
-    # ボタンは「今すぐバックアップを作成」の1つだけ。
-    self.assertEqual(section.count("<button"), 1)
+    self.assertEqual(section.count("<button"), 2)
+    self.assertIn('id="cc-backup-now-btn"', section)
+    self.assertIn('id="cc-restore-btn"', section)
 
   def test_mission_092_no_new_external_communication_anywhere(self):
     for path in (
@@ -9999,6 +10000,282 @@ class DashboardDesignTestCase(unittest.TestCase):
       gitignore = f.read()
     self.assertIn("backups/", gitignore)
     self.assertIn("ai_company.db", gitignore)
+
+  # --- MISSION 093: バックアップからの安全な復元 ----------------------------
+
+  def test_dashboard_db_restore_candidates_empty_when_no_backups(self):
+    self.assertEqual(dashboard_db.list_restore_candidates(), [])
+
+  def test_dashboard_db_restore_candidates_lists_integrity_confirmed_backups(self):
+    dashboard_db.create_manual_backup()
+    candidates = dashboard_db.list_restore_candidates()
+    self.assertEqual(len(candidates), 1)
+    c = candidates[0]
+    self.assertEqual(set(c.keys()), {
+        "identifier", "createdAt", "sizeBytes", "integrityCheck",
+        "foreignKeyCheckOk",
+    })
+    self.assertEqual(c["integrityCheck"], "ok")
+    self.assertTrue(c["foreignKeyCheckOk"])
+
+  def test_dashboard_db_restore_candidates_excludes_tampered_backups(self):
+    # MISSION 093: 候補一覧は表示のたびに実際に再検証するため、作成後に
+    # 改ざんされたバックアップは候補から外れる(作成時点のmetadata.jsonの
+    # 記録を鵜呑みにしない)。
+    result = dashboard_db.create_manual_backup()
+    self.assertTrue(result["created"])
+    entries = [
+        e for e in hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+        if e["ok"]
+    ]
+    backup_dir = os.path.join(dashboard_db.BACKUPS_ROOT, entries[0]["identifier"])
+    with open(os.path.join(backup_dir, "ai_company.db"), "ab") as f:
+      f.write(b"TAMPERED")
+    self.assertEqual(dashboard_db.list_restore_candidates(), [])
+
+  def test_dashboard_db_restore_candidates_excludes_unmanaged_snapshots(self):
+    os.makedirs(dashboard_db.BACKUPS_ROOT, exist_ok=True)
+    manual_dir = os.path.join(dashboard_db.BACKUPS_ROOT, "pre_missionTEST_20990101_000000")
+    os.makedirs(manual_dir)
+    shutil.copy(dashboard_db.DB_NAME, os.path.join(manual_dir, "ai_company.db"))
+    self.assertEqual(dashboard_db.list_restore_candidates(), [])
+
+  def test_dashboard_db_restore_candidates_no_db_contents_or_credentials(self):
+    dashboard_db.create_manual_backup()
+    candidates_json = json.dumps(dashboard_db.list_restore_candidates())
+    for forbidden in (
+        "table_row_counts", "sha256", "source_db_path", "Authorization",
+        "api_key", "access_token",
+    ):
+      self.assertNotIn(forbidden, candidates_json)
+
+  def test_dashboard_db_restore_rejects_wrong_confirmation_phrase(self):
+    backup_result = dashboard_db.create_manual_backup()
+    self.assertTrue(backup_result["created"])
+    identifier = dashboard_db.list_restore_candidates()[0]["identifier"]
+
+    dashboard_db.insert_daily_record(
+        "2099-01-01", "note", "下書き", "復元前に追加した記録"
+    )
+    before_count = len(dashboard_db.list_daily_records())
+
+    for bad_phrase in ("", "復元", "restore", "復元するする", " 復元する", "復元する "):
+      result = dashboard_db.restore_from_backup(identifier, bad_phrase)
+      self.assertFalse(result["restored"])
+      self.assertEqual(result["reason"], "confirmation_mismatch")
+
+    self.assertEqual(len(dashboard_db.list_daily_records()), before_count)
+
+  def test_dashboard_db_restore_rejects_missing_or_invalid_identifier(self):
+    dashboard_db.create_manual_backup()
+    for bad_identifier in (None, "", "backup_doesnotexist_000000", "../../etc/passwd"):
+      result = dashboard_db.restore_from_backup(bad_identifier, "復元する")
+      self.assertFalse(result["restored"])
+      self.assertIn(result["reason"], ("invalid_identifier", "not_a_valid_candidate"))
+
+  def test_dashboard_db_restore_rejects_tampered_backup_and_leaves_db_unchanged(self):
+    dashboard_db.create_manual_backup()
+    entries = [
+        e for e in hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+        if e["ok"]
+    ]
+    identifier = entries[0]["identifier"]
+    backup_dir = os.path.join(dashboard_db.BACKUPS_ROOT, identifier)
+    with open(os.path.join(backup_dir, "ai_company.db"), "ab") as f:
+      f.write(b"TAMPERED")
+
+    before_count = len(dashboard_db.list_daily_records())
+    result = dashboard_db.restore_from_backup(identifier, "復元する")
+    self.assertFalse(result["restored"])
+    self.assertEqual(result["reason"], "not_a_valid_candidate")
+    self.assertEqual(len(dashboard_db.list_daily_records()), before_count)
+
+  def test_dashboard_db_restore_succeeds_and_reverts_mutation(self):
+    dashboard_db.create_manual_backup()
+    identifier = dashboard_db.list_restore_candidates()[0]["identifier"]
+    before_count = len(dashboard_db.list_daily_records())
+
+    dashboard_db.insert_daily_record(
+        "2099-01-01", "note", "下書き", "復元で消えるはずの記録"
+    )
+    self.assertEqual(len(dashboard_db.list_daily_records()), before_count + 1)
+
+    result = dashboard_db.restore_from_backup(identifier, "復元する")
+    self.assertTrue(result["restored"])
+    self.assertIn("restoredFromCreatedAt", result)
+    self.assertIn("preRestoreBackupCreatedAt", result)
+    self.assertEqual(len(dashboard_db.list_daily_records()), before_count)
+
+  def test_dashboard_db_restore_creates_pre_restore_backup(self):
+    dashboard_db.create_manual_backup()
+    identifier = dashboard_db.list_restore_candidates()[0]["identifier"]
+    before_count = len(
+        [e for e in hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT) if e["ok"]]
+    )
+    dashboard_db.restore_from_backup(identifier, "復元する")
+    after_count = len(
+        [e for e in hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT) if e["ok"]]
+    )
+    self.assertEqual(after_count, before_count + 1)
+
+  def test_dashboard_db_restore_protects_source_and_pre_restore_backups_from_pruning(self):
+    # MISSION 093: 復元元(7世代の中で最も古いもの)が、復元に伴う世代整理で
+    # 消えずに残ることを確認する。
+    created = self._create_n_managed_backups(7, start_date="2098-01-01")
+    oldest_identifier = os.path.basename(created[0]["backup_dir"])
+    # 復元元として選べるよう、整合性を再確認できる状態であることを確認。
+    candidate_ids = {c["identifier"] for c in dashboard_db.list_restore_candidates()}
+    self.assertIn(oldest_identifier, candidate_ids)
+
+    result = dashboard_db.restore_from_backup(oldest_identifier, "復元する")
+    self.assertTrue(result["restored"])
+
+    remaining_ids = {
+        e["identifier"]
+        for e in hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+        if e["ok"]
+    }
+    self.assertIn(oldest_identifier, remaining_ids)
+    pre_restore_id = [
+        e["identifier"]
+        for e in hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+        if e["ok"] and e["created_at"] == result["preRestoreBackupCreatedAt"]
+    ]
+    self.assertTrue(pre_restore_id)
+    self.assertIn(pre_restore_id[0], remaining_ids)
+
+  def test_dashboard_db_restore_failure_does_not_break_normal_record_saves(self):
+    dashboard_db.create_manual_backup()
+    identifier = dashboard_db.list_restore_candidates()[0]["identifier"]
+
+    orig_restore_backup = hive_backup.restore_backup
+    def _boom(*args, **kwargs):
+      raise RuntimeError("simulated restore failure")
+    hive_backup.restore_backup = _boom
+    try:
+      result = dashboard_db.restore_from_backup(identifier, "復元する")
+      self.assertFalse(result["restored"])
+
+      res = self.client.post(
+          "/api/dashboard/work-items",
+          json={"media": "note", "taskName": "復元失敗時のテスト作業",
+                "assignee": "note", "status": "today"},
+      )
+      self.assertTrue(res.get_json()["inserted"])
+    finally:
+      hive_backup.restore_backup = orig_restore_backup
+
+  def test_dashboard_api_restore_candidates_round_trip(self):
+    res1 = self.client.get("/api/dashboard/backups/restore-candidates")
+    self.assertEqual(res1.status_code, 200)
+    self.assertEqual(res1.get_json()["candidates"], [])
+
+    self.client.post("/api/dashboard/backups")
+    res2 = self.client.get("/api/dashboard/backups/restore-candidates")
+    candidates = res2.get_json()["candidates"]
+    self.assertEqual(len(candidates), 1)
+
+  def test_dashboard_api_restore_round_trip_success(self):
+    self.client.post("/api/dashboard/backups")
+    identifier = self.client.get(
+        "/api/dashboard/backups/restore-candidates"
+    ).get_json()["candidates"][0]["identifier"]
+
+    self.client.post(
+        "/api/dashboard/daily-records",
+        json={"date": "2099-01-01", "media": "note", "type": "下書き",
+              "content": "APIラウンドトリップ復元テスト", "metric": "", "reference": ""},
+    )
+    res = self.client.post(
+        "/api/dashboard/backups/restore",
+        json={"identifier": identifier, "confirmation": "復元する"},
+    )
+    self.assertEqual(res.status_code, 200)
+    data = res.get_json()
+    self.assertTrue(data["restored"])
+    self.assertIn("restoredFromCreatedAt", data)
+    self.assertIn("preRestoreBackupCreatedAt", data)
+
+  def test_dashboard_api_restore_rejects_wrong_confirmation(self):
+    self.client.post("/api/dashboard/backups")
+    identifier = self.client.get(
+        "/api/dashboard/backups/restore-candidates"
+    ).get_json()["candidates"][0]["identifier"]
+    res = self.client.post(
+        "/api/dashboard/backups/restore",
+        json={"identifier": identifier, "confirmation": "yes"},
+    )
+    self.assertEqual(res.status_code, 200)
+    data = res.get_json()
+    self.assertFalse(data["restored"])
+    self.assertEqual(data["reason"], "confirmation_mismatch")
+
+  def test_dashboard_api_restore_requires_no_authentication(self):
+    res = self.client.get("/api/dashboard/backups/restore-candidates")
+    self.assertEqual(res.status_code, 200)
+    res2 = self.client.post("/api/dashboard/backups/restore", json={})
+    self.assertEqual(res2.status_code, 200)
+    self.assertFalse(res2.get_json()["restored"])
+
+  def test_command_center_has_restore_ui_with_collapsed_warning(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('id="cc-restore-box"', html)
+    self.assertIn("バックアップから復元", html)
+    self.assertIn('id="cc-restore-select"', html)
+    self.assertIn('id="cc-restore-confirm"', html)
+    self.assertIn('id="cc-restore-btn"', html)
+    self.assertIn("disabled", html.split('id="cc-restore-btn"', 1)[1][:30])
+    self.assertIn('<details class="cc-work-ledger-detail">', html)
+    self.assertIn("復元前の注意事項", html)
+    self.assertIn("復元する", html)
+
+  def test_command_center_restore_confirmation_phrase_is_single_source_of_truth(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn(
+        f'var RESTORE_PHRASE={json.dumps(dashboard_db.RESTORE_CONFIRMATION_PHRASE, ensure_ascii=False)};',
+        html,
+    )
+
+  def test_command_center_restore_does_not_auto_reload_or_navigate(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertNotIn("location.reload", html)
+    self.assertNotIn("location.href=", html)
+    self.assertIn("ページを再読み込みすると", html)
+
+  def test_command_center_restore_selecting_candidate_alone_does_not_restore(self):
+    # 復元対象を選んだだけ(change イベント)では、/api/dashboard/backups/
+    # restoreへのPOSTを発火しない(確認文言の入力+ボタンのクリックが必須)。
+    html = self.client.get("/command-center").get_data(as_text=True)
+    script = html.split('id="cc-restore-box"', 1)[1]
+    change_handler = script.split(
+        'restoreSelect.addEventListener("change",', 1
+    )[1][:120]
+    self.assertIn("updateRestoreBtnState", change_handler)
+    self.assertNotIn("fetch(", change_handler.split(")", 1)[0])
+
+  def test_mission_093_no_new_external_communication_anywhere(self):
+    for path in (
+        "/ai-office", "/revenue", "/content-studio",
+        "/content-studio/room-daily-candidates", "/command-center",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for api_path in self._find_api_paths(html):
+          self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+        self.assertNotIn("XMLHttpRequest", html)
+        self.assertNotIn("WebSocket", html)
+        self.assertNotIn("Authorization", html)
+        self.assertNotIn("api_key", html)
+        self.assertNotIn("access_token", html)
+        self.assertNotIn("<form", html)
+
+  def test_mission_093_command_center_no_horizontal_scroll_css_present(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn(".cc-restore-box{margin-top:16px}", html)
+    self.assertIn(
+        "@media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}",
+        html,
+    )
 
 
 if __name__ == "__main__":

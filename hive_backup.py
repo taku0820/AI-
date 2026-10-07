@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""localhost限定 SQLiteバックアップ・検証・隔離復旧訓練CLI
+"""localhost限定 SQLiteバックアップ・検証・復旧CLI
 
-（MISSION 016: create/verify、MISSION 017: restore-test）。
+（MISSION 016: create/verify、MISSION 017: restore-test、
+MISSION 092: prune、MISSION 093: restore_backup）。
 
 対象は常にプロジェクト内の `ai_company.db`（`work_logs`・AI Hive OSの
 7テーブル・`audit_logs` を含むDBファイル全体）。バックアップ先は常に
@@ -32,6 +33,15 @@
     一切追加していない。訓練終了後、一時ディレクトリは成功・失敗を
     問わず必ず削除する。実DB(`ai_company.db`)・バックアップ元は
     一切変更しない。
+  - MISSION 093: 実際にDBを書き換える `restore_backup()` は、誤操作の
+    影響が大きいためこのCLIのサブコマンドには一切追加しない(CLI引数
+    だけで実DBが上書きされる経路を作らないため)。呼び出し元は
+    dashboard_db.py(運用司令室の確認画面で、利用者が対象を選び確認文言
+    を正確に入力した場合のみ)に限定する。verify_backup()で検証済みの
+    バックアップだけを受け付け、復元直前に必ず現在のDBの「復元前
+    バックアップ」を作成し、復元元は同一ディレクトリ内の一時ファイルへ
+    Online Backup APIでコピー・整合性確認したうえでos.replace()により
+    原子的に切り替える(単純な上書きコピーはしない)。
 
 実行例（docs/MISSION016_backup_recovery_runbook.md ・
 docs/MISSION017_isolated_restore_drill_runbook.md も参照）:
@@ -333,9 +343,9 @@ def list_backups(backups_root=None):
   return valid_entries + invalid_entries
 
 
-def prune_backups(keep=DEFAULT_RETENTION_COUNT, backups_root=None):
+def prune_backups(keep=DEFAULT_RETENTION_COUNT, backups_root=None, protect=None):
   """直近keep件(作成日時の新しい順)を残し、それ以外の「この機能が作成した
-  バックアップ」だけを削除する(MISSION 092)。
+  バックアップ」だけを削除する(MISSION 092、MISSION 093でprotect引数を追加)。
 
   安全方針:
     - 削除対象は、list_backups()が「ok: True」と判定した(metadata.json・
@@ -344,6 +354,10 @@ def prune_backups(keep=DEFAULT_RETENTION_COUNT, backups_root=None):
       backups/配下にある手動スナップショット(pre_missionNNN_*等、
       metadata.jsonを持たないためlist_backups()では"ok: False"になる)
       には一切触れない。
+    - protectにディレクトリ名(identifier)の集合を渡すと、keep件数の
+      範囲外であってもそれらは削除対象から除外する(MISSION 093: 復元元
+      バックアップ・復元前バックアップを、復元処理中に世代整理で消さない
+      ようにするため)。
     - 削除前に新しいバックアップの正常性を確認する運用は、呼び出し側
       (create_backup()の成功・integrity_check==okを確認してからこの関数を
       呼ぶ)で担保する。この関数自体は、すでに記録されたmetadata.jsonの
@@ -354,13 +368,16 @@ def prune_backups(keep=DEFAULT_RETENTION_COUNT, backups_root=None):
       (削除失敗が他の処理を巻き込まないようにするため)。
   """
   backups_root = BACKUPS_ROOT if backups_root is None else backups_root
+  protect = set(protect) if protect else set()
   entries = list_backups(backups_root=backups_root)
   managed_entries = [
       e for e in entries
       if e.get("ok") and e["identifier"].startswith(BACKUP_DIR_PREFIX)
   ]
   # list_backups()はすでにcreated_atの新しい順に並んでいる。
-  to_delete = managed_entries[keep:]
+  to_delete = [
+      e for e in managed_entries[keep:] if e["identifier"] not in protect
+  ]
 
   deleted = []
   errors = []
@@ -544,6 +561,98 @@ def restore_test(backup_path, backups_root=None):
   finally:
     # 成功・失敗を問わず、一時DB・一時ディレクトリを確実に削除する。
     shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def restore_backup(backup_path, db_path=None, backups_root=None):
+  """検証済みバックアップから、実際にdb_pathを復元する(MISSION 093)。
+
+  restore_test()(プロジェクト外の一時領域への隔離復旧「訓練」で、実DBは
+  一切変更しない)とは異なり、この関数は実際にdb_pathを書き換える、
+  誤操作の影響が大きい操作である。呼び出し側(dashboard_db.py)で、利用者の
+  明示的な確認(対象の選択+確認文言の一致)を取ってから呼ぶこと。
+
+  安全方針:
+    - verify_backup()でハッシュ一致・整合性・外部キー整合性のすべてを
+      満たした「検証済み」バックアップだけを受け付ける。検証に失敗する
+      場合(改変済み・破損・backups/配下から外れたパス・存在しないパス等)
+      は、復元を一切行わずBackupErrorを送出する。
+    - 復元直前に、現在のdb_pathをcreate_backup()で「復元前バックアップ」
+      として必ず作成する。これが失敗した場合も、以降の復元処理(db_pathの
+      書き換え)には一切進まない(関数全体が例外のまま終了し、db_pathは
+      未変更)。
+    - 復元元DBは、db_pathと同じディレクトリ内に作る一時ファイルへ、
+      SQLite公式のOnline Backup API(sqlite3.Connection.backup())で
+      コピーする(復元元は読み取り専用接続で開き、一切変更しない)。
+      単純なファイルコピー(shutil.copy等)やバイト単位の上書きは行わない。
+    - コピー先の一時ファイルに対してPRAGMA integrity_check・
+      foreign_key_checkを実行し、どちらも正常と確認できた場合だけ、
+      os.replace()でdb_pathへ原子的に切り替える(同一ディレクトリ内の
+      rename はPOSIXで原子的であり、書き換え途中の不完全な状態が
+      db_pathに現れることはない)。
+    - 一時ファイルへのコピー・検証・切り替えのいずれかで例外が発生した
+      場合、一時ファイルを削除したうえで例外を再送出する。db_path自体は
+      os.replace()を呼ぶ前の状態のまま変更されない(復元前の状態を維持)。
+  """
+  backups_root = BACKUPS_ROOT if backups_root is None else backups_root
+  db_path = DB_NAME if db_path is None else db_path
+
+  verify_result = verify_backup(backup_path, backups_root=backups_root)
+  if not verify_result["ok"]:
+    raise BackupError(
+        "整合性確認(verify)に失敗したバックアップは復元に使用できません: "
+        f"{backup_path}"
+    )
+
+  if not os.path.isfile(db_path):
+    raise BackupError(f"復元先DBが見つかりません: {db_path}")
+
+  # 復元前バックアップ(現在のDBをそのまま保存)。これが失敗した場合は
+  # 例外がそのまま呼び出し元へ伝播し、db_pathの書き換えには一切進まない。
+  pre_restore_result = create_backup(db_path=db_path, backups_root=backups_root)
+
+  source_db_path = verify_result["db_path"]
+  db_dir = os.path.dirname(os.path.abspath(db_path)) or "."
+  fd, temp_path = tempfile.mkstemp(
+      prefix=".restore_tmp_", suffix=".db", dir=db_dir
+  )
+  os.close(fd)
+  # sqlite3.connect()に新規ファイルとして作らせるため、mkstempが作った
+  # 空ファイルは一旦消しておく(同じディレクトリ内の一意なパス名だけを
+  # 借りる)。
+  os.remove(temp_path)
+  try:
+    source_uri = f"file:{os.path.abspath(source_db_path)}?mode=ro"
+    src_conn = sqlite3.connect(source_uri, uri=True)
+    dest_conn = sqlite3.connect(temp_path)
+    try:
+      src_conn.backup(dest_conn)
+    finally:
+      dest_conn.close()
+      src_conn.close()
+
+    check_result = _check_integrity(temp_path)
+    if (
+        check_result["integrity_check"] != "ok"
+        or not check_result["foreign_key_check_ok"]
+    ):
+      raise BackupError(
+          "復元元から一時ファイルへコピーした内容の整合性確認に失敗した"
+          "ため、復元を中止しました(現在のDBは変更していません)。"
+      )
+
+    os.replace(temp_path, db_path)
+  except Exception:
+    if os.path.exists(temp_path):
+      os.remove(temp_path)
+    raise
+
+  return {
+      "restored_from": verify_result["backup_dir"],
+      "restored_from_created_at": verify_result["metadata_created_at"],
+      "pre_restore_backup_dir": pre_restore_result["backup_dir"],
+      "pre_restore_created_at": pre_restore_result["metadata"]["created_at"],
+      "db_path": db_path,
+  }
 
 
 def _print_create_result(result, out=None):

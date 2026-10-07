@@ -764,6 +764,197 @@ class HiveBackupPruneTestCase(unittest.TestCase):
     finally:
       hive_backup.BACKUPS_ROOT = orig_backups_root
 
+  # --- protect引数(MISSION 093: 復元元・復元前バックアップの保護) --------
+
+  def test_prune_protect_keeps_specified_identifiers_beyond_retention_limit(self):
+    created = self._create_n_backups(9)
+    protected_id = os.path.basename(created[0]["backup_dir"])
+    result = hive_backup.prune_backups(
+        keep=7, backups_root=self.backups_root, protect={protected_id}
+    )
+    # 9件中、keep=7を超える2件が本来削除対象だが、うち1件(created[0])は
+    # 保護されているため削除されない(実際に消えるのは1件だけ)。
+    self.assertEqual(len(result["deleted"]), 1)
+    self.assertNotIn(protected_id, result["deleted"])
+    remaining_ids = {
+        e["identifier"]
+        for e in hive_backup.list_backups(backups_root=self.backups_root)
+        if e["ok"]
+    }
+    self.assertIn(protected_id, remaining_ids)
+
+  def test_prune_protect_empty_set_behaves_like_no_protection(self):
+    self._create_n_backups(10)
+    result = hive_backup.prune_backups(
+        keep=7, backups_root=self.backups_root, protect=set()
+    )
+    self.assertEqual(len(result["deleted"]), 3)
+
+
+class HiveBackupRestoreTestCase(unittest.TestCase):
+  """hive_backup.restore_backup()（MISSION 093 実際の復元）の単体テスト。
+
+  restore_test()(隔離訓練、実DBは一切変更しない)とは異なり、ここでは
+  実際にself.source_db(一時ディレクトリ内のコピー)を書き換える。本番の
+  `ai_company.db`・`backups/` には一切触れない。
+  """
+
+  def setUp(self):
+    self.tmp_root = tempfile.mkdtemp(prefix="hive_backup_restore_test_")
+    self.source_db = os.path.join(self.tmp_root, "ai_company.db")
+    shutil.copy(PROJECT_DB_PATH, self.source_db)
+    self.backups_root = os.path.join(self.tmp_root, "backups")
+
+  def tearDown(self):
+    shutil.rmtree(self.tmp_root, ignore_errors=True)
+
+  def _row_counts(self, db_path):
+    conn = sqlite3.connect(db_path)
+    try:
+      return hive_backup._table_row_counts(conn)
+    finally:
+      conn.close()
+
+  def test_restore_backup_replaces_current_db_with_backup_content(self):
+    backup = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    counts_at_backup = self._row_counts(self.source_db)
+
+    conn = sqlite3.connect(self.source_db)
+    conn.execute(
+        "INSERT INTO work_logs (timestamp, theme, content, status)"
+        " VALUES ('2099-01-01','t','mutation after backup','done')"
+    )
+    conn.commit()
+    conn.close()
+    self.assertNotEqual(self._row_counts(self.source_db), counts_at_backup)
+
+    hive_backup.restore_backup(
+        backup["backup_dir"], db_path=self.source_db,
+        backups_root=self.backups_root,
+    )
+    self.assertEqual(self._row_counts(self.source_db), counts_at_backup)
+
+  def test_restore_backup_creates_pre_restore_backup(self):
+    backup = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    before = {
+        e["identifier"]
+        for e in hive_backup.list_backups(backups_root=self.backups_root)
+        if e["ok"]
+    }
+    result = hive_backup.restore_backup(
+        backup["backup_dir"], db_path=self.source_db,
+        backups_root=self.backups_root,
+    )
+    after = {
+        e["identifier"]
+        for e in hive_backup.list_backups(backups_root=self.backups_root)
+        if e["ok"]
+    }
+    new_dirs = after - before
+    self.assertEqual(len(new_dirs), 1)
+    self.assertEqual(
+        new_dirs.pop(), os.path.basename(result["pre_restore_backup_dir"])
+    )
+    self.assertIsNotNone(result["pre_restore_created_at"])
+    self.assertIsNotNone(result["restored_from_created_at"])
+
+  def test_restore_backup_rejects_tampered_backup_and_leaves_db_unchanged(self):
+    backup = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    original_hash = hive_backup._sha256_of_file(self.source_db)
+    with open(
+        os.path.join(backup["backup_dir"], "ai_company.db"), "ab"
+    ) as f:
+      f.write(b"TAMPERED")
+
+    before_backups = len(
+        [e for e in hive_backup.list_backups(backups_root=self.backups_root) if e["ok"]]
+    )
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_backup(
+          backup["backup_dir"], db_path=self.source_db,
+          backups_root=self.backups_root,
+      )
+    self.assertEqual(hive_backup._sha256_of_file(self.source_db), original_hash)
+    # 検証失敗時点で中止するため、復元前バックアップも作られない。
+    after_backups = len(
+        [e for e in hive_backup.list_backups(backups_root=self.backups_root) if e["ok"]]
+    )
+    self.assertEqual(before_backups, after_backups)
+
+  def test_restore_backup_rejects_missing_backup_and_leaves_db_unchanged(self):
+    original_hash = hive_backup._sha256_of_file(self.source_db)
+    missing_path = os.path.join(self.backups_root, "backup_doesnotexist_000000")
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_backup(
+          missing_path, db_path=self.source_db, backups_root=self.backups_root,
+      )
+    self.assertEqual(hive_backup._sha256_of_file(self.source_db), original_hash)
+
+  def test_restore_backup_rejects_path_outside_backups_root(self):
+    outside = os.path.join(self.tmp_root, "not_in_backups_root")
+    os.makedirs(outside, exist_ok=True)
+    original_hash = hive_backup._sha256_of_file(self.source_db)
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_backup(
+          outside, db_path=self.source_db, backups_root=self.backups_root,
+      )
+    self.assertEqual(hive_backup._sha256_of_file(self.source_db), original_hash)
+
+  def test_restore_backup_does_not_modify_source_backup_file(self):
+    backup = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    backup_hash_before = hive_backup._sha256_of_file(
+        os.path.join(backup["backup_dir"], "ai_company.db")
+    )
+    hive_backup.restore_backup(
+        backup["backup_dir"], db_path=self.source_db,
+        backups_root=self.backups_root,
+    )
+    backup_hash_after = hive_backup._sha256_of_file(
+        os.path.join(backup["backup_dir"], "ai_company.db")
+    )
+    self.assertEqual(backup_hash_before, backup_hash_after)
+
+  def test_restore_backup_fails_safely_when_db_path_missing(self):
+    backup = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    missing_db_path = os.path.join(self.tmp_root, "does_not_exist.db")
+    with self.assertRaises(hive_backup.BackupError):
+      hive_backup.restore_backup(
+          backup["backup_dir"], db_path=missing_db_path,
+          backups_root=self.backups_root,
+      )
+
+  def test_restore_backup_current_db_survives_when_pre_restore_backup_fails(self):
+    # 復元前バックアップの作成自体が失敗する場合(例: backups_root配下へ
+    # 書き込めない)、実DBの書き換えには一切進まないことを確認する。
+    backup = hive_backup.create_backup(
+        db_path=self.source_db, backups_root=self.backups_root
+    )
+    original_hash = hive_backup._sha256_of_file(self.source_db)
+
+    orig_create_backup = hive_backup.create_backup
+    def _boom(*args, **kwargs):
+      raise hive_backup.BackupError("simulated pre-restore backup failure")
+    hive_backup.create_backup = _boom
+    try:
+      with self.assertRaises(hive_backup.BackupError):
+        hive_backup.restore_backup(
+            backup["backup_dir"], db_path=self.source_db,
+            backups_root=self.backups_root,
+        )
+    finally:
+      hive_backup.create_backup = orig_create_backup
+    self.assertEqual(hive_backup._sha256_of_file(self.source_db), original_hash)
+
 
 if __name__ == "__main__":
   unittest.main()

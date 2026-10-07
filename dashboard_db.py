@@ -37,7 +37,17 @@ hive_backup.py(MISSION 016のSQLite Online Backup API・整合性検証済み)�
 スナップショット等、他の方法で作られたバックアップには一切触れない)。
 バックアップの作成・整理に失敗しても、呼び出し元の運用記録・投稿候補・
 作業台帳・実績数値の保存自体は失敗させない(例外を外へ伝播させない)。
-復元(既存DBの上書き)はこのミッションの対象外であり、一切追加しない。
+MISSION 092時点では復元(既存DBの上書き)は対象外だった。
+
+MISSION 093: 誤操作を防ぎながら、ai_company.dbをバックアップから復元
+できるようにする。復元候補は、hive_backup.verify_backup()で実際に
+再検証して整合性が確認できたものだけに絞る(作成時点のmetadata.jsonの
+記録を鵜呑みにせず、改ざん・破損を見逃さない)。復元の実行は、利用者が
+対象を選び、確認文言(RESTORE_CONFIRMATION_PHRASE)を正確に入力した場合
+だけ、hive_backup.restore_backup()経由で行う。復元直前には必ず現在のDBを
+「復元前バックアップ」として作成し、復元元とあわせて世代整理から保護する。
+確認文言の不一致・無効な対象・整合性NGのバックアップは、DBを一切変更
+せず理由を返す。
 
 安全方針:
 - 既存のai_company.db・work_logsテーブル・hive_db.pyの7テーブルには
@@ -54,6 +64,7 @@ hive_backup.py(MISSION 016のSQLite Online Backup API・整合性検証済み)�
 
 import datetime
 import json
+import os
 import sqlite3
 import threading
 
@@ -73,6 +84,10 @@ DB_NAME = "ai_company.db"
 # 検証できるよう、独立した変数として持つ(DB_NAMEと同じ考え方)。
 BACKUPS_ROOT = "backups"
 BACKUP_RETENTION_COUNT = 7
+
+# MISSION 093: 復元実行に必須の確認文言。利用者がこの文字列と完全に一致する
+# テキストを入力した場合だけ、サーバー側がDBの復元(上書き)を実行する。
+RESTORE_CONFIRMATION_PHRASE = "復元する"
 
 # MISSION 088: 既存のwork_logs(init_db.py)・employees/missions/...
 # (hive_db.py)とは独立した2テーブルだけを追加する。
@@ -876,6 +891,101 @@ def get_backup_status():
   }
 
 
+def list_restore_candidates():
+  """整合性が実際に再確認できたバックアップだけを、復元候補として返す
+  (MISSION 093)。
+
+  一覧の表示のたびにhive_backup.verify_backup()で再検証する(作成時点の
+  metadata.jsonに記録された結果を鵜呑みにせず、保存後の改ざん・破損を
+  見逃さないため)。DBの中身(テーブル件数等)・認証情報・ファイルパスは
+  一切含めない。一覧の取得自体に失敗しても例外を外へ伝播させず、空の
+  候補一覧を返す。
+  """
+  candidates = []
+  try:
+    managed = _managed_backup_entries()
+  except Exception:
+    managed = []
+  for entry in managed:
+    identifier = entry["identifier"]
+    try:
+      verify_result = hive_backup.verify_backup(
+          os.path.join(BACKUPS_ROOT, identifier), backups_root=BACKUPS_ROOT,
+      )
+    except Exception:
+      continue
+    if not verify_result["ok"]:
+      continue
+    candidates.append({
+        "identifier": identifier,
+        "createdAt": verify_result.get("metadata_created_at"),
+        "sizeBytes": entry.get("size_bytes"),
+        "integrityCheck": verify_result.get("integrity_check"),
+        "foreignKeyCheckOk": verify_result.get("foreign_key_check_ok"),
+    })
+  candidates.sort(key=lambda c: c.get("createdAt") or "", reverse=True)
+  return candidates
+
+
+def restore_from_backup(identifier, confirmation_phrase):
+  """運用司令室の「バックアップから復元」操作の実行(MISSION 093)。
+
+  利用者が明示的に選んだ対象(identifier、list_restore_candidates()が
+  返したディレクトリ名のみ受け付ける)と、確認文言
+  (RESTORE_CONFIRMATION_PHRASEと完全一致)の両方が正しい場合だけ、
+  実際にDBを復元する。それ以外(空欄・誤入力・存在しない/無効な候補)は
+  DBを一切変更せず、理由を返す。
+
+  復元の実行中は、他の書き込み処理(運用記録・投稿候補・作業台帳・
+  実績数値の保存)と競合しないよう_LOCKを保持する。復元前バックアップの
+  作成・DBの実書き換えに失敗した場合、hive_backup.restore_backup()の
+  安全設計により現在のDBは変更されない。
+  """
+  if confirmation_phrase != RESTORE_CONFIRMATION_PHRASE:
+    return {"restored": False, "reason": "confirmation_mismatch"}
+
+  if not identifier or not isinstance(identifier, str):
+    return {"restored": False, "reason": "invalid_identifier"}
+
+  valid_identifiers = {c["identifier"] for c in list_restore_candidates()}
+  if identifier not in valid_identifiers:
+    return {"restored": False, "reason": "not_a_valid_candidate"}
+
+  backup_path = os.path.join(BACKUPS_ROOT, identifier)
+  with _LOCK:
+    try:
+      result = hive_backup.restore_backup(
+          backup_path, db_path=DB_NAME, backups_root=BACKUPS_ROOT,
+      )
+    except hive_backup.BackupError as e:
+      return {"restored": False, "reason": "restore_error", "message": str(e)}
+    except OSError as e:
+      return {"restored": False, "reason": "os_error", "message": str(e)}
+    except Exception:
+      # 想定外の例外も、現在のDBが変更されない限りは安全に理由を返す
+      # (hive_backup.restore_backup()自体が、db_path書き換え前の失敗は
+      # 例外を再送出し、db_pathを変更しない設計のため)。
+      return {"restored": False, "reason": "error"}
+
+  # 復元元・復元前バックアップは、この整理では保護する(MISSION 093要件)。
+  protect = {
+      os.path.basename(result["restored_from"]),
+      os.path.basename(result["pre_restore_backup_dir"]),
+  }
+  try:
+    hive_backup.prune_backups(
+        keep=BACKUP_RETENTION_COUNT, backups_root=BACKUPS_ROOT, protect=protect,
+    )
+  except Exception:
+    pass
+
+  return {
+      "restored": True,
+      "restoredFromCreatedAt": result["restored_from_created_at"],
+      "preRestoreBackupCreatedAt": result["pre_restore_created_at"],
+  }
+
+
 def register_dashboard_api(app):
   """DB駆動の運用記録・投稿候補APIをFlaskアプリへ登録する。
 
@@ -984,3 +1094,18 @@ def register_dashboard_api(app):
     if request.method == "POST":
       return jsonify(create_manual_backup())
     return jsonify(get_backup_status())
+
+  # MISSION 093: 復元候補一覧(整合性を実際に再確認できたものだけ)。
+  # DBの中身・認証情報は一切含めない。
+  @app.route("/api/dashboard/backups/restore-candidates")
+  def dashboard_backup_restore_candidates():
+    return jsonify({"candidates": list_restore_candidates()})
+
+  # MISSION 093: 復元の実行。identifier(対象)とconfirmation(確認文言)の
+  # 両方が正しい場合だけ実際にDBを復元する。ブラウザ側の確認ダイアログ
+  # だけに依存せず、ここでも必ず検証する。
+  @app.route("/api/dashboard/backups/restore", methods=["POST"])
+  def dashboard_backup_restore():
+    data = request.get_json(silent=True) or {}
+    result = restore_from_backup(data.get("identifier"), data.get("confirmation", ""))
+    return jsonify(result)

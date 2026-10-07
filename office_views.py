@@ -336,6 +336,8 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cc-data-protection{margin-top:22px}
 .cc-data-protection-summary{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 14px;font-size:12px;color:var(--sub)}
 .cc-data-protection-summary b{color:var(--ink);font-size:14px}
+.cc-restore-box{margin-top:16px}
+.cc-restore-title{margin:0 0 8px;font-size:14px;color:var(--ink)}
 .cc-topbar{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--sub);line-height:1.7}
 .cc-topbar b{color:var(--ink)}
 .cc-topbar .cc-approver{color:var(--green);font-weight:700}
@@ -6318,15 +6320,23 @@ def _render_data_storage_section():
 
 
 def _render_data_protection_section():
-  """運用司令室の「データ保護」セクション(MISSION 092)。
+  """運用司令室の「データ保護」セクション(MISSION 092、MISSION 093で復元を追加)。
 
   ai_company.dbのローカル世代バックアップ(hive_backup.py・SQLite Online
   Backup API経由)の状態を表示する。最初に見える範囲は、最終バックアップ
   日時・保存済み世代数・「今すぐバックアップを作成」ボタン・直近一覧
   (日時とファイルサイズのみ)に絞り、詳しい注意事項は<details>で折りたたむ。
-  一覧にはDBの中身・認証情報は一切表示しない。既存DBを上書きする復元
-  機能は、誤操作の影響が大きいためこの画面には置かない(表示専用)。
+  一覧にはDBの中身・認証情報は一切表示しない。
+
+  MISSION 093: 「バックアップから復元」を追加する。整合性が実際に再確認
+  できたバックアップだけを候補として選べ、選んだだけでは復元は始まらない。
+  復元の実行には、確認欄に確認文言(RESTORE_CONFIRMATION_PHRASE)を正確に
+  入力する必要があり、ブラウザ側の入力チェックだけでなくサーバー側
+  (/api/dashboard/backups/restore)でも必ず再検証する。
   """
+  restore_phrase_json = json.dumps(
+      dashboard_db.RESTORE_CONFIRMATION_PHRASE, ensure_ascii=False
+  )
   return (
       '<section class="cc-data-protection" aria-label="データ保護" '
       'id="cc-data-protection">'
@@ -6355,11 +6365,47 @@ def _render_data_protection_section():
       'の正常性を確認したうえで、それより古い世代（このアプリが作成した'
       'ものに限る）を自動的に整理します。運用記録・投稿候補・作業台帳・'
       '実績数値の保存を書き込むたびに、当日分のバックアップがまだなければ'
-      '自動で1回作成されます。既存のai_company.dbを上書きして復元する'
-      '機能は、誤操作の影響が大きいためこの画面にはありません。</p>'
+      '自動で1回作成されます。</p>'
       '</details>'
       '</div>'
+
+      # MISSION 093: バックアップから復元。
+      '<div class="cc-decision-box cc-restore-box" id="cc-restore-box">'
+      '<h3 class="cc-restore-title">バックアップから復元</h3>'
+      '<p class="cc-decision-note">整合性を再確認できたバックアップだけを'
+      '選べます。選んだだけでは復元は始まりません。</p>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-restore-select">復元するバックアップ</label>'
+      '<select id="cc-restore-select"><option value="">確認中…</option>'
+      '</select></div>'
+      '</div>'
+      '<details class="cc-work-ledger-detail">'
+      '<summary>復元前の注意事項</summary>'
+      '<p class="cc-decision-note">復元を実行すると、現在のデータは'
+      '「復元前バックアップ」として自動的に保存されたうえで、選んだ'
+      'バックアップの内容に置き換わります。復元元・復元前バックアップは'
+      '世代整理（直近'
+      f'{dashboard_db.BACKUP_RETENTION_COUNT}世代保持）から保護され、'
+      '整理で消えることはありません。復元の実行には、確認欄に'
+      f'「{dashboard_db.RESTORE_CONFIRMATION_PHRASE}」と正確に入力する'
+      '必要があります。外部への送信・クラウド同期・自動的なページ再読み込み'
+      'は行いません。</p>'
+      '</details>'
+      '<div class="cc-decision-fields">'
+      '<div><label for="cc-restore-confirm">確認のため'
+      f'「{dashboard_db.RESTORE_CONFIRMATION_PHRASE}」と入力してください'
+      '</label>'
+      f'<input type="text" id="cc-restore-confirm" '
+      f'placeholder="{dashboard_db.RESTORE_CONFIRMATION_PHRASE}"></div>'
+      '</div>'
+      '<button type="button" class="cc-decision-add-btn" '
+      'id="cc-restore-btn" disabled>このバックアップから復元する</button>'
+      '<p class="cc-decision-note" id="cc-restore-result" aria-live="polite">'
+      '</p>'
+      '</div>'
+
       '<script>(function(){'
+      f'var RESTORE_PHRASE={restore_phrase_json};'
       'var lastEl=document.querySelector("#cc-backup-last");'
       'var countEl=document.querySelector("#cc-backup-count");'
       'var listEl=document.querySelector("#cc-backup-list");'
@@ -6443,6 +6489,112 @@ def _render_data_protection_section():
       '});'
       '});'
       '}'
+      # MISSION 093: バックアップから復元。
+      'var restoreSelect=document.querySelector("#cc-restore-select");'
+      'var restoreConfirm=document.querySelector("#cc-restore-confirm");'
+      'var restoreBtn=document.querySelector("#cc-restore-btn");'
+      'var restoreResultEl=document.querySelector("#cc-restore-result");'
+      'var RESTORE_REASON_TEXT={'
+      'confirmation_mismatch:"確認文言が正しくありません。",'
+      'invalid_identifier:"復元するバックアップを選んでください。",'
+      'not_a_valid_candidate:"選択したバックアップは復元候補として確認'
+      'できませんでした。一覧を更新してからもう一度お試しください。",'
+      'restore_error:"復元に失敗しました。現在のDBは変更していません。",'
+      'os_error:"復元に失敗しました。現在のDBは変更していません。"'
+      '};'
+      'function updateRestoreBtnState(){'
+      'if(!restoreBtn)return;'
+      'var hasSelection=Boolean(restoreSelect&&restoreSelect.value);'
+      'var confirmOk=Boolean('
+      'restoreConfirm&&restoreConfirm.value===RESTORE_PHRASE);'
+      'restoreBtn.disabled=!(hasSelection&&confirmOk);'
+      '}'
+      'if(restoreSelect){'
+      'restoreSelect.addEventListener("change",updateRestoreBtnState);'
+      '}'
+      'if(restoreConfirm){'
+      'restoreConfirm.addEventListener("input",updateRestoreBtnState);'
+      '}'
+      'function loadRestoreCandidates(){'
+      'if(!restoreSelect||typeof window.fetch!=="function")return;'
+      'window.fetch("/api/dashboard/backups/restore-candidates")'
+      '.then(function(res){return res.json();})'
+      '.then(function(data){'
+      'var candidates=(data&&data.candidates)||[];'
+      'restoreSelect.innerHTML="";'
+      'if(candidates.length===0){'
+      'var emptyOpt=document.createElement("option");'
+      'emptyOpt.value="";'
+      'emptyOpt.textContent="復元できるバックアップはまだありません";'
+      'restoreSelect.appendChild(emptyOpt);'
+      'restoreSelect.disabled=true;'
+      'updateRestoreBtnState();'
+      'return;'
+      '}'
+      'restoreSelect.disabled=false;'
+      'var placeholderOpt=document.createElement("option");'
+      'placeholderOpt.value="";'
+      'placeholderOpt.textContent="選択してください";'
+      'restoreSelect.appendChild(placeholderOpt);'
+      'candidates.forEach(function(c){'
+      'var opt=document.createElement("option");'
+      'opt.value=c.identifier;'
+      'var integrityText=c.integrityCheck==="ok"?"OK":'
+      '(c.integrityCheck||"不明");'
+      'opt.textContent=(c.createdAt||"-")+"・"+'
+      'formatBytes(c.sizeBytes)+"・整合性："+integrityText;'
+      'restoreSelect.appendChild(opt);'
+      '});'
+      'updateRestoreBtnState();'
+      '}).catch(function(){});'
+      '}'
+      'if(restoreBtn){'
+      'restoreBtn.addEventListener("click",function(){'
+      'var identifier=restoreSelect?restoreSelect.value:"";'
+      'var confirmation=restoreConfirm?restoreConfirm.value:"";'
+      'if(!identifier||confirmation!==RESTORE_PHRASE){'
+      'if(restoreResultEl){'
+      'restoreResultEl.textContent='
+      '"復元するバックアップを選び、確認欄に「"+RESTORE_PHRASE+'
+      '"」と正確に入力してください。";'
+      '}'
+      'return;'
+      '}'
+      'restoreBtn.disabled=true;'
+      'if(restoreResultEl)restoreResultEl.textContent="復元しています…";'
+      'window.fetch("/api/dashboard/backups/restore",{'
+      'method:"POST",'
+      'headers:{"Content-Type":"application/json"},'
+      'body:JSON.stringify({identifier:identifier,confirmation:confirmation})'
+      '}).then(function(res){return res.json();}).then(function(data){'
+      'if(data&&data.restored){'
+      'if(restoreResultEl){'
+      'restoreResultEl.textContent='
+      '"復元前バックアップ（"+(data.preRestoreBackupCreatedAt||"-")+'
+      '"）を作成したうえで、"+(data.restoredFromCreatedAt||"-")+'
+      '"のバックアップから復元しました。ページを再読み込みすると'
+      '復元後のデータが表示されます。";'
+      '}'
+      'if(restoreConfirm)restoreConfirm.value="";'
+      'loadStatus();'
+      'loadRestoreCandidates();'
+      '}else{'
+      'if(restoreResultEl){'
+      'restoreResultEl.textContent=(data&&RESTORE_REASON_TEXT[data.reason])||'
+      '"復元できませんでした。しばらくしてからもう一度お試しください。";'
+      '}'
+      'updateRestoreBtnState();'
+      '}'
+      '}).catch(function(){'
+      'if(restoreResultEl){'
+      'restoreResultEl.textContent='
+      '"復元できませんでした。しばらくしてからもう一度お試しください。";'
+      '}'
+      'updateRestoreBtnState();'
+      '});'
+      '});'
+      '}'
+      'loadRestoreCandidates();'
       'loadStatus();'
       '})();</script>'
       '</section>'
