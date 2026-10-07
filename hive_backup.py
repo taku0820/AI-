@@ -59,6 +59,14 @@ BACKUPS_ROOT = "backups"
 METADATA_FILENAME = "metadata.json"
 BACKUP_DB_FILENAME = "ai_company.db"
 
+# MISSION 092: create_backup()が作るディレクトリ名
+# (f"backup_{timestamp}_{suffix}")の接頭辞。prune_backups()は、この接頭辞を
+# 持つディレクトリ(かつmetadata.jsonが正しく読めるもの)だけを削除対象にし、
+# backups/配下にある手動スナップショット(pre_missionNNN_*等、この機能が
+# 作っていないもの)には一切触れない。
+BACKUP_DIR_PREFIX = "backup_"
+DEFAULT_RETENTION_COUNT = 7
+
 
 class BackupError(Exception):
   """CLI利用者にそのまま表示してよいエラーメッセージのみを持つ例外。"""
@@ -323,6 +331,57 @@ def list_backups(backups_root=None):
   invalid_entries.sort(key=lambda item: item["identifier"])
 
   return valid_entries + invalid_entries
+
+
+def prune_backups(keep=DEFAULT_RETENTION_COUNT, backups_root=None):
+  """直近keep件(作成日時の新しい順)を残し、それ以外の「この機能が作成した
+  バックアップ」だけを削除する(MISSION 092)。
+
+  安全方針:
+    - 削除対象は、list_backups()が「ok: True」と判定した(metadata.json・
+      DBファイルがそろい、正しく読めた)、かつディレクトリ名が
+      BACKUP_DIR_PREFIX("backup_")で始まるものだけに限定する。
+      backups/配下にある手動スナップショット(pre_missionNNN_*等、
+      metadata.jsonを持たないためlist_backups()では"ok: False"になる)
+      には一切触れない。
+    - 削除前に新しいバックアップの正常性を確認する運用は、呼び出し側
+      (create_backup()の成功・integrity_check==okを確認してからこの関数を
+      呼ぶ)で担保する。この関数自体は、すでに記録されたmetadata.jsonの
+      内容を信頼して並べ替え・削除するだけで、検証のやり直しは行わない。
+    - 削除はbackups_root配下に正規化されたパスに対してのみ行う
+      (_resolve_within_backups_rootでパストラバーサルを防ぐ)。
+    - 1件の削除に失敗しても残りの削除を止めず、エラーを集めて返す
+      (削除失敗が他の処理を巻き込まないようにするため)。
+  """
+  backups_root = BACKUPS_ROOT if backups_root is None else backups_root
+  entries = list_backups(backups_root=backups_root)
+  managed_entries = [
+      e for e in entries
+      if e.get("ok") and e["identifier"].startswith(BACKUP_DIR_PREFIX)
+  ]
+  # list_backups()はすでにcreated_atの新しい順に並んでいる。
+  to_delete = managed_entries[keep:]
+
+  deleted = []
+  errors = []
+  for entry in to_delete:
+    dir_path = os.path.join(backups_root, entry["identifier"])
+    try:
+      resolved = _resolve_within_backups_root(dir_path, backups_root)
+    except BackupError as e:
+      errors.append({"identifier": entry["identifier"], "error": str(e)})
+      continue
+    try:
+      shutil.rmtree(resolved)
+      deleted.append(entry["identifier"])
+    except OSError as e:
+      errors.append({"identifier": entry["identifier"], "error": str(e)})
+
+  return {
+      "kept": len(managed_entries) - len(deleted),
+      "deleted": deleted,
+      "errors": errors,
+  }
 
 
 def verify_backup(backup_path, backups_root=None):
@@ -625,6 +684,19 @@ def build_arg_parser():
       help=f"{BACKUPS_ROOT}/ 配下の検証済みバックアップディレクトリ、またはそのDBファイル",
   )
 
+  prune_parser = subparsers.add_parser(
+      "prune",
+      help=(
+          "直近N件(既定7件)を残し、この機能が作成したバックアップ"
+          f"(backup_<timestamp>_<suffix>/)だけを{BACKUPS_ROOT}/配下から削除する"
+          "(手動スナップショットには触れない)"
+      ),
+  )
+  prune_parser.add_argument(
+      "--keep", type=int, default=DEFAULT_RETENTION_COUNT,
+      help=f"残す世代数(既定: {DEFAULT_RETENTION_COUNT})",
+  )
+
   return parser
 
 
@@ -649,6 +721,18 @@ def main(argv=None):
       result = restore_test(args.backup_path)
       _print_restore_test_result(result)
       return 0 if result["ok"] else 1
+    if args.command == "prune":
+      result = prune_backups(keep=args.keep)
+      print(f"残した件数: {result['kept']}", file=sys.stdout)
+      print(f"削除した件数: {len(result['deleted'])}", file=sys.stdout)
+      for identifier in result["deleted"]:
+        print(f"  - {identifier}", file=sys.stdout)
+      if result["errors"]:
+        print(f"削除に失敗した件数: {len(result['errors'])}", file=sys.stderr)
+        for err in result["errors"]:
+          print(f"  - {err['identifier']}: {err['error']}", file=sys.stderr)
+        return 1
+      return 0
   except BackupError as e:
     print(f"エラー: {e}", file=sys.stderr)
     return 1

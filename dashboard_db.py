@@ -29,6 +29,16 @@ MISSION 091: 収益化ボード・AIオフィスの分析表示(葵)を実績数
 外部サービスからの自動取得・スクレイピング・ログイン・投稿・送信・
 ブラウザ自動操作は一切行わない。
 
+MISSION 092: ai_company.dbのローカル世代バックアップを、既存の
+hive_backup.py(MISSION 016のSQLite Online Backup API・整合性検証済み)に
+委譲して自動化する。DBへの書き込みが成功した後、当日分のバックアップが
+まだ無ければ1回だけ自動作成し、新しいバックアップの整合性を確認してから
+直近7世代を超えた「この機能が作成したバックアップ」だけを整理する(手動
+スナップショット等、他の方法で作られたバックアップには一切触れない)。
+バックアップの作成・整理に失敗しても、呼び出し元の運用記録・投稿候補・
+作業台帳・実績数値の保存自体は失敗させない(例外を外へ伝播させない)。
+復元(既存DBの上書き)はこのミッションの対象外であり、一切追加しない。
+
 安全方針:
 - 既存のai_company.db・work_logsテーブル・hive_db.pyの7テーブルには
   一切手を加えない(CREATE TABLE IF NOT EXISTSで新規テーブルのみ追加)。
@@ -42,13 +52,27 @@ MISSION 091: 収益化ボード・AIオフィスの分析表示(葵)を実績数
   経由で入力・保存した内容をそのままこのDBへ書き写すだけ。
 """
 
+import datetime
 import json
 import sqlite3
 import threading
 
 from flask import jsonify, request
 
+# MISSION 092: バックアップ作成・検証・一覧は、既存のhive_backup.py
+# (MISSION 016、SQLite Online Backup APIを使う安全な実装)にそのまま委譲
+# する(ロジックを重複実装しない)。hive_backup.pyはこのモジュールに
+# 依存しないため、循環importにはならない。
+import hive_backup
+
 DB_NAME = "ai_company.db"
+
+# MISSION 092: バックアップ先ディレクトリ・保持世代数。hive_backup.py側の
+# 同名デフォルト(BACKUPS_ROOT="backups")と一致させつつ、テスト時にこの
+# モジュールの値だけを差し替えて本番のbackups/・ai_company.dbに一切触れず
+# 検証できるよう、独立した変数として持つ(DB_NAMEと同じ考え方)。
+BACKUPS_ROOT = "backups"
+BACKUP_RETENTION_COUNT = 7
 
 # MISSION 088: 既存のwork_logs(init_db.py)・employees/missions/...
 # (hive_db.py)とは独立した2テーブルだけを追加する。
@@ -741,6 +765,117 @@ def _record_row_to_json(row):
   }
 
 
+def _managed_backup_entries():
+  """このモジュールのDB_NAME/BACKUPS_ROOT設定で、hive_backup.list_backups()
+  を呼び、「この機能が作成したバックアップ」(ok=True かつ
+  backup_<timestamp>_<suffix>/の名前を持つもの)だけに絞って、新しい順の
+  まま返す。手動スナップショット等、他の方法で作られたバックアップは
+  含めない(prune_backups()が削除対象を絞り込むのと同じ基準)。
+  """
+  entries = hive_backup.list_backups(backups_root=BACKUPS_ROOT)
+  return [
+      e for e in entries
+      if e.get("ok") and e["identifier"].startswith(hive_backup.BACKUP_DIR_PREFIX)
+  ]
+
+
+def maybe_auto_backup_today():
+  """DBへの書き込みが成功した後に呼ぶ、当日1回だけの自動バックアップ
+  (MISSION 092)。
+
+  当日分の(この機能が作成した)バックアップがすでにあれば何もしない。
+  無ければ新規作成し、整合性を確認したうえで直近
+  BACKUP_RETENTION_COUNT世代を超えた古い世代を整理する。
+
+  重要: この関数はどのような例外も外へ伝播させない。バックアップの作成・
+  整理に失敗しても、呼び出し元(運用記録・投稿候補・作業台帳・実績数値の
+  保存)の成功には一切影響しない(安全性要件)。
+  """
+  try:
+    today = datetime.date.today().isoformat()
+    already_today = any(
+        str(e.get("created_at") or "").startswith(today)
+        for e in _managed_backup_entries()
+    )
+    if already_today:
+      return {"created": False, "reason": "already_backed_up_today"}
+
+    result = hive_backup.create_backup(db_path=DB_NAME, backups_root=BACKUPS_ROOT)
+  except Exception:
+    return {"created": False, "reason": "error"}
+
+  if result["metadata"]["integrity_check"] != "ok":
+    # 新しいバックアップの正常性が確認できない場合、古い世代の整理は
+    # 行わない(異常なバックアップを基準に世代を削り過ぎないため)。
+    return {"created": True, "backup_dir": result["backup_dir"], "pruned": False}
+
+  try:
+    hive_backup.prune_backups(keep=BACKUP_RETENTION_COUNT, backups_root=BACKUPS_ROOT)
+    return {"created": True, "backup_dir": result["backup_dir"], "pruned": True}
+  except Exception:
+    # 整理の失敗は、すでに作成済みのバックアップ自体の成功を損なわない。
+    return {"created": True, "backup_dir": result["backup_dir"], "pruned": False}
+
+
+def create_manual_backup():
+  """運用司令室の「今すぐバックアップを作成」用(MISSION 092)。
+
+  当日分が既にあるかどうかに関わらず、利用者の明示操作として必ず新しい
+  バックアップを1つ作成する。作成後、正常性を確認してから直近
+  BACKUP_RETENTION_COUNT世代を超えた古い世代(この機能が作成したものだけ)
+  を整理する。利用者が明示的に押した操作のため、失敗時はエラー内容を
+  隠さず返す(自動バックアップとは異なり、ここでは例外を飲み込まない)。
+  """
+  try:
+    result = hive_backup.create_backup(db_path=DB_NAME, backups_root=BACKUPS_ROOT)
+  except hive_backup.BackupError as e:
+    return {"created": False, "reason": "backup_error", "message": str(e)}
+  except OSError as e:
+    return {"created": False, "reason": "os_error", "message": str(e)}
+
+  metadata = result["metadata"]
+  pruned = False
+  if metadata["integrity_check"] == "ok":
+    try:
+      hive_backup.prune_backups(keep=BACKUP_RETENTION_COUNT, backups_root=BACKUPS_ROOT)
+      pruned = True
+    except Exception:
+      # 整理の失敗は、すでに作成済みのバックアップ自体の成功を損なわない。
+      pruned = False
+
+  return {
+      "created": True,
+      "pruned": pruned,
+      "createdAt": metadata["created_at"],
+      "sizeBytes": metadata["size_bytes"],
+      "integrityCheck": metadata["integrity_check"],
+  }
+
+
+def get_backup_status():
+  """運用司令室の「データ保護」表示用に、最終バックアップ日時・保存済み
+  世代数・直近一覧(日時・サイズのみ)をまとめて返す(MISSION 092)。
+
+  DBの中身(テーブル件数等)・認証情報・ファイルパスは一切含めない。
+  一覧の取得自体に失敗しても例外を外へ伝播させず、「バックアップは未確認」
+  として安全なデフォルト値を返す。
+  """
+  try:
+    entries = _managed_backup_entries()
+  except Exception:
+    entries = []
+  recent = [
+      {"createdAt": e.get("created_at"), "sizeBytes": e.get("size_bytes")}
+      for e in entries[:BACKUP_RETENTION_COUNT]
+  ]
+  return {
+      "lastBackupAt": entries[0]["created_at"] if entries else None,
+      "generationCount": len(entries),
+      "retentionCount": BACKUP_RETENTION_COUNT,
+      "recent": recent,
+  }
+
+
 def register_dashboard_api(app):
   """DB駆動の運用記録・投稿候補APIをFlaskアプリへ登録する。
 
@@ -758,6 +893,8 @@ def register_dashboard_api(app):
           data.get("date"), data.get("media"), data.get("type"),
           data.get("content"), data.get("metric", ""), data.get("reference", ""),
       )
+      if result.get("inserted"):
+        maybe_auto_backup_today()
       return jsonify(result)
     date = request.args.get("date")
     rows = list_daily_records(date)
@@ -774,6 +911,8 @@ def register_dashboard_api(app):
           data.get("manualChecked", False), data.get("manualPosted", False),
           bucket=data.get("bucket"),
       )
+      if result.get("inserted") or result.get("updated"):
+        maybe_auto_backup_today()
       return jsonify(result)
     target_date = request.args.get("targetDate")
     return jsonify({"candidates": list_post_candidates(target_date)})
@@ -782,6 +921,8 @@ def register_dashboard_api(app):
   def dashboard_migrate():
     data = request.get_json(silent=True) or {}
     result = migrate_from_payload(data.get("records", []), data.get("candidates", []))
+    if result["records"]["inserted"] or result["candidates"]["inserted"]:
+      maybe_auto_backup_today()
     return jsonify(result)
 
   # MISSION 090: 全媒体共通の作業台帳。POSTは、idを含む場合は「完了」操作
@@ -799,6 +940,8 @@ def register_dashboard_api(app):
             data.get("media"), data.get("taskName"), data.get("assignee"),
             data.get("status"), data.get("priority"),
         )
+      if result.get("inserted") or result.get("updated"):
+        maybe_auto_backup_today()
       return jsonify(result)
     status = request.args.get("status")
     return jsonify({"workItems": list_work_items(status)})
@@ -814,6 +957,8 @@ def register_dashboard_api(app):
           data.get("date"), data.get("media"), data.get("values", {}),
           data.get("note", ""),
       )
+      if result.get("saved"):
+        maybe_auto_backup_today()
       return jsonify(result)
     date = request.args.get("date")
     media = request.args.get("media")
@@ -829,3 +974,13 @@ def register_dashboard_api(app):
             m: get_media_metric_summary(m) for m in REVENUE_METRIC_MEDIA_ORDER
         },
     })
+
+  # MISSION 092: 運用司令室の「データ保護」表示用。GETは最終バックアップ
+  # 日時・世代数・直近一覧(日時・サイズのみ、DBの中身は含めない)を返す。
+  # POSTは「今すぐバックアップを作成」ボタン用で、常に新しいバックアップを
+  # 1つ作成する(自動バックアップの「当日1回だけ」制限は適用しない)。
+  @app.route("/api/dashboard/backups", methods=["GET", "POST"])
+  def dashboard_backups():
+    if request.method == "POST":
+      return jsonify(create_manual_backup())
+    return jsonify(get_backup_status())

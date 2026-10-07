@@ -28,6 +28,7 @@ import unittest
 
 import app as app_module
 import dashboard_db
+import hive_backup
 
 PROJECT_DB_PATH = os.path.join(os.path.dirname(__file__), "ai_company.db")
 
@@ -53,6 +54,13 @@ class DashboardDesignTestCase(unittest.TestCase):
     # (本番ai_company.dbの状態に依存しないようにするため)。
     dashboard_db.init_schema()
 
+    # MISSION 092: バックアップ機能(hive_backup.py経由)も、本番の
+    # backups/ディレクトリへは一切書き込まないよう、使い捨ての一時
+    # ディレクトリへリダイレクトする。
+    self.temp_backups_root = tempfile.mkdtemp(suffix="_backups")
+    self._orig_backups_root = dashboard_db.BACKUPS_ROOT
+    dashboard_db.BACKUPS_ROOT = self.temp_backups_root
+
     app_module.app.testing = True
     self.client = app_module.app.test_client()
 
@@ -63,6 +71,8 @@ class DashboardDesignTestCase(unittest.TestCase):
   def tearDown(self):
     app_module.DB_NAME = self._orig_db_name
     dashboard_db.DB_NAME = self._orig_dashboard_db_name
+    dashboard_db.BACKUPS_ROOT = self._orig_backups_root
+    shutil.rmtree(self.temp_backups_root, ignore_errors=True)
     os.remove(self.temp_db_path)
 
   def _find_api_paths(self, html):
@@ -9740,6 +9750,255 @@ class DashboardDesignTestCase(unittest.TestCase):
         self.assertNotIn("api_key", html)
         self.assertNotIn("access_token", html)
         self.assertNotIn("<form", html)
+
+  # --- MISSION 092: ai_company.dbのローカル世代バックアップ ----------------
+
+  def _create_n_managed_backups(self, n, start_date="2099-01-01"):
+    """dashboard_db.DB_NAME/BACKUPS_ROOT(このテストの一時コピー)に対し、
+    created_atが重ならないn件のバックアップをhive_backup経由で作成する。
+    """
+    import datetime
+    created = []
+    base = datetime.date.fromisoformat(start_date)
+    for i in range(n):
+      result = hive_backup.create_backup(
+          db_path=dashboard_db.DB_NAME, backups_root=dashboard_db.BACKUPS_ROOT,
+      )
+      metadata_path = os.path.join(result["backup_dir"], "metadata.json")
+      with open(metadata_path, encoding="utf-8") as f:
+        metadata = json.load(f)
+      day = (base + datetime.timedelta(days=i)).isoformat()
+      metadata["created_at"] = f"{day}T00:00:00"
+      with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f)
+      created.append(result)
+    return created
+
+  def test_dashboard_db_maybe_auto_backup_creates_once_per_day(self):
+    result1 = dashboard_db.maybe_auto_backup_today()
+    self.assertTrue(result1["created"])
+    result2 = dashboard_db.maybe_auto_backup_today()
+    self.assertFalse(result2["created"])
+    self.assertEqual(result2["reason"], "already_backed_up_today")
+    entries = hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+    self.assertEqual(len([e for e in entries if e["ok"]]), 1)
+
+  def test_dashboard_db_maybe_auto_backup_prunes_to_seven_generations(self):
+    # 既存7世代(すべて過去日付)がある状態で、当日分を1件自動作成すると、
+    # 直近7世代だけが残る(最も古い1件が整理される)。
+    self._create_n_managed_backups(7, start_date="2098-01-01")
+    result = dashboard_db.maybe_auto_backup_today()
+    self.assertTrue(result["created"])
+    self.assertTrue(result["pruned"])
+    entries = hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+    valid = [e for e in entries if e["ok"]]
+    self.assertEqual(len(valid), 7)
+
+  def test_dashboard_db_create_manual_backup_always_creates_new(self):
+    # 手動バックアップは、当日分がすでにあっても必ず新しい1件を作る
+    # (「今すぐバックアップを作成」は自動バックアップの1日1回制限を
+    # 受けない)。
+    r1 = dashboard_db.create_manual_backup()
+    self.assertTrue(r1["created"])
+    r2 = dashboard_db.create_manual_backup()
+    self.assertTrue(r2["created"])
+    entries = hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+    self.assertEqual(len([e for e in entries if e["ok"]]), 2)
+
+  def test_dashboard_db_create_manual_backup_prunes_to_seven_generations(self):
+    self._create_n_managed_backups(7, start_date="2098-01-01")
+    result = dashboard_db.create_manual_backup()
+    self.assertTrue(result["created"])
+    self.assertTrue(result["pruned"])
+    entries = hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+    self.assertEqual(len([e for e in entries if e["ok"]]), 7)
+
+  def test_dashboard_db_backup_status_reports_no_backup_honestly(self):
+    status = dashboard_db.get_backup_status()
+    self.assertIsNone(status["lastBackupAt"])
+    self.assertEqual(status["generationCount"], 0)
+    self.assertEqual(status["recent"], [])
+    self.assertEqual(status["retentionCount"], dashboard_db.BACKUP_RETENTION_COUNT)
+
+  def test_dashboard_db_backup_status_excludes_unmanaged_snapshots(self):
+    # 手動スナップショット(metadata.jsonを持たない、または接頭辞が違う
+    # ディレクトリ)は、世代数・一覧のどちらにもカウントしない。
+    os.makedirs(dashboard_db.BACKUPS_ROOT, exist_ok=True)
+    manual_dir = os.path.join(dashboard_db.BACKUPS_ROOT, "pre_missionTEST_20990101_000000")
+    os.makedirs(manual_dir)
+    shutil.copy(dashboard_db.DB_NAME, os.path.join(manual_dir, "ai_company.db"))
+    status = dashboard_db.get_backup_status()
+    self.assertIsNone(status["lastBackupAt"])
+    self.assertEqual(status["generationCount"], 0)
+
+  def test_dashboard_db_backup_status_contains_no_db_contents_or_credentials(self):
+    dashboard_db.create_manual_backup()
+    status = dashboard_db.get_backup_status()
+    status_json = json.dumps(status)
+    for forbidden in (
+        "table_row_counts", "sha256", "source_db_path", "Authorization",
+        "api_key", "access_token",
+    ):
+      self.assertNotIn(forbidden, status_json)
+    for entry in status["recent"]:
+      self.assertEqual(set(entry.keys()), {"createdAt", "sizeBytes"})
+
+  def test_dashboard_db_backup_failure_does_not_break_normal_record_saves(self):
+    # MISSION 092: バックアップの作成・整理に失敗しても、運用記録・投稿
+    # 候補・作業台帳・実績数値の保存自体は失敗しないことを確認する。
+    orig_create_backup = hive_backup.create_backup
+    def _boom(*args, **kwargs):
+      raise RuntimeError("simulated backup failure")
+    hive_backup.create_backup = _boom
+    try:
+      result = dashboard_db.maybe_auto_backup_today()
+      self.assertFalse(result["created"])
+      self.assertEqual(result["reason"], "error")
+
+      # 運用記録・投稿候補・作業台帳・実績数値のいずれも、バックアップ失敗
+      # の影響を受けずに正常に保存できる。
+      res1 = self.client.post(
+          "/api/dashboard/daily-records",
+          json={"date": "2099-01-01", "media": "note", "type": "下書き",
+                "content": "バックアップ失敗時の確認用", "metric": "", "reference": ""},
+      )
+      self.assertTrue(res1.get_json()["inserted"])
+
+      res2 = self.client.post(
+          "/api/dashboard/candidates",
+          json={"targetDate": "2099-01-01", "media": "楽天ROOM", "slot": 0,
+                "genre": "テスト", "productName": "テスト商品", "url": "",
+                "intro": "", "hashtags": [], "manualChecked": False,
+                "manualPosted": False},
+      )
+      self.assertTrue(res2.get_json()["inserted"])
+
+      res3 = self.client.post(
+          "/api/dashboard/work-items",
+          json={"media": "note", "taskName": "バックアップ失敗時のテスト作業",
+                "assignee": "note", "status": "today"},
+      )
+      self.assertTrue(res3.get_json()["inserted"])
+
+      res4 = self.client.post(
+          "/api/dashboard/metrics",
+          json={"date": "2099-01-01", "media": "note", "values": {"pv": "100"}},
+      )
+      self.assertTrue(res4.get_json()["saved"])
+    finally:
+      hive_backup.create_backup = orig_create_backup
+
+  def test_dashboard_db_backup_prune_failure_does_not_break_backup_creation(self):
+    orig_prune = hive_backup.prune_backups
+    def _boom(*args, **kwargs):
+      raise RuntimeError("simulated prune failure")
+    hive_backup.prune_backups = _boom
+    try:
+      result = dashboard_db.maybe_auto_backup_today()
+      self.assertTrue(result["created"])
+    finally:
+      hive_backup.prune_backups = orig_prune
+
+  def test_dashboard_api_backups_get_and_post_round_trip(self):
+    res1 = self.client.get("/api/dashboard/backups")
+    self.assertEqual(res1.status_code, 200)
+    data1 = res1.get_json()
+    self.assertIsNone(data1["lastBackupAt"])
+
+    res2 = self.client.post("/api/dashboard/backups")
+    self.assertEqual(res2.status_code, 200)
+    data2 = res2.get_json()
+    self.assertTrue(data2["created"])
+    self.assertIn("createdAt", data2)
+    self.assertIn("sizeBytes", data2)
+
+    res3 = self.client.get("/api/dashboard/backups")
+    data3 = res3.get_json()
+    self.assertEqual(data3["generationCount"], 1)
+    self.assertEqual(len(data3["recent"]), 1)
+
+  def test_dashboard_api_backups_requires_no_authentication(self):
+    res = self.client.get("/api/dashboard/backups")
+    self.assertEqual(res.status_code, 200)
+    res2 = self.client.post("/api/dashboard/backups")
+    self.assertEqual(res2.status_code, 200)
+
+  def test_dashboard_api_write_endpoints_trigger_auto_backup(self):
+    # 書き込み系エンドポイントへのPOST成功後、当日分の自動バックアップが
+    # 1件作成されることを確認する(daily-recordsで検証。他のエンドポイント
+    # からもmaybe_auto_backup_today()を同様に呼んでいる)。
+    self.client.post(
+        "/api/dashboard/daily-records",
+        json={"date": "2099-01-01", "media": "note", "type": "下書き",
+              "content": "自動バックアップ確認用", "metric": "", "reference": ""},
+    )
+    entries = hive_backup.list_backups(backups_root=dashboard_db.BACKUPS_ROOT)
+    self.assertEqual(len([e for e in entries if e["ok"]]), 1)
+
+  def test_command_center_has_data_protection_section_with_collapsed_details(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('id="cc-data-protection"', html)
+    self.assertIn("データ保護", html)
+    self.assertIn('id="cc-backup-last"', html)
+    self.assertIn('id="cc-backup-count"', html)
+    self.assertIn('id="cc-backup-now-btn"', html)
+    self.assertIn('id="cc-backup-list"', html)
+    self.assertIn('<details class="cc-work-ledger-detail">', html)
+    self.assertIn("詳細・注意事項", html)
+    self.assertIn('window.fetch("/api/dashboard/backups")', html)
+    self.assertIn('window.fetch("/api/dashboard/backups",{method:"POST"})', html)
+
+  def test_command_center_data_protection_reports_no_backup_honestly_in_script(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn('"まだバックアップはありません"', html)
+
+  def test_command_center_data_protection_does_not_include_restore_feature(self):
+    # 既存DBを上書きする復元機能(ボタン・API呼び出し)は、誤操作の影響が
+    # 大きいため今回は追加しない(要件どおり)。詳細欄の注意書きで「復元は
+    # 無い」と明示する文はこの時点では存在してよいため、ボタン・fetch呼び
+    # 出しの不在だけを確認する(「復元」という語自体の不在は確認しない)。
+    html = self.client.get("/command-center").get_data(as_text=True)
+    section = html.split('id="cc-data-protection"', 1)[1].split(
+        "</section>", 1
+    )[0]
+    self.assertNotIn("restore", section)
+    self.assertNotIn('method:"PUT"', section)
+    self.assertNotIn('method:"DELETE"', section)
+    # ボタンは「今すぐバックアップを作成」の1つだけ。
+    self.assertEqual(section.count("<button"), 1)
+
+  def test_mission_092_no_new_external_communication_anywhere(self):
+    for path in (
+        "/ai-office", "/revenue", "/content-studio",
+        "/content-studio/room-daily-candidates", "/command-center",
+    ):
+      with self.subTest(path=path):
+        html = self.client.get(path).get_data(as_text=True)
+        for api_path in self._find_api_paths(html):
+          self.assertTrue(api_path.startswith("/api/dashboard/"), api_path)
+        self.assertNotIn("XMLHttpRequest", html)
+        self.assertNotIn("WebSocket", html)
+        self.assertNotIn("Authorization", html)
+        self.assertNotIn("api_key", html)
+        self.assertNotIn("access_token", html)
+        self.assertNotIn("<form", html)
+
+  def test_mission_092_command_center_no_horizontal_scroll_css_present(self):
+    html = self.client.get("/command-center").get_data(as_text=True)
+    self.assertIn(
+        ".cc-data-protection-summary{display:flex;gap:18px;flex-wrap:wrap",
+        html,
+    )
+    self.assertIn(
+        "@media(max-width:760px){.cc-check-grid,.cc-dept-grid,.cc-decision-fields{grid-template-columns:1fr}}",
+        html,
+    )
+
+  def test_dashboard_db_backups_directory_is_gitignored(self):
+    with open(os.path.join(os.path.dirname(__file__), ".gitignore"), encoding="utf-8") as f:
+      gitignore = f.read()
+    self.assertIn("backups/", gitignore)
+    self.assertIn("ai_company.db", gitignore)
 
 
 if __name__ == "__main__":

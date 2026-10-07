@@ -624,5 +624,146 @@ class HiveBackupListTestCase(unittest.TestCase):
       hive_backup.BACKUPS_ROOT = orig_backups_root
 
 
+class HiveBackupPruneTestCase(unittest.TestCase):
+  """hive_backup.prune_backups()（MISSION 092 世代整理）の単体テスト。
+
+  ここでも、対象は一時ディレクトリ内のbackups_rootのみに限定し、
+  プロジェクト内の `backups/` や本番の `ai_company.db` には一切触れない。
+  """
+
+  def setUp(self):
+    self.tmp_root = tempfile.mkdtemp(prefix="hive_backup_prune_test_")
+    self.source_db = os.path.join(self.tmp_root, "ai_company.db")
+    shutil.copy(PROJECT_DB_PATH, self.source_db)
+    self.backups_root = os.path.join(self.tmp_root, "backups")
+
+  def tearDown(self):
+    shutil.rmtree(self.tmp_root, ignore_errors=True)
+
+  def _run_main(self, argv):
+    stdout, stderr = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+      code = hive_backup.main(argv)
+    return code, stdout.getvalue(), stderr.getvalue()
+
+  def _create_n_backups(self, n):
+    created = []
+    for i in range(n):
+      result = hive_backup.create_backup(
+          db_path=self.source_db, backups_root=self.backups_root
+      )
+      created.append(result)
+      # created_atの秒精度が同一になりうるため、作成順が一意に分かるよう
+      # metadata.jsonのcreated_atへ明示的な連番日時を書き込み直す。
+      metadata_path = os.path.join(result["backup_dir"], "metadata.json")
+      with open(metadata_path, encoding="utf-8") as f:
+        metadata = json.load(f)
+      metadata["created_at"] = f"2099-01-{i + 1:02d}T00:00:00"
+      with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f)
+    return created
+
+  def test_prune_keeps_only_the_newest_n_generations(self):
+    self._create_n_backups(10)
+    result = hive_backup.prune_backups(keep=7, backups_root=self.backups_root)
+    self.assertEqual(result["kept"], 7)
+    self.assertEqual(len(result["deleted"]), 3)
+    self.assertEqual(result["errors"], [])
+    remaining = [
+        e for e in hive_backup.list_backups(backups_root=self.backups_root)
+        if e["ok"]
+    ]
+    self.assertEqual(len(remaining), 7)
+
+  def test_prune_deletes_the_oldest_generations_first(self):
+    created = self._create_n_backups(9)
+    hive_backup.prune_backups(keep=7, backups_root=self.backups_root)
+    remaining_ids = {
+        e["identifier"]
+        for e in hive_backup.list_backups(backups_root=self.backups_root)
+        if e["ok"]
+    }
+    # created[0]・created[1]が最も古い(2099-01-01・2099-01-02)ため削除され、
+    # 残り7件(created[2]〜created[8])は維持される。
+    self.assertNotIn(os.path.basename(created[0]["backup_dir"]), remaining_ids)
+    self.assertNotIn(os.path.basename(created[1]["backup_dir"]), remaining_ids)
+    for c in created[2:]:
+      self.assertIn(os.path.basename(c["backup_dir"]), remaining_ids)
+
+  def test_prune_does_not_touch_entries_without_backup_prefix(self):
+    # MISSION 092: backup_<timestamp>_<suffix>/ 以外の名前のディレクトリ
+    # (手動スナップショット等)は、たとえmetadata.jsonを持っていても削除
+    # 対象にしない。
+    self._create_n_backups(8)
+    manual_dir = os.path.join(self.backups_root, "pre_mission999_20990101_000000")
+    os.makedirs(manual_dir)
+    shutil.copy(self.source_db, os.path.join(manual_dir, "ai_company.db"))
+    manual_metadata = {
+        "created_at": "2099-02-01T00:00:00",
+        "sha256": hive_backup._sha256_of_file(self.source_db),
+        "size_bytes": os.path.getsize(self.source_db),
+        "integrity_check": "ok",
+        "foreign_key_check_ok": True,
+        "table_row_counts": {},
+    }
+    with open(os.path.join(manual_dir, "metadata.json"), "w", encoding="utf-8") as f:
+      json.dump(manual_metadata, f)
+
+    result = hive_backup.prune_backups(keep=7, backups_root=self.backups_root)
+    self.assertNotIn("pre_mission999_20990101_000000", result["deleted"])
+    self.assertTrue(os.path.isdir(manual_dir))
+
+  def test_prune_does_not_touch_entries_without_valid_metadata(self):
+    # metadata.jsonが無い/壊れている等でok=Falseのエントリは削除しない
+    # (list_backups()が安全に無視・末尾表示する対象と同じ)。
+    self._create_n_backups(8)
+    broken_dir = os.path.join(self.backups_root, "backup_broken_entry")
+    os.makedirs(broken_dir)
+    shutil.copy(self.source_db, os.path.join(broken_dir, "ai_company.db"))
+    # metadata.jsonをわざと置かない(= list_backups()でok:Falseになる)。
+
+    result = hive_backup.prune_backups(keep=7, backups_root=self.backups_root)
+    self.assertTrue(os.path.isdir(broken_dir))
+    self.assertNotIn("backup_broken_entry", result["deleted"])
+
+  def test_prune_is_a_no_op_when_within_retention_limit(self):
+    self._create_n_backups(5)
+    result = hive_backup.prune_backups(keep=7, backups_root=self.backups_root)
+    self.assertEqual(result["kept"], 5)
+    self.assertEqual(result["deleted"], [])
+    remaining = [
+        e for e in hive_backup.list_backups(backups_root=self.backups_root)
+        if e["ok"]
+    ]
+    self.assertEqual(len(remaining), 5)
+
+  def test_prune_handles_missing_backups_root_safely(self):
+    result = hive_backup.prune_backups(keep=7, backups_root=self.backups_root)
+    self.assertEqual(result, {"kept": 0, "deleted": [], "errors": []})
+
+  def test_cli_prune_end_to_end(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      self._create_n_backups(10)
+      code, out, _err = self._run_main(["prune", "--keep", "7"])
+      self.assertEqual(code, 0)
+      self.assertIn("残した件数: 7", out)
+      self.assertIn("削除した件数: 3", out)
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+  def test_cli_prune_default_keep_is_seven(self):
+    orig_backups_root = hive_backup.BACKUPS_ROOT
+    hive_backup.BACKUPS_ROOT = self.backups_root
+    try:
+      self._create_n_backups(9)
+      code, out, _err = self._run_main(["prune"])
+      self.assertEqual(code, 0)
+      self.assertIn("残した件数: 7", out)
+    finally:
+      hive_backup.BACKUPS_ROOT = orig_backups_root
+
+
 if __name__ == "__main__":
   unittest.main()

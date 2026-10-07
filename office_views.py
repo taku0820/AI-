@@ -333,6 +333,9 @@ a.qa-btn{text-decoration:none;display:inline-block}
 .cc-data-storage button:disabled{opacity:.6;cursor:default}
 .cc-data-storage-result{margin:10px 0 0;font-size:12px;color:var(--green);min-height:1.5em}
 .cc-data-storage-hint{margin:10px 0 0;font-size:11px;color:var(--sub);line-height:1.6}
+.cc-data-protection{margin-top:22px}
+.cc-data-protection-summary{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 14px;font-size:12px;color:var(--sub)}
+.cc-data-protection-summary b{color:var(--ink);font-size:14px}
 .cc-topbar{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--sub);line-height:1.7}
 .cc-topbar b{color:var(--ink)}
 .cc-topbar .cc-approver{color:var(--green);font-weight:700}
@@ -6314,6 +6317,138 @@ def _render_data_storage_section():
   )
 
 
+def _render_data_protection_section():
+  """運用司令室の「データ保護」セクション(MISSION 092)。
+
+  ai_company.dbのローカル世代バックアップ(hive_backup.py・SQLite Online
+  Backup API経由)の状態を表示する。最初に見える範囲は、最終バックアップ
+  日時・保存済み世代数・「今すぐバックアップを作成」ボタン・直近一覧
+  (日時とファイルサイズのみ)に絞り、詳しい注意事項は<details>で折りたたむ。
+  一覧にはDBの中身・認証情報は一切表示しない。既存DBを上書きする復元
+  機能は、誤操作の影響が大きいためこの画面には置かない(表示専用)。
+  """
+  return (
+      '<section class="cc-data-protection" aria-label="データ保護" '
+      'id="cc-data-protection">'
+      '<h2 class="cc-section-title">データ保護</h2>'
+      '<div class="cc-decision-box">'
+      '<div class="cc-data-protection-summary">'
+      '<p>最終バックアップ：<b id="cc-backup-last">確認中…</b></p>'
+      '<p>保存済み世代数：<b id="cc-backup-count">確認中…</b></p>'
+      '</div>'
+      '<button type="button" class="cc-decision-add-btn" '
+      'id="cc-backup-now-btn">今すぐバックアップを作成</button>'
+      '<p class="cc-decision-note" id="cc-backup-result" aria-live="polite">'
+      '</p>'
+      '<div class="cc-decision-log-list" id="cc-backup-list">'
+      '<p class="cc-decision-log-empty" id="cc-backup-list-empty">確認中…'
+      '</p>'
+      '</div>'
+      '<details class="cc-work-ledger-detail">'
+      '<summary>詳細・注意事項</summary>'
+      '<p class="cc-decision-note">バックアップは、このMac上の'
+      'backups/フォルダへ、作成日時が分かる名前で保存されます'
+      '（書き込み中でも壊れない、SQLite公式のバックアップ機能を使用し、'
+      '単純なファイルコピーは行いません）。外部への送信・クラウド同期は'
+      '一切行いません。保存するのは直近'
+      f'{dashboard_db.BACKUP_RETENTION_COUNT}世代までで、新しいバックアップ'
+      'の正常性を確認したうえで、それより古い世代（このアプリが作成した'
+      'ものに限る）を自動的に整理します。運用記録・投稿候補・作業台帳・'
+      '実績数値の保存を書き込むたびに、当日分のバックアップがまだなければ'
+      '自動で1回作成されます。既存のai_company.dbを上書きして復元する'
+      '機能は、誤操作の影響が大きいためこの画面にはありません。</p>'
+      '</details>'
+      '</div>'
+      '<script>(function(){'
+      'var lastEl=document.querySelector("#cc-backup-last");'
+      'var countEl=document.querySelector("#cc-backup-count");'
+      'var listEl=document.querySelector("#cc-backup-list");'
+      'var listEmptyEl=document.querySelector("#cc-backup-list-empty");'
+      'var nowBtn=document.querySelector("#cc-backup-now-btn");'
+      'var resultEl=document.querySelector("#cc-backup-result");'
+      'function escapeHtml(s){'
+      'return String(s==null?"":s)'
+      '.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");'
+      '}'
+      'function formatBytes(n){'
+      'if(typeof n!=="number")return "-";'
+      'if(n<1024)return n+"B";'
+      'if(n<1024*1024)return Math.round(n/1024)+"KB";'
+      'return (Math.round(n/1024/1024*10)/10)+"MB";'
+      '}'
+      'function renderStatus(data){'
+      'if(!data||!data.lastBackupAt){'
+      'if(lastEl)lastEl.textContent="まだバックアップはありません";'
+      'if(countEl)countEl.textContent="0件";'
+      'if(listEmptyEl){'
+      'listEmptyEl.textContent="まだバックアップはありません。";'
+      'listEmptyEl.hidden=false;'
+      '}'
+      'return;'
+      '}'
+      'if(lastEl)lastEl.textContent=data.lastBackupAt;'
+      'if(countEl){'
+      'countEl.textContent=data.generationCount+"件（保持上限"+'
+      'data.retentionCount+"件）";'
+      '}'
+      'listEl.querySelectorAll(".cc-backup-item").forEach(function(el){'
+      'el.remove();'
+      '});'
+      'if(!data.recent||data.recent.length===0){'
+      'if(listEmptyEl){'
+      'listEmptyEl.textContent="まだバックアップはありません。";'
+      'listEmptyEl.hidden=false;'
+      '}'
+      'return;'
+      '}'
+      'if(listEmptyEl)listEmptyEl.hidden=true;'
+      'data.recent.forEach(function(b){'
+      'var div=document.createElement("div");'
+      'div.className="cc-decision-log-entry cc-backup-item";'
+      'div.innerHTML='
+      '"<div><b>作成日時：</b>"+escapeHtml(b.createdAt||"-")+"</div>"+'
+      '"<div><b>サイズ：</b>"+escapeHtml(formatBytes(b.sizeBytes))+"</div>";'
+      'listEl.appendChild(div);'
+      '});'
+      '}'
+      'function loadStatus(){'
+      'if(typeof window.fetch!=="function")return;'
+      'window.fetch("/api/dashboard/backups")'
+      '.then(function(res){return res.json();})'
+      '.then(renderStatus)'
+      '.catch(function(){});'
+      '}'
+      'if(nowBtn){'
+      'nowBtn.addEventListener("click",function(){'
+      'nowBtn.disabled=true;'
+      'resultEl.textContent="バックアップを作成しています…";'
+      'window.fetch("/api/dashboard/backups",{method:"POST"})'
+      '.then(function(res){return res.json();})'
+      '.then(function(data){'
+      'nowBtn.disabled=false;'
+      'if(data&&data.created){'
+      'resultEl.textContent='
+      '"バックアップを作成しました（"+(data.createdAt||"")+"）。";'
+      'loadStatus();'
+      '}else{'
+      'resultEl.textContent='
+      '"バックアップを作成できませんでした。しばらくしてからもう一度'
+      'お試しください。";'
+      '}'
+      '}).catch(function(){'
+      'nowBtn.disabled=false;'
+      'resultEl.textContent='
+      '"バックアップを作成できませんでした。しばらくしてからもう一度'
+      'お試しください。";'
+      '});'
+      '});'
+      '}'
+      'loadStatus();'
+      '})();</script>'
+      '</section>'
+  )
+
+
 def _render_command_center_scene():
   """運用司令室(/command-center)画面のHTMLを組み立てる。
 
@@ -6683,7 +6818,8 @@ def _render_command_center_scene():
       '})();'
       '</script>'
       + _render_work_ledger_section()
-      + _render_data_storage_section() +
+      + _render_data_storage_section()
+      + _render_data_protection_section() +
       '</section>'
   )
 
